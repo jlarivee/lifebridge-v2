@@ -1,0 +1,16 @@
+{
+  "name": "lifebridge-v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@replit/database": "^2.0.6",
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3",
+    "uuid": "^10.0.0"
+  }
+}

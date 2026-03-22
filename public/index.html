@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LifeBridge v2</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#f0f0f0;font-family:'Inter',sans-serif;min-height:100vh}
+.container{max-width:800px;margin:0 auto;padding:32px 20px 80px}
+h1{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:.15em;margin-bottom:4px}
+.subtitle{font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;letter-spacing:.1em;margin-bottom:32px}
+h2{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:.12em;color:#f0f0f0;margin-bottom:16px}
+.input-row{display:flex;gap:10px;margin-bottom:24px}
+.input-row input{flex:1;background:#141414;border:1px solid #222;border-radius:8px;color:#f0f0f0;padding:12px 16px;font-size:14px;outline:none;font-family:'Inter',sans-serif}
+.input-row input:focus{border-color:#f59e0b}
+.btn{background:#f59e0b;border:none;border-radius:8px;color:#000;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:5px 10px;font-size:10px;border-radius:5px}
+.btn.green{background:#22c55e}
+.btn.dim{background:transparent;border:1px solid #444;color:#888}
+.responses{display:flex;flex-direction:column;gap:16px}
+.response-block{background:#141414;border:1px solid #222;border-radius:10px;padding:16px 20px}
+.user-input{font-size:12px;color:#666;margin-bottom:10px;font-family:'JetBrains Mono',monospace}
+.reasoning-toggle{font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;cursor:pointer;margin-bottom:8px;user-select:none}
+.reasoning-toggle:hover{color:#999}
+.reasoning-box{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#888;white-space:pre-wrap;word-break:break-word;padding:12px 16px;background:#0e0e0e;border-radius:6px;border-left:3px solid #f59e0b;margin-bottom:12px}
+.routing-text{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#ccc;white-space:pre-wrap;word-break:break-word}
+.conf-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.conf-label{font-family:'JetBrains Mono',monospace;font-size:10px}
+.fb-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+.fb-btn{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer}
+.fb-input{background:#141414;border:1px solid #ef4444;border-radius:6px;color:#f0f0f0;padding:6px 10px;font-size:12px;outline:none;flex:1;font-family:'Inter',sans-serif}
+.warn-banner{background:#ef444418;border:1px solid #ef444444;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ef4444}
+.clarify-box{background:#f59e0b18;border:1px solid #f59e0b44;border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#f59e0b;white-space:pre-wrap}
+.divider{border:none;border-top:1px solid #222;margin:48px 0 32px}
+.proposal-card{background:#141414;border:1px solid #222;border-radius:10px;padding:16px 20px;margin-bottom:16px;border-left:3px solid #f59e0b}
+.proposal-card.resolved{opacity:.5;border-left-color:#444}
+.change-card{background:#0e0e0e;border:1px solid #1a1a1a;border-radius:6px;padding:12px 16px;margin:8px 0;border-left:3px solid #f59e0b}
+.change-card.approved{border-left-color:#22c55e;opacity:.6}
+.change-card.rejected{border-left-color:#444;opacity:.3}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:#666;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.field-value{font-size:12px;color:#ccc;line-height:1.5;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
+.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.diff-current{background:#1a0a0a;border:1px solid #331a1a;border-radius:4px;padding:8px;font-size:10px;color:#c88;font-family:'JetBrains Mono',monospace;white-space:pre-wrap}
+.diff-proposed{background:#0a1a0a;border:1px solid #1a331a;border-radius:4px;padding:8px;font-size:10px;color:#8c8;font-family:'JetBrains Mono',monospace;white-space:pre-wrap}
+.collapsible-header{font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;cursor:pointer;margin:20px 0 8px;letter-spacing:.08em}
+.collapsible-header:hover{color:#999}
+.loading{font-family:'JetBrains Mono',monospace;font-size:12px;color:#f59e0b}
+.badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>LIFEBRIDGE</h1>
+  <div class="subtitle">v2.0 — Claude Agent SDK</div>
+
+  <div class="input-row">
+    <input id="inp" type="text" placeholder="Enter a request for the master agent..." autocomplete="off">
+    <button class="btn" id="routeBtn" onclick="doRoute()">ROUTE</button>
+  </div>
+  <div class="responses" id="responses"></div>
+
+  <hr class="divider">
+  <h2>IMPROVEMENT</h2>
+  <div style="margin-bottom:20px">
+    <button class="btn" id="improveBtn" onclick="doImprove()">Run improvement cycle</button>
+    <span id="improveStatus" style="margin-left:12px" class="loading"></span>
+  </div>
+  <div id="proposals"></div>
+
+  <div class="collapsible-header" onclick="toggle('ctx-section')">▶ Global Context</div>
+  <div id="ctx-section" style="display:none"></div>
+
+  <div class="collapsible-header" onclick="toggle('history-section')">▶ History</div>
+  <div id="history-section" style="display:none"></div>
+</div>
+
+<script>
+const inp=document.getElementById('inp');
+const routeBtn=document.getElementById('routeBtn');
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!routeBtn.disabled)doRoute()});
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function toggle(id){const el=document.getElementById(id);el.style.display=el.style.display==='none'?'block':'none'}
+
+async function doRoute(){
+  const text=inp.value.trim();if(!text)return;
+  inp.value='';routeBtn.disabled=true;
+  const resp=document.getElementById('responses');
+  const blockId='r'+Date.now();
+  resp.insertAdjacentHTML('afterbegin',`<div class="response-block" id="${blockId}"><div class="user-input">${esc(text)}</div><div class="loading">Routing...</div></div>`);
+  try{
+    const res=await fetch('/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input:text})});
+    const data=await res.json();
+    const el=document.getElementById(blockId);
+    if(data.error){el.innerHTML=`<div class="user-input">${esc(text)}</div><div style="color:#ef4444">Error: ${esc(data.error)}</div>`;routeBtn.disabled=false;return}
+    el.innerHTML=renderResponse(text,data);
+  }catch(e){document.getElementById(blockId).innerHTML=`<div style="color:#ef4444">Connection error</div>`}
+  routeBtn.disabled=false;
+}
+
+function renderResponse(input,data){
+  const raw=data.response||'';const conf=data.confidence;const reqId=data.id;
+  let html=`<div class="user-input">${esc(input)}</div>`;
+
+  // Clarification required
+  if(raw.includes('CLARIFICATION REQUIRED')){
+    return html+`<div class="clarify-box">${esc(raw)}</div>`;
+  }
+
+  // Low confidence warning
+  if(conf!==null&&conf<70){
+    html+=`<div class="warn-banner">⚠ LOW CONFIDENCE — review the reasoning before acting on this</div>`;
+  }
+
+  // Parse reasoning block
+  const lines=raw.split('\n');let rStart=-1,rEnd=-1,dc=0;
+  for(let i=0;i<lines.length;i++){
+    if(lines[i].trim().startsWith('REASONING')){rStart=i;dc=0;continue}
+    if(rStart>=0&&lines[i].includes('──────')){dc++;if(dc===1)continue;if(dc===2){rEnd=i;break}}
+  }
+
+  if(rStart>=0&&rEnd>=0){
+    const reasoning=lines.slice(rStart,rEnd+1).join('\n');
+    const after=lines.slice(rEnd+1).join('\n').trim();
+    const autoExpand=conf!==null&&conf<90;
+    const tid='t'+Date.now();
+    html+=`<div class="reasoning-toggle" onclick="document.getElementById('${tid}').style.display=document.getElementById('${tid}').style.display==='none'?'block':'none'">${autoExpand?'▼ Hide':'▶ Show'} reasoning</div>`;
+    html+=`<div id="${tid}" style="display:${autoExpand?'block':'none'}"><div class="reasoning-box">${esc(reasoning)}</div></div>`;
+    html+=`<div class="routing-text">${esc(after)}</div>`;
+  }else{
+    html+=`<div class="routing-text">${esc(raw)}</div>`;
+  }
+
+  // Confidence indicator
+  if(conf!==null){
+    const color=conf>=90?'#22c55e':conf>=70?'#f59e0b':'#ef4444';
+    const label=conf>=90?'High':conf>=70?'Moderate':'Low';
+    html+=`<div style="margin-top:8px"><span class="conf-dot" style="background:${color}"></span><span class="conf-label" style="color:${color}">${label} confidence (${conf}/100)</span></div>`;
+  }
+
+  // Feedback buttons
+  const fbId='fb'+reqId.slice(0,8);
+  html+=`<div class="fb-row" id="${fbId}">`;
+  html+=`<button class="fb-btn" style="border-color:#22c55e;color:#22c55e" onclick="sendFb('${reqId}','accepted','${fbId}')">Looks good</button>`;
+  html+=`<button class="fb-btn" style="border-color:#ef4444;color:#ef4444" onclick="showFbInput('${fbId}','${reqId}')">Something's wrong</button>`;
+  html+=`</div>`;
+  return html;
+}
+
+function showFbInput(fbId,reqId){
+  document.getElementById(fbId).innerHTML=`<input class="fb-input" id="fbt${fbId}" placeholder="What was wrong?"><button class="btn sm" onclick="submitFb('${reqId}','${fbId}')">Submit</button><button class="btn sm dim" onclick="document.getElementById('${fbId}').remove()">Cancel</button>`;
+}
+async function sendFb(reqId,outcome,fbId){
+  await fetch('/route/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:reqId,outcome})});
+  document.getElementById(fbId).innerHTML='<span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#666">✓ Recorded</span>';
+  setTimeout(()=>{const el=document.getElementById(fbId);if(el)el.remove()},2000);
+}
+async function submitFb(reqId,fbId){
+  const text=document.getElementById('fbt'+fbId)?.value||'';if(!text.trim())return;
+  await fetch('/route/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:reqId,outcome:'rejected',feedback:text.trim()})});
+  document.getElementById(fbId).innerHTML='<span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#ef4444">✓ Recorded</span>';
+  setTimeout(()=>{const el=document.getElementById(fbId);if(el)el.remove()},2000);
+}
+
+// ── Improvement ──────────────────────────────────────────────────
+async function doImprove(){
+  const btn=document.getElementById('improveBtn');const st=document.getElementById('improveStatus');
+  btn.disabled=true;st.textContent='Analyzing...';
+  try{
+    const res=await fetch('/improve/run',{method:'POST'});const data=await res.json();
+    if(data.error){st.textContent='Error: '+data.error;st.style.color='#ef4444'}
+    else{st.textContent='Proposal generated';st.style.color='#22c55e';loadProposals()}
+  }catch{st.textContent='Connection error';st.style.color='#ef4444'}
+  btn.disabled=false;
+}
+
+async function loadProposals(){
+  try{
+    const res=await fetch('/improve/history');const history=await res.json();
+    const pending=history.filter(p=>p.status==='pending');
+    const resolved=history.filter(p=>p.status!=='pending');
+    let html='';
+    for(const p of pending)html+=renderProposal(p,false);
+    if(resolved.length){
+      document.getElementById('history-section').innerHTML=resolved.slice(0,10).map(p=>
+        `<div style="font-size:12px;color:#666;margin-bottom:6px;font-family:'JetBrains Mono',monospace">${(p.timestamp||'').slice(0,10)} · ${p.status} · ${p.requests_reviewed||0} requests</div>`
+      ).join('');
+    }
+    document.getElementById('proposals').innerHTML=html||'<div style="color:#444;font-style:italic">No pending proposals</div>';
+  }catch{}
+  loadContext();
+}
+
+function renderProposal(p,collapsed){
+  const text=p.proposal||'';
+  const pm=text.match(/PATTERNS OBSERVED\n([\s\S]*?)(?=PROPOSED CHANGES|$)/);
+  const am=text.match(/OVERALL ASSESSMENT\n([\s\S]*?)(?=──────|$)/);
+  const patterns=pm?pm[1].trim():'';
+  const assessment=am?am[1].trim():'';
+  const parts=text.split(/Change\s*\[?\d+\]?\s*:/);
+  const changes=[];
+  for(let i=1;i<parts.length;i++){
+    const c=parts[i];const g=f=>{const lines=c.split('\n');for(const l of lines){if(l.trim().startsWith(f+':'))return l.trim().substring(f.length+1).trim()}return''};
+    changes.push({type:g('Type'),evidence:g('Evidence'),current:g('Current'),proposed:g('Proposed'),reasoning:g('Reasoning'),risk:g('Risk'),confidence:g('Confidence')});
+  }
+  const appIdx=(p.approved_changes||[]).map(a=>a.change_index);
+  const rejIdx=(p.rejected_changes||[]).map(r=>r.change_index);
+  let html=`<div class="proposal-card${p.status!=='pending'?' resolved':''}">`;
+  html+=`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888">${(p.timestamp||'').slice(0,10)} · ${p.requests_reviewed||0} requests</span><span class="badge" style="background:${p.status==='pending'?'#f59e0b22':'#33333344'};color:${p.status==='pending'?'#f59e0b':'#666'}">${p.status}</span></div>`;
+  if(patterns){html+=`<div class="field-label">Patterns Observed</div><div class="field-value">${esc(patterns)}</div>`}
+  if(assessment){html+=`<div class="field-label">Overall Assessment</div><div class="field-value">${esc(assessment)}</div>`}
+  for(let i=0;i<changes.length;i++){
+    const ch=changes[i];const isApp=appIdx.includes(i);const isRej=rejIdx.includes(i);
+    html+=`<div class="change-card${isApp?' approved':''}${isRej?' rejected':''}">`;
+    html+=`<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600">Change ${i+1}</span>`;
+    if(ch.confidence){const cc=ch.confidence.trim();html+=`<span class="badge" style="color:${cc==='High'?'#22c55e':cc==='Medium'?'#f59e0b':'#888'}">${cc}</span>`}
+    html+=`</div>`;
+    if(ch.type){html+=`<div class="field-label">Type</div><div class="field-value">${esc(ch.type)}</div>`}
+    if(ch.evidence){html+=`<div class="field-label">Evidence</div><div class="field-value">${esc(ch.evidence)}</div>`}
+    if(ch.reasoning){html+=`<div class="field-label">Reasoning</div><div class="field-value">${esc(ch.reasoning)}</div>`}
+    if(ch.risk){html+=`<div class="field-label">Risk</div><div class="field-value">${esc(ch.risk)}</div>`}
+    if(ch.current||ch.proposed){html+=`<div class="diff-grid"><div><div class="field-label">Current</div><div class="diff-current">${esc(ch.current||'(none)')}</div></div><div><div class="field-label">Proposed</div><div class="diff-proposed">${esc(ch.proposed||'(none)')}</div></div></div>`}
+    if(!isApp&&!isRej&&p.status==='pending'){html+=`<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm green" onclick="doApprove('${p.id}',${i})">Approve</button><button class="btn sm dim" onclick="doReject('${p.id}',${i})">Reject</button></div>`}
+    else if(isApp){html+=`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#22c55e;margin-top:6px">✓ Approved</div>`}
+    else if(isRej){html+=`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;margin-top:6px">✗ Rejected</div>`}
+    html+=`</div>`;
+  }
+  html+=`</div>`;return html;
+}
+
+async function doApprove(pid,idx){
+  await fetch('/improve/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_id:pid,change_index:idx})});
+  loadProposals();
+}
+async function doReject(pid,idx){
+  await fetch('/improve/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_id:pid,change_index:idx})});
+  loadProposals();
+}
+
+async function loadContext(){
+  try{
+    const res=await fetch('/context');const ctx=await res.json();
+    const sections=[['Preferences',ctx.preferences||[]],['Constraints',ctx.constraints||[]],['Learned Patterns',ctx.learned_patterns||[]]];
+    let html='';
+    for(const[title,items]of sections){
+      html+=`<div class="field-label">${title} (${items.length})</div>`;
+      if(!items.length)html+=`<div style="color:#444;font-size:12px;font-style:italic;margin-bottom:8px">None</div>`;
+      for(const item of items){html+=`<div style="font-size:11px;color:#ccc;margin-bottom:4px;padding:4px 8px;background:#141414;border-radius:4px">${esc(item.content||'')} <span style="color:#444;font-size:9px">${item.source||''} · ${(item.added||'').slice(0,10)}</span></div>`}
+    }
+    document.getElementById('ctx-section').innerHTML=html;
+  }catch{}
+}
+
+loadProposals();
+</script>
+</body>
+</html>
