@@ -704,16 +704,13 @@ app.delete("/agents/:name", async (req, res) => {
     const name = req.params.name;
     const registry = await readRegistry();
     const idx = (registry.agents || []).findIndex(a => a.name === name);
-    if (idx === -1) return res.status(404).json({ error: "Agent not found" });
+    if (idx >= 0) {
+      registry.agents.splice(idx, 1);
+      await writeRegistry(registry);
+    }
 
-    // Remove from registry
-    registry.agents.splice(idx, 1);
-    await writeRegistry(registry);
-
-    // Remove test suite
+    // Clean up test suite and version history regardless
     await db.set(`test-suite:${name}`, null);
-
-    // Remove version history
     await db.set(`agent-versions:${name}`, null);
 
     res.json({ success: true, deleted: true, agent: name, removed_at: new Date().toISOString() });
