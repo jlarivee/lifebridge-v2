@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.1 (live)  
+**Current version:** v2.2 (live)  
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -219,7 +219,41 @@ package.json             ← all dependencies
 
 ---
 
-## The Master Agent System Prompt (Current — v2.1)
+### v2.2 — Administration Agent Suite Verified + Test Pipeline Live
+**What was built:**
+- Intelligence Update Agent fully operational — 6 sources scanning daily, 33 findings captured on first run, proposals surfacing with Approve/Reject UI
+- Test Agent running real suites — 8 passed, 0 failed on first full run, baselines captured for all agents
+- Registry Integrity Agent confirmed — 6 agents healthy, 0 issues
+- Test cases fixed — replaced natural language routing tests with endpoint-based tests for all agents
+- POST /intelligence/sources endpoint added
+- GET /intelligence/status endpoint added for lightweight health checks
+- Duplicate registry entries cleaned — removed three-rivers-slab-inventory-agent ghost entry, removed professional-networking-agent pending entry
+- slab-inventory-tracker-agent domain corrected to Personal Business
+- Test Agent now auto-runs targeted suite on every agent deploy
+
+**Test results as of v2.2:**
+- Agents tested: 5
+- Total cases: 8
+- Passed: 8
+- Failed: 0
+- All baselines captured
+
+**Intelligence Update Agent first scan results:**
+- Sources scanned: 6 (all healthy)
+- Total findings: 33
+- Proposals surfaced: multiple, awaiting human review
+
+**Agents now active:** 6
+- life-sciences-account-agent (Work)
+- agent-builder-agent (System)
+- slab-inventory-tracker-agent (Personal Business)
+- test-agent (System)
+- registry-integrity-agent (System)
+- intelligence-update-agent (System)
+
+---
+
+## The Master Agent System Prompt (Current — v2.2)
 
 Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
 
@@ -235,6 +269,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | slab-inventory-tracker-agent | Personal Business | Active |
 | test-agent | System | Active |
 | registry-integrity-agent | System | Active |
+| intelligence-update-agent | System | Active |
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
@@ -254,21 +289,30 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ---
 
+## Daily Schedule
+
+| Time (UTC) | Agent | Frequency |
+|---|---|---|
+| 5:00 AM Sunday | Registry Integrity Agent | Weekly |
+| 6:00 AM | Intelligence Update Agent | Daily |
+| 7:00 AM | Test Agent (full suite) | Daily |
+| Midnight | Improvement Agent | Daily |
+| On every deploy | Test Agent (targeted) + Registry Integrity Agent | Event |
+
+---
+
 ## What Gets Built Next
 
 ### Completed — v2.0 verification ✅
-All nine checks passed. System is live.
-
 ### Completed — first spoke agent ✅
-Life Sciences Account Intelligence Agent built and auto-executing from routing packages.
-
 ### Completed — administration agent suite ✅
-Test Agent, Registry Integrity Agent, Agent Builder persistence fix, Ideas system, health endpoints.
+### Completed — intelligence update agent ✅
+### Completed — test pipeline verified (8/8 passing) ✅
 
 ### Next priority
-- Intelligence Update Agent — proactive briefing agent that monitors accounts
-- Morning Briefing Agent — daily summary of signals across all domains
-- Three Rivers Slab master workflows — pricing, listing, aging automation
+- Morning Briefing Agent — daily summary of intelligence findings, test results, improvement proposals, system health
+- Three Rivers Slab workflows — pricing, aging alerts, inventory reports
+- First real Work domain request through live system to surface next spoke agent need
 
 ### Future capabilities
 - Connectors (Gmail, Calendar, Todoist, Google Drive) — spoke agents will need these
