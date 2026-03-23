@@ -45,6 +45,14 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
     { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
+  "agent-lifecycle": [
+    { input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
+    { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/life-sciences-account-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# test update" } },
+    { input: "Lifecycle: POST pause agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/pause", expect_status: 200, expect_fields: ["success", "agent", "status"] },
+    { input: "Lifecycle: POST resume agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/resume", expect_status: 200, expect_fields: ["success", "agent", "status"] },
+    { input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"] },
+    { input: "Lifecycle: GET version history", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/versions", expect_status: 200 },
+  ],
 };
 
 export async function initTestSuite(agentName) {
@@ -127,6 +135,16 @@ export async function seedAllSuites() {
       seeded++;
     }
   }
+  // Seed non-agent test suites (system-level test suites)
+  for (const name of Object.keys(DEFAULT_CASES)) {
+    if (!agents.some(a => a.name === name)) {
+      const existing = await getTestSuite(name);
+      if (!existing) {
+        await initTestSuite(name);
+        seeded++;
+      }
+    }
+  }
   return seeded;
 }
 
@@ -136,9 +154,10 @@ async function callEndpoint(method, path, requestBody) {
   const start = Date.now();
   try {
     const opts = { method, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) };
-    if (method === "POST") {
+    if (method === "POST" || method === "PUT" || method === "DELETE") {
       opts.headers = { "Content-Type": "application/json" };
-      opts.body = JSON.stringify(requestBody || {});
+      if (requestBody) opts.body = JSON.stringify(requestBody);
+      else if (method === "POST") opts.body = JSON.stringify({});
     }
     const resp = await fetch(`http://localhost:${PORT}${path}`, opts);
     const contentType = resp.headers.get("content-type") || "";
