@@ -10,6 +10,7 @@ import { readRegistry } from "../tools/registry-tools.js";
 
 const STATIC_AGENTS = new Set(["test-agent"]);
 const TEST_TIMEOUT_MS = 30000;
+const PORT = process.env.PORT || 5000;
 
 // ── Test Suite Management ───────────────────────────────────────────────────
 
@@ -17,9 +18,56 @@ export async function getTestSuite(agentName) {
   return await db.get(`test-suite:${agentName}`);
 }
 
+// Default test cases per agent type
+const DEFAULT_CASES = {
+  "registry-integrity-agent": [
+    { input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
+    { input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
+  ],
+  "test-agent": [
+    { input: "GET /test/suites", type: "endpoint", method: "GET", path: "/test/suites", expect_status: 200 },
+    { input: "GET /test/warnings", type: "endpoint", method: "GET", path: "/test/warnings", expect_status: 200 },
+  ],
+  "intelligence-update-agent": [
+    { input: "POST /intelligence/sources", type: "endpoint", method: "POST", path: "/intelligence/sources", expect_status: 200 },
+    { input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
+    { input: "POST /intelligence/run", type: "endpoint", method: "POST", path: "/intelligence/run", expect_status: 200, expect_fields: ["scan_id", "scanned_at", "findings_count"] },
+  ],
+};
+
 export async function initTestSuite(agentName) {
   let suite = await getTestSuite(agentName);
   if (suite) return suite;
+
+  const agentDefaults = DEFAULT_CASES[agentName] || [];
+  const cases = agentDefaults.map(d => ({
+    id: uuidv4(),
+    input: d.input,
+    type: d.type || "route",
+    method: d.method || "POST",
+    path: d.path || null,
+    expect_status: d.expect_status || 200,
+    expect_fields: d.expect_fields || null,
+    expected_output_shape: { required_fields: d.expect_fields || ["agent", "output"] },
+    last_run_at: null,
+    last_status: null,
+    last_output: null,
+  }));
+
+  // Always include a generic routing test
+  cases.push({
+    id: uuidv4(),
+    input: `Test request for ${agentName}: provide a brief status check`,
+    type: "route",
+    method: null,
+    path: null,
+    expect_status: null,
+    expect_fields: null,
+    expected_output_shape: { required_fields: ["agent", "output"] },
+    last_run_at: null,
+    last_status: null,
+    last_output: null,
+  });
 
   suite = {
     agent_name: agentName,
@@ -27,16 +75,7 @@ export async function initTestSuite(agentName) {
     updated_at: new Date().toISOString(),
     baseline_captured_at: null,
     baseline_output: null,
-    test_cases: [
-      {
-        id: uuidv4(),
-        input: `Test request for ${agentName}: provide a brief status check`,
-        expected_output_shape: { required_fields: ["agent", "output"] },
-        last_run_at: null,
-        last_status: null,
-        last_output: null,
-      },
-    ],
+    test_cases: cases,
   };
 
   await db.set(`test-suite:${agentName}`, suite);
@@ -62,7 +101,41 @@ export async function addTestCase(agentName, input, expectedShape) {
   return tc;
 }
 
+export async function seedAllSuites() {
+  const registry = await readRegistry();
+  const agents = (registry.agents || []).filter(a => a.status === "Active" || a.status === "active");
+  let seeded = 0;
+  for (const agent of agents) {
+    const existing = await getTestSuite(agent.name);
+    if (!existing) {
+      await initTestSuite(agent.name);
+      seeded++;
+    }
+  }
+  return seeded;
+}
+
 // ── Test Execution ──────────────────────────────────────────────────────────
+
+async function callEndpoint(method, path) {
+  const start = Date.now();
+  try {
+    const opts = { method, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) };
+    if (method === "POST") {
+      opts.headers = { "Content-Type": "application/json" };
+      opts.body = JSON.stringify({});
+    }
+    const resp = await fetch(`http://localhost:${PORT}${path}`, opts);
+    const contentType = resp.headers.get("content-type") || "";
+    let body = null;
+    if (contentType.includes("json")) {
+      body = await resp.json();
+    }
+    return { status: resp.status, body, duration_ms: Date.now() - start, error: null };
+  } catch (e) {
+    return { status: null, body: null, duration_ms: Date.now() - start, error: e.message };
+  }
+}
 
 async function callAgentViaRoute(input) {
   // Import route dynamically to avoid circular dependency
@@ -126,8 +199,37 @@ export async function runTestCase(agentName, testCase, trigger) {
   const suite = await getTestSuite(agentName);
   const baseline = suite?.baseline_output;
 
-  const { result, duration_ms, error } = await callAgentViaRoute(testCase.input);
-  const failureType = classifyFailure(testCase, result, baseline, error, duration_ms);
+  let result, duration_ms, error, failureType;
+
+  if (testCase.type === "endpoint" && testCase.path) {
+    // Endpoint test — hit HTTP directly
+    const resp = await callEndpoint(testCase.method || "GET", testCase.path);
+    duration_ms = resp.duration_ms;
+    error = resp.error;
+
+    if (error) {
+      failureType = error.includes("abort") ? "timeout" : "tool_failure";
+    } else if (resp.status !== (testCase.expect_status || 200)) {
+      failureType = "routing_failure";
+      error = `Expected HTTP ${testCase.expect_status || 200}, got ${resp.status}`;
+    } else if (testCase.expect_fields && resp.body) {
+      for (const field of testCase.expect_fields) {
+        if (resp.body[field] === undefined) {
+          failureType = "output_quality_failure";
+          error = `Missing field: ${field}`;
+          break;
+        }
+      }
+    }
+    result = { response: JSON.stringify(resp.body)?.slice(0, 2000), confidence: null };
+  } else {
+    // Route test — go through master agent
+    const routeResult = await callAgentViaRoute(testCase.input);
+    result = routeResult.result;
+    duration_ms = routeResult.duration_ms;
+    error = routeResult.error;
+    failureType = classifyFailure(testCase, result, baseline, error, duration_ms);
+  }
 
   const run = {
     id: uuidv4(),
@@ -136,7 +238,7 @@ export async function runTestCase(agentName, testCase, trigger) {
     agent_name: agentName,
     test_case_id: testCase.id,
     status: failureType ? "fail" : (error ? "error" : "pass"),
-    failure_type: failureType,
+    failure_type: failureType || null,
     actual_output: result?.response?.slice(0, 2000) || null,
     baseline_output: baseline?.slice(0, 500) || null,
     confidence_score: result?.confidence || null,

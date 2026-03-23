@@ -14,7 +14,8 @@ import { runAgentBuilder, continueBuild } from "./agents/agent-builder-agent.js"
 import { loadDynamicAgents } from "./agent-loader.js";
 import {
   runFullTestSuite, runAgentTestSuite, getAllSuites, getTestSuite,
-  addTestCase, getRecentRuns, getWarnings, approveBaseline, initTestSuite
+  addTestCase, getRecentRuns, getWarnings, approveBaseline, initTestSuite,
+  seedAllSuites
 } from "./agents/test-agent.js";
 import { deployAgent } from "./tools/deploy-tools.js";
 import { runIntegrityCheck, getIntegrityReports } from "./agents/registry-integrity-agent.js";
@@ -615,7 +616,9 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
-  // Health endpoints handled by dynamic route registered before catch-all
+  // Seed test suites for all active agents
+  const seeded = await seedAllSuites();
+  if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
 
   // Weekly integrity scan Sunday 5:00 AM UTC
   cron.schedule("0 5 * * 0", async () => {
