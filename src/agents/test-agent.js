@@ -28,7 +28,7 @@ const DEFAULT_CASES = {
   ],
   "slab-inventory-tracker-agent": [
     { input: "Health: slab-inventory-tracker-agent", type: "endpoint", method: "GET", path: "/agents/slab-inventory-tracker-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "Action: show inventory status", type: "endpoint", method: "POST", path: "/agents/slab-inventory-tracker-agent", expect_status: 200, expect_fields: ["success", "action_taken"], body: { request: "show me current inventory status" } },
+    { input: "Action: show inventory status", type: "endpoint", method: "POST", path: "/agents/slab-inventory-tracker-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "show me current inventory status" } },
   ],
   "registry-integrity-agent": [
     { input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
@@ -43,7 +43,7 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
     { input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
-    { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "data"], body: { request: "list pending proposals" } },
+    { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
 };
 

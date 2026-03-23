@@ -105,34 +105,72 @@ If it does not respond correctly:
 
 ---
 
-## Phase 4 — Deployment
+## Phase 4 — Test-First Deployment
 
 Only execute Phase 4 after both human approvals and validation passing.
 
-Steps in order:
-1. Write skill file to src/skills/[agent-name].md
-2. Write agent file to src/agents/[agent-name].js
-3. Update AGENT_ROUTES in public/index.html — add:
-   "[agent-name]": "/agents/[route-path]"
-4. Add the POST route handler to src/index.js
+Steps in order — every step is mandatory, no skipping:
+
+1. REGISTER TEST CASES FIRST
+   Before writing any agent code, add test cases to the Test Agent:
+   POST /test/suites/[agent-name]/cases
+   Body: { input: "Health check", expected_output_shape:
+           { required_fields: ["status", "agent"] } }
+   AND:
+   POST /test/suites/[agent-name]/cases
+   Body: { input: "Action test", expected_output_shape:
+           { required_fields: ["output", "agent", "success"] } }
+
+   Every agent MUST have:
+   a. A health endpoint test: GET /agents/[agent-name]/health
+      expects { status: "ok", agent: "[agent-name]" }
+   b. An action endpoint test: POST /agents/[agent-name]
+      expects { output, agent, success }
+
+2. RUN TESTS — CONFIRM THEY FAIL
+   POST /test/run/[agent-name]
+   All test cases should FAIL because the agent doesn't exist yet.
+   If they pass, something is wrong — stop and investigate.
+
+3. Write skill file to src/skills/[agent-name].md
+
+4. Write agent file to src/agents/[agent-name].js
+   CRITICAL: every response must include these fields:
+   { agent: "[agent-name]", output: "human readable text",
+     success: true/false, ... }
+   The UI renders agentResult.output — if this field is missing,
+   the agent will show "No output" in the UI.
+
 5. Register agent in Replit Database registry
-6. Trigger hot reload notification
 
-For step 6, call the internal notification endpoint:
-POST /system/agent-loaded
-Body: { "agent": "[agent-name]", "timestamp": "[ISO]" }
+6. Trigger hot reload:
+   POST /system/agent-loaded
+   Body: { "agent": "[agent-name]", "timestamp": "[ISO]" }
 
-After all steps complete, output:
+7. RUN TESTS — CONFIRM THEY PASS
+   POST /test/run/[agent-name]
+   ALL test cases must pass. If any fail:
+   - Do NOT declare the build complete
+   - Output DEPLOYMENT BLOCKED — TESTS FAILING
+   - Show which tests failed and why
+   - Suggest fixes
+
+8. Only after all tests pass, output:
 
 DEPLOYMENT COMPLETE
 ──────────────────────────
 Agent:          [agent-name]
 Skill file:     src/skills/[agent-name].md
 Code file:      src/agents/[agent-name].js
-Route:          POST /agents/[route-path]
+Route:          POST /agents/[agent-name]
+Health:         GET /agents/[agent-name]/health
 Registered:     Yes — Replit Database updated
 Hot loaded:     Yes — notification sent
+Tests:          ALL PASSING
 ──────────────────────────
+
+IMPORTANT: Never declare DEPLOYMENT COMPLETE if any test case is failing.
+The Test Agent is the final authority on whether a deploy succeeded.
 
 ---
 
@@ -146,4 +184,7 @@ Hot loaded:     Yes — notification sent
 - Never skip Phase 3 validation
 - Never execute Phase 4 without both human approvals
 - Never use tools not in the approved list
+- Never declare DEPLOYMENT COMPLETE without all test cases passing
+- Never build an agent without registering test cases FIRST
+- Every agent response MUST include { agent, output } fields — the UI renders output
 - If any phase fails, stop and surface the failure clearly
