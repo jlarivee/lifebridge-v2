@@ -46,6 +46,13 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
     { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
+  "morning-briefing-agent": [
+    { input: "Briefing: health check", type: "endpoint", method: "GET", path: "/agents/morning-briefing-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { input: "Briefing: GET latest", type: "endpoint", method: "GET", path: "/briefing/latest", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Briefing: POST preview", type: "endpoint", method: "POST", path: "/briefing/preview", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Briefing: POST run", type: "endpoint", method: "POST", path: "/briefing/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Briefing: GET history", type: "endpoint", method: "GET", path: "/briefing/history", expect_status: 200 },
+  ],
   "connectors": [
     { input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
     { input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },

@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.4 (live)  
+**Current version:** v2.5 (live)  
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -294,7 +294,22 @@ package.json             ← all dependencies
 
 ---
 
-## The Master Agent System Prompt (Current — v2.4)
+### v2.5 — Connectors Live (Gmail + Slack)
+**What was built:**
+- src/agents/connectors.js + src/skills/connectors.md
+- Gmail connector — SMTP mode via jlarivee@gmail.com, app password auth, sends real email (confirmed via message_id)
+- Slack connector — Replit native API, LifeBridge workspace, webhook fallback
+- 9 endpoints: status, test, gmail/send, gmail/read, slack/send, approve, log, config GET/PUT
+- sendSystemAlert() helper wired into registry-integrity-agent, test-agent, intelligence-update-agent
+- Dual-mode design: OAuth first, SMTP fallback for Gmail; native API first, webhook fallback for Slack
+- Approval gate: pending sends stored in DB, require explicit POST /connectors/approve/:id before delivery
+
+**Test results:** 20 passed, 0 failed
+**Connectors status:** Gmail connected: true, Slack connected: true
+
+---
+
+## The Master Agent System Prompt (Current — v2.5)
 
 Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
 
@@ -352,12 +367,12 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ### Completed — spoke agents operational + test-driven build process ✅
 ### Completed — agent lifecycle management (14/14 tests passing) ✅
 
+### Completed — connectors live (Gmail + Slack, 20/20 tests) ✅
+
 ### Next priority
-- Connectors (Gmail + Slack) — NEXT
-  Wire Gmail and Slack as available connectors for spoke agents
-  Morning Briefing Agent needs this to deliver briefings
-  Integrity alerts need this to reach Josh proactively
-- Morning Briefing Agent — after connectors
+- Morning Briefing Agent — NEXT (tests first)
+  Delivers daily briefing via Gmail and Slack at 7:30 AM UTC
+  Sections: system health, test results, intel findings, proposals pending, ideas queued
 - Three Rivers Slab workflows — pricing, aging alerts, inventory reports
 
 ### Future capabilities
@@ -393,6 +408,8 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | Test-driven agent building | Tests first, build second | Caught "No output" bug class before it reaches production |
 | Agent response standard | { agent, output, success, action_taken } | Required on all spoke agent responses for UI rendering |
 | Agent lifecycle | Full CRUD on agents from UI | Agents can be edited, paused, resumed, deleted without touching code directly |
+| Gmail connector | SMTP with app password | Replit OAuth integration explored, SMTP more reliable |
+| Slack connector | Replit native API | Personal LifeBridge workspace, separate from AWS Slack |
 
 ---
 

@@ -976,6 +976,9 @@ app.all("/test/*", (req, res) => {
 app.all("/improve/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
+app.all("/briefing/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
 app.all("/connectors/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
@@ -1163,6 +1166,27 @@ async function registerConnectors() {
   }
 }
 
+async function registerMorningBriefingAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "morning-briefing-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "morning-briefing-agent",
+      domain: "System",
+      purpose: "Compiles and delivers daily briefing via Gmail and Slack at 7:30 AM UTC covering system health, test results, intelligence findings, proposals, and ideas",
+      status: "Active",
+      trigger_patterns: ["briefing", "morning briefing", "daily summary", "daily brief"],
+      triggers: ["scheduled_daily_730am", "manual"],
+      endpoints: ["/briefing/run", "/briefing/latest", "/briefing/history", "/briefing/preview"],
+      requires_approval: [],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: morning-briefing-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
   await cleanRegistry();
@@ -1173,6 +1197,7 @@ async function start() {
   await registerIntelligenceAgent();
   await registerConnectors();
   console.log("Connectors Agent registered — Gmail and Slack connected");
+  await registerMorningBriefingAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
