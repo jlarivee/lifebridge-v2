@@ -553,12 +553,159 @@ app.get("/agents/:name/health", async (req, res) => {
     const registry = await readRegistry();
     const agent = (registry.agents || []).find(a => a.name === req.params.name);
     if (!agent) return res.status(404).json({ error: "Agent not found in registry" });
+    if (agent.status === "paused") return res.json({ status: "paused", agent: agent.name, domain: agent.domain });
     const isActive = agent.status === "Active" || agent.status === "active";
     if (!isActive) return res.status(503).json({ status: "inactive", agent: agent.name });
     res.json({ status: "ok", agent: agent.name, domain: agent.domain, checked_at: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Agent Lifecycle Management ───────────────────────────────────────────────
+
+// 1. GET /agents/:name/detail — full agent profile
+app.get("/agents/:name/detail", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const registry = await readRegistry();
+    const agent = (registry.agents || []).find(a => a.name === name);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const { existsSync, readFileSync } = await import("fs");
+    const { join } = await import("path");
+    const skillPath = join(__dirname, `skills/${name}.md`);
+    const codePath = join(__dirname, `agents/${name}.js`);
+
+    const suite = await db.get(`test-suite:${name}`);
+
+    // Gather recent test runs
+    const runKeys = await db.list("test-run:");
+    const runs = [];
+    for (const key of runKeys) {
+      const run = await db.get(key);
+      if (run?.agent_name === name) runs.push(run);
+    }
+    runs.sort((a, b) => (b.run_at || "").localeCompare(a.run_at || ""));
+
+    // Gather version history
+    const versions = await db.get(`agent-versions:${name}`) || [];
+
+    res.json({
+      agent: name,
+      domain: agent.domain,
+      status: agent.status,
+      purpose: agent.purpose || null,
+      skill_file: existsSync(skillPath) ? skillPath.replace(__dirname + "/", "src/") : null,
+      code_file: existsSync(codePath) ? codePath.replace(__dirname + "/", "src/") : null,
+      skill_exists: existsSync(skillPath),
+      code_exists: existsSync(codePath),
+      test_suite: suite ? { cases: suite.test_cases?.length || 0, baseline: !!suite.baseline_output } : null,
+      run_history: runs.slice(0, 10),
+      version_history: versions,
+      registry_entry: agent,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 2. PUT /agents/:name/skill — update skill file with versioning
+app.put("/agents/:name/skill", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: "content required" });
+
+    const { existsSync, readFileSync, writeFileSync } = await import("fs");
+    const { join } = await import("path");
+    const skillPath = join(__dirname, `skills/${name}.md`);
+
+    // Save version before overwriting
+    const versions = await db.get(`agent-versions:${name}`) || [];
+    if (existsSync(skillPath)) {
+      const oldContent = readFileSync(skillPath, "utf8");
+      versions.push({
+        version: versions.length + 1,
+        saved_at: new Date().toISOString(),
+        content_length: oldContent.length,
+        content_preview: oldContent.slice(0, 200),
+      });
+      await db.set(`agent-versions:${name}`, versions);
+    }
+
+    writeFileSync(skillPath, content, "utf8");
+
+    res.json({
+      success: true,
+      agent: name,
+      updated_at: new Date().toISOString(),
+      version_saved: true,
+      version_number: versions.length + 1,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 3. POST /agents/:name/pause — set agent status to paused
+app.post("/agents/:name/pause", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const registry = await readRegistry();
+    const agent = (registry.agents || []).find(a => a.name === name);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    agent.status = "paused";
+    agent.paused_at = new Date().toISOString();
+    await writeRegistry(registry);
+
+    res.json({ success: true, agent: name, status: "paused", paused_at: agent.paused_at });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 4. POST /agents/:name/resume — set agent status back to Active
+app.post("/agents/:name/resume", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const registry = await readRegistry();
+    const agent = (registry.agents || []).find(a => a.name === name);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    agent.status = "Active";
+    agent.resumed_at = new Date().toISOString();
+    delete agent.paused_at;
+    await writeRegistry(registry);
+
+    res.json({ success: true, agent: name, status: "active", resumed_at: agent.resumed_at });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 5. DELETE /agents/:name — remove agent from registry, clean up
+app.delete("/agents/:name", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const registry = await readRegistry();
+    const idx = (registry.agents || []).findIndex(a => a.name === name);
+    if (idx === -1) return res.status(404).json({ error: "Agent not found" });
+
+    // Remove from registry
+    registry.agents.splice(idx, 1);
+    await writeRegistry(registry);
+
+    // Remove test suite
+    await db.set(`test-suite:${name}`, null);
+
+    // Remove version history
+    await db.set(`agent-versions:${name}`, null);
+
+    res.json({ success: true, deleted: true, agent: name, removed_at: new Date().toISOString() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 6. GET /agents/:name/versions — version history
+app.get("/agents/:name/versions", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const versions = await db.get(`agent-versions:${name}`) || [];
+    res.json(versions);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Slab Inventory Action Endpoint ───────────────────────────────────────────
