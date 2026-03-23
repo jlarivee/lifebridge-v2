@@ -185,29 +185,37 @@ package.json             ← all dependencies
 
 ---
 
-### v2.1 — First Spoke Agent + Auto-Execution
+### v2.1 — Administration Agent Suite + Persistence Fixes
 **What was built:**
+- Agent Builder Agent fixed — now actually deploys real files to disk, registers agents in Replit Database, creates live Express routes
+- Agent persistence fixed — server bootstraps from registry on every startup, all active agents get health endpoints registered dynamically
+- Ideas system added — POST/GET/PUT/DELETE /ideas, send to master agent, full persistence in Replit Database
+- Test Agent — daily test suites per agent, baseline capture, confidence trend tracking, dead agent detector, full UI tab
+- Registry Integrity Agent — weekly + on-deploy integrity scans, orphan detection, ghost entry detection, health endpoints, full UI tab
+- System Health tab added to hub UI
+- Tests tab added to hub UI
 
 **Life Sciences Account Intelligence Agent:**
-- src/skills/life-sciences-account-agent.md — 200-line skill file with Josh's full account portfolio (Pfizer, BMS, Novartis, Lilly, Cigna, Elevance), Project Helix framework, SCA anatomy, TAM/TAS/TOS, competitive landscape (Microsoft primary, Google secondary), AWS differentiators, five output formats (executive briefing, meeting prep dossier, competitive positioning, outreach email, account strategy narrative), research protocol (web search before every output), writing standards (Amazon narrative style), and approval requirements
-- src/agents/life-sciences-account-agent.js — calls Anthropic API with web search tool enabled, returns structured output with requires_approval flag for email/send/outreach requests
-- POST /agents/account endpoint — direct access to the spoke agent
-- Auto-registration: on startup, checks Replit Database registry and adds the agent with 20+ trigger patterns if not present
-- Master agent routing instruction added to system prompt: pharma/payer account work routes to this agent, not Claude-native
+- 200-line skill file with full account portfolio, Project Helix framework, competitive landscape, five output formats, web search research protocol
+- Auto-registration on startup with 20+ trigger patterns
+- Master agent routing instruction: pharma/payer account work routes to this agent
 
 **Automatic Spoke Agent Execution in UI:**
-- UI parses "Route to:" field from every routing package
-- Generic AGENT_ROUTES map: `{"life-sciences-account-agent": "/agents/account"}`
-- When routed to a spoke agent, UI automatically calls the agent endpoint with original input + parsed "Context passed:" field
-- Animated loading state: "Agent running — searching for current signals..." with cycling dots (400ms)
-- Agent output displays below routing package in green-bordered section: "AGENT OUTPUT — [agent-name]"
-- REQUIRES APPROVAL banner shown for email/outreach requests
-- 60-second AbortController timeout with clear error display
-- Feedback buttons ([Looks good] / [Something's wrong]) appear after agent output, not after routing package
-- When no spoke agent matches (Claude-native or BUILD BRIEF), feedback buttons appear immediately
-- Adding a new spoke agent requires one line in AGENT_ROUTES + one endpoint
+- UI parses "Route to:" from routing package, calls matching agent endpoint automatically
+- Generic AGENT_ROUTES map + dynamic fallback for deployed agents
+- Animated loading, REQUIRES APPROVAL banner, feedback after agent output
 
-**DOM timing fix:** Agent call fires after card is prepended to DOM (not via setTimeout), preventing null element references that caused the initial "nothing showing" bug
+**Slab Inventory Tracker Agent:**
+- Tracks Three Rivers Slab inventory: species, dimensions, cut date, asking price, status, yard location
+- Pricing guidelines by species ($/board foot), aging alerts at 60 days
+- Listing generation for Facebook Marketplace / Instagram
+
+**Agents now active:** 5
+- life-sciences-account-agent (Work)
+- agent-builder-agent (System)
+- slab-inventory-tracker-agent (Personal Business)
+- test-agent (System)
+- registry-integrity-agent (System)
 
 ---
 
@@ -220,9 +228,13 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ## Capability Registry (Current State)
 
 **Agents:**
-| Agent | Domain | Status | Trigger Patterns |
-|---|---|---|---|
-| life-sciences-account-agent | Work | Active | account brief, meeting prep, executive briefing, stakeholder dossier, competitive positioning, outreach email, follow up, account strategy, Pfizer, BMS, Novartis, Lilly, Cigna, Elevance, pharma, payer, SCA, ProServe |
+| Agent | Domain | Status |
+|---|---|---|
+| life-sciences-account-agent | Work | Active |
+| agent-builder-agent | System | Active |
+| slab-inventory-tracker-agent | Personal Business | Active |
+| test-agent | System | Active |
+| registry-integrity-agent | System | Active |
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
@@ -250,13 +262,13 @@ All nine checks passed. System is live.
 ### Completed — first spoke agent ✅
 Life Sciences Account Intelligence Agent built and auto-executing from routing packages.
 
-### Next priority — second spoke agent
-Strategy remains data-driven: run 10-20 requests through the live system. Look at what the master agent tries to route to that isn't the account agent. That pattern reveals the second spoke.
+### Completed — administration agent suite ✅
+Test Agent, Registry Integrity Agent, Agent Builder persistence fix, Ideas system, health endpoints.
 
-Likely candidates based on early routing packages:
-- Personal business agent (Three Rivers Slab, MadSprings Cookies)
-- Personal life agent (travel, health, family logistics)
-- System admin agent (LifeBridge self-management, registry maintenance)
+### Next priority
+- Intelligence Update Agent — proactive briefing agent that monitors accounts
+- Morning Briefing Agent — daily summary of signals across all domains
+- Three Rivers Slab master workflows — pricing, listing, aging automation
 
 ### Future capabilities
 - Connectors (Gmail, Calendar, Todoist, Google Drive) — spoke agents will need these
@@ -285,6 +297,9 @@ Likely candidates based on early routing packages:
 | Web search on every agent call | Account agent always searches before output | Prevents stale briefings — current signals are non-negotiable |
 | Feedback after agent output | Buttons appear after spoke agent completes | User judges the final output, not the routing decision |
 | GitHub ↔ Replit sync | Git panel Pull, not auto-deploy | Deliberate deployment — no accidental pushes to production |
+| Agent health endpoints | Single dynamic route /agents/:name/health | Handles all agents without per-agent manual registration |
+| Agent persistence | Bootstrap from registry on startup | Agents survive restarts without manual re-registration |
+| Administration agents | Build order: Test → Integrity → Intelligence | Test first so other agents can be verified as they ship |
 
 ---
 
