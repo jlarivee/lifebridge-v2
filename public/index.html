@@ -2,259 +2,968 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LifeBridge v2</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeBridge v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#f0f0f0;font-family:'Inter',sans-serif;min-height:100vh}
-.container{max-width:800px;margin:0 auto;padding:32px 20px 80px}
-h1{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:.15em;margin-bottom:4px}
-.subtitle{font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;letter-spacing:.1em;margin-bottom:32px}
-h2{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:.12em;color:#f0f0f0;margin-bottom:16px}
-.input-row{display:flex;gap:10px;margin-bottom:24px}
-.input-row input{flex:1;background:#141414;border:1px solid #222;border-radius:8px;color:#f0f0f0;padding:12px 16px;font-size:14px;outline:none;font-family:'Inter',sans-serif}
-.input-row input:focus{border-color:#f59e0b}
-.btn{background:#f59e0b;border:none;border-radius:8px;color:#000;padding:12px 24px;font-size:13px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.sm{padding:5px 10px;font-size:10px;border-radius:5px}
-.btn.green{background:#22c55e}
-.btn.dim{background:transparent;border:1px solid #444;color:#888}
-.responses{display:flex;flex-direction:column;gap:16px}
-.response-block{background:#141414;border:1px solid #222;border-radius:10px;padding:16px 20px}
-.user-input{font-size:12px;color:#666;margin-bottom:10px;font-family:'JetBrains Mono',monospace}
-.reasoning-toggle{font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;cursor:pointer;margin-bottom:8px;user-select:none}
-.reasoning-toggle:hover{color:#999}
-.reasoning-box{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#888;white-space:pre-wrap;word-break:break-word;padding:12px 16px;background:#0e0e0e;border-radius:6px;border-left:3px solid #f59e0b;margin-bottom:12px}
-.routing-text{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#ccc;white-space:pre-wrap;word-break:break-word}
-.conf-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
-.conf-label{font-family:'JetBrains Mono',monospace;font-size:10px}
-.fb-row{display:flex;gap:8px;align-items:center;margin-top:10px}
-.fb-btn{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid;background:transparent;cursor:pointer}
-.fb-input{background:#141414;border:1px solid #ef4444;border-radius:6px;color:#f0f0f0;padding:6px 10px;font-size:12px;outline:none;flex:1;font-family:'Inter',sans-serif}
-.warn-banner{background:#ef444418;border:1px solid #ef444444;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ef4444}
-.clarify-box{background:#f59e0b18;border:1px solid #f59e0b44;border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#f59e0b;white-space:pre-wrap}
-.divider{border:none;border-top:1px solid #222;margin:48px 0 32px}
-.proposal-card{background:#141414;border:1px solid #222;border-radius:10px;padding:16px 20px;margin-bottom:16px;border-left:3px solid #f59e0b}
-.proposal-card.resolved{opacity:.5;border-left-color:#444}
-.change-card{background:#0e0e0e;border:1px solid #1a1a1a;border-radius:6px;padding:12px 16px;margin:8px 0;border-left:3px solid #f59e0b}
-.change-card.approved{border-left-color:#22c55e;opacity:.6}
-.change-card.rejected{border-left-color:#444;opacity:.3}
-.field-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:#666;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
-.field-value{font-size:12px;color:#ccc;line-height:1.5;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
-.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
-.diff-current{background:#1a0a0a;border:1px solid #331a1a;border-radius:4px;padding:8px;font-size:10px;color:#c88;font-family:'JetBrains Mono',monospace;white-space:pre-wrap}
-.diff-proposed{background:#0a1a0a;border:1px solid #1a331a;border-radius:4px;padding:8px;font-size:10px;color:#8c8;font-family:'JetBrains Mono',monospace;white-space:pre-wrap}
-.collapsible-header{font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;cursor:pointer;margin:20px 0 8px;letter-spacing:.08em}
-.collapsible-header:hover{color:#999}
-.loading{font-family:'JetBrains Mono',monospace;font-size:12px;color:#f59e0b}
-.badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;letter-spacing:.04em}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0a0a;
+  color: #f0f0f0;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.15em;
+  color: #f0f0f0;
+  margin-bottom: 2px;
+}
+
+.subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 24px;
+}
+
+h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.15em;
+  color: #f0f0f0;
+  margin-bottom: 16px;
+}
+
+input[type="text"], textarea {
+  width: 100%;
+  background: #141414;
+  border: 1px solid #222;
+  color: #f0f0f0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 12px 14px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus, textarea:focus {
+  border-color: #f59e0b;
+}
+
+.btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-amber { background: #f59e0b; color: #000; }
+.btn-green { background: transparent; color: #22c55e; border: 1px solid #22c55e; }
+.btn-red { background: transparent; color: #ef4444; border: 1px solid #ef4444; }
+.btn-dim { background: transparent; color: #666; border: 1px solid #333; }
+
+.btn-approve {
+  background: transparent;
+  color: #22c55e;
+  border: 1px solid #22c55e;
+  font-size: 11px;
+  padding: 6px 14px;
+}
+
+.btn-reject {
+  background: transparent;
+  color: #666;
+  border: 1px solid #333;
+  font-size: 11px;
+  padding: 6px 14px;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.input-row input { flex: 1; }
+
+.response-area { display: flex; flex-direction: column; gap: 16px; }
+
+.response-card {
+  background: #141414;
+  border: 1px solid #222;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.response-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.confidence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.confidence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.confidence-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #999;
+}
+
+.low-confidence-warning {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.reasoning-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #999;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 8px;
+}
+
+.reasoning-toggle:hover { color: #f59e0b; }
+
+.reasoning-block {
+  border-left: 2px solid #f59e0b;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: rgba(245, 158, 11, 0.03);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #999;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.routing-block {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #e0e0e0;
+  margin-bottom: 12px;
+}
+
+.clarification-box {
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+  padding: 14px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: #f59e0b;
+}
+
+.feedback-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.feedback-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+}
+
+.feedback-inline input {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.feedback-inline .btn {
+  font-size: 10px;
+  padding: 6px 12px;
+}
+
+.feedback-recorded {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #22c55e;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #222;
+  margin-top: 48px;
+  margin-bottom: 32px;
+}
+
+.loading-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+.proposal-card {
+  background: #141414;
+  border: 1px solid #222;
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.proposal-header {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 12px;
+}
+
+.patterns-list {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ccc;
+  margin-bottom: 12px;
+  padding-left: 18px;
+}
+
+.patterns-list li { margin-bottom: 4px; }
+
+.assessment-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.change-card {
+  background: #0e0e0e;
+  border: 1px solid #222;
+  border-radius: 4px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.change-card.approved {
+  border-color: #22c55e;
+  opacity: 0.7;
+}
+
+.change-card.rejected {
+  border-color: #333;
+  opacity: 0.4;
+}
+
+.badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
+.badge-type { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.badge-confidence-high { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.badge-confidence-medium { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.badge-confidence-low { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.change-field-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.change-field-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #ccc;
+  line-height: 1.5;
+}
+
+.diff-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.diff-current {
+  background: #1a0a0a;
+  border: 1px solid #331111;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+
+.diff-proposed {
+  background: #0a1a0a;
+  border: 1px solid #113311;
+  border-radius: 4px;
+  padding: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+
+.diff-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.change-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.change-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.collapsible-header {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #999;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapsible-header:hover { color: #f0f0f0; }
+
+.collapsible-arrow {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.collapsible-arrow.open { transform: rotate(90deg); }
+
+.collapsible-content { display: none; padding: 8px 0; }
+.collapsible-content.open { display: block; }
+
+.context-entry {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ccc;
+  padding: 6px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.context-meta {
+  font-size: 10px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.history-entry {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #999;
+  padding: 6px 0;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.status-pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.status-resolved { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+
+.sub-list-header {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.error-inline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ef4444;
+  margin-top: 8px;
+}
 </style>
 </head>
 <body>
 <div class="container">
+
+  <!-- SECTION 1: ROUTING -->
   <h1>LIFEBRIDGE</h1>
-  <div class="subtitle">v2.0 — Claude Agent SDK</div>
+  <div class="subtitle">v2.0 -- Claude Agent SDK</div>
 
   <div class="input-row">
-    <input id="inp" type="text" placeholder="Enter a request for the master agent..." autocomplete="off">
-    <button class="btn" id="routeBtn" onclick="doRoute()">ROUTE</button>
+    <input type="text" id="routeInput" placeholder="Enter a request..." autofocus>
+    <button class="btn btn-amber" id="routeBtn" onclick="handleRoute()">ROUTE</button>
   </div>
-  <div class="responses" id="responses"></div>
 
+  <div class="response-area" id="responseArea"></div>
+
+  <!-- DIVIDER -->
   <hr class="divider">
+
+  <!-- SECTION 2: IMPROVEMENT -->
   <h2>IMPROVEMENT</h2>
-  <div style="margin-bottom:20px">
-    <button class="btn" id="improveBtn" onclick="doImprove()">Run improvement cycle</button>
-    <span id="improveStatus" style="margin-left:12px" class="loading"></span>
+
+  <button class="btn btn-amber" id="improveBtn" onclick="handleImprove()">Run improvement cycle</button>
+  <div id="improveLoading" style="display:none; margin-top: 12px;" class="loading-text">Analyzing...</div>
+  <div id="improveError" class="error-inline" style="display:none;"></div>
+
+  <div id="proposalArea" style="margin-top: 20px;"></div>
+
+  <!-- GLOBAL CONTEXT (collapsible, collapsed by default) -->
+  <div style="margin-top: 32px;">
+    <div class="collapsible-header" onclick="toggleCollapsible('contextSection', this)">
+      <span class="collapsible-arrow">&#9654;</span> Global Context
+    </div>
+    <div id="contextSection" class="collapsible-content"></div>
   </div>
-  <div id="proposals"></div>
 
-  <div class="collapsible-header" onclick="toggle('ctx-section')">▶ Global Context</div>
-  <div id="ctx-section" style="display:none"></div>
+  <!-- HISTORY (collapsible, collapsed by default) -->
+  <div style="margin-top: 16px;">
+    <div class="collapsible-header" onclick="toggleCollapsible('historySection', this)">
+      <span class="collapsible-arrow">&#9654;</span> History
+    </div>
+    <div id="historySection" class="collapsible-content"></div>
+  </div>
 
-  <div class="collapsible-header" onclick="toggle('history-section')">▶ History</div>
-  <div id="history-section" style="display:none"></div>
 </div>
 
 <script>
-const inp=document.getElementById('inp');
-const routeBtn=document.getElementById('routeBtn');
-inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!routeBtn.disabled)doRoute()});
+// -- Utility --
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
-function toggle(id){const el=document.getElementById(id);el.style.display=el.style.display==='none'?'block':'none'}
-
-async function doRoute(){
-  const text=inp.value.trim();if(!text)return;
-  inp.value='';routeBtn.disabled=true;
-  const resp=document.getElementById('responses');
-  const blockId='r'+Date.now();
-  resp.insertAdjacentHTML('afterbegin',`<div class="response-block" id="${blockId}"><div class="user-input">${esc(text)}</div><div class="loading">Routing...</div></div>`);
-  try{
-    const res=await fetch('/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input:text})});
-    const data=await res.json();
-    const el=document.getElementById(blockId);
-    if(data.error){el.innerHTML=`<div class="user-input">${esc(text)}</div><div style="color:#ef4444">Error: ${esc(data.error)}</div>`;routeBtn.disabled=false;return}
-    el.innerHTML=renderResponse(text,data);
-  }catch(e){document.getElementById(blockId).innerHTML=`<div style="color:#ef4444">Connection error</div>`}
-  routeBtn.disabled=false;
+async function apiFetch(url, opts) {
+  opts = opts || {};
+  var res = await fetch(url, Object.assign({ headers: { "Content-Type": "application/json" } }, opts));
+  var data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }
 
-function renderResponse(input,data){
-  const raw=data.response||'';const conf=data.confidence;const reqId=data.id;
-  let html=`<div class="user-input">${esc(input)}</div>`;
+function escapeHtml(str) {
+  var div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
 
-  // Clarification required
-  if(raw.includes('CLARIFICATION REQUIRED')){
-    return html+`<div class="clarify-box">${esc(raw)}</div>`;
+function toggleCollapsible(id, headerEl) {
+  var el = document.getElementById(id);
+  var arrow = headerEl.querySelector(".collapsible-arrow");
+  if (el.classList.contains("open")) {
+    el.classList.remove("open");
+    arrow.classList.remove("open");
+  } else {
+    el.classList.add("open");
+    arrow.classList.add("open");
+  }
+}
+
+function parseReasoning(text) {
+  var lines = text.split("\n");
+  var rStart = -1;
+  var dividerCount = 0;
+  var rEnd = -1;
+
+  for (var i = 0; i < lines.length; i++) {
+    if (rStart === -1 && lines[i].trim().startsWith("REASONING")) {
+      rStart = i;
+      dividerCount = 0;
+      continue;
+    }
+    if (rStart >= 0 && lines[i].indexOf("\u2500\u2500\u2500\u2500\u2500\u2500") !== -1) {
+      dividerCount++;
+      if (dividerCount === 1) continue;
+      if (dividerCount === 2) { rEnd = i; break; }
+    }
+  }
+
+  if (rStart >= 0 && rEnd >= 0) {
+    var reasoning = lines.slice(rStart, rEnd + 1).join("\n");
+    var before = lines.slice(0, rStart).join("\n").trim();
+    var after = lines.slice(rEnd + 1).join("\n").trim();
+    var rest = (before + "\n" + after).trim();
+    return { reasoning: reasoning, rest: rest };
+  }
+
+  return { reasoning: null, rest: text };
+}
+
+function confidenceColor(conf) {
+  if (conf === null || conf === undefined) return "#666";
+  if (conf >= 90) return "#22c55e";
+  if (conf >= 70) return "#f59e0b";
+  return "#ef4444";
+}
+
+function confidenceBadgeClass(confStr) {
+  var lower = (confStr || "").toLowerCase();
+  if (lower.indexOf("high") !== -1) return "badge-confidence-high";
+  if (lower.indexOf("medium") !== -1) return "badge-confidence-medium";
+  return "badge-confidence-low";
+}
+
+// -- Route --
+
+async function handleRoute() {
+  var input = document.getElementById("routeInput").value.trim();
+  if (!input) return;
+
+  var btn = document.getElementById("routeBtn");
+  btn.disabled = true;
+  btn.textContent = "...";
+
+  try {
+    var result = await apiFetch("/route", {
+      method: "POST",
+      body: JSON.stringify({ input: input }),
+    });
+    document.getElementById("routeInput").value = "";
+    renderResponse(result, input);
+  } catch (e) {
+    renderErrorResponse(e.message, input);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "ROUTE";
+  }
+}
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && document.activeElement === document.getElementById("routeInput")) {
+    handleRoute();
+  }
+});
+
+function renderResponse(result, userInput) {
+  var area = document.getElementById("responseArea");
+  var card = document.createElement("div");
+  card.className = "response-card";
+
+  var isClarification = result.response.indexOf("CLARIFICATION REQUIRED") !== -1;
+  var parsed = parseReasoning(result.response);
+  var reasoning = parsed.reasoning;
+  var rest = parsed.rest;
+  var conf = result.confidence;
+  var autoExpand = conf !== null && conf < 90;
+  var showWarning = conf !== null && conf < 70;
+
+  var html = "";
+
+  // User input
+  html += '<div class="response-input">' + escapeHtml(userInput) + '</div>';
+
+  // Confidence row
+  if (conf !== null) {
+    html += '<div class="confidence-row">';
+    html += '<span class="confidence-dot" style="background: ' + confidenceColor(conf) + '"></span>';
+    html += '<span class="confidence-label">Confidence: ' + conf + '/100</span>';
+    html += '</div>';
   }
 
   // Low confidence warning
-  if(conf!==null&&conf<70){
-    html+=`<div class="warn-banner">⚠ LOW CONFIDENCE — review the reasoning before acting on this</div>`;
+  if (showWarning) {
+    html += '<div class="low-confidence-warning">LOW CONFIDENCE -- review reasoning before acting</div>';
   }
 
-  // Parse reasoning block
-  const lines=raw.split('\n');let rStart=-1,rEnd=-1,dc=0;
-  for(let i=0;i<lines.length;i++){
-    if(lines[i].trim().startsWith('REASONING')){rStart=i;dc=0;continue}
-    if(rStart>=0&&lines[i].includes('──────')){dc++;if(dc===1)continue;if(dc===2){rEnd=i;break}}
+  // Reasoning toggle
+  if (reasoning) {
+    var rid = "reasoning-" + Math.random().toString(36).slice(2);
+    html += '<div class="reasoning-toggle" onclick="toggleReasoning(\'' + rid + '\', this)">';
+    html += (autoExpand ? '&#9660; Hide reasoning' : '&#9654; Show reasoning');
+    html += '</div>';
+    html += '<div class="reasoning-block" id="' + rid + '" style="display: ' + (autoExpand ? 'block' : 'none') + ';">' + escapeHtml(reasoning) + '</div>';
   }
 
-  if(rStart>=0&&rEnd>=0){
-    const reasoning=lines.slice(rStart,rEnd+1).join('\n');
-    const after=lines.slice(rEnd+1).join('\n').trim();
-    const autoExpand=conf!==null&&conf<90;
-    const tid='t'+Date.now();
-    html+=`<div class="reasoning-toggle" onclick="document.getElementById('${tid}').style.display=document.getElementById('${tid}').style.display==='none'?'block':'none'">${autoExpand?'▼ Hide':'▶ Show'} reasoning</div>`;
-    html+=`<div id="${tid}" style="display:${autoExpand?'block':'none'}"><div class="reasoning-box">${esc(reasoning)}</div></div>`;
-    html+=`<div class="routing-text">${esc(after)}</div>`;
-  }else{
-    html+=`<div class="routing-text">${esc(raw)}</div>`;
+  // Main content
+  if (isClarification) {
+    html += '<div class="clarification-box">' + escapeHtml(rest) + '</div>';
+  } else {
+    html += '<div class="routing-block">' + escapeHtml(rest) + '</div>';
+
+    // Feedback buttons
+    var fid = "fb-" + Math.random().toString(36).slice(2);
+    html += '<div class="feedback-row" id="' + fid + '">';
+    html += '<button class="btn btn-green" style="font-size:11px; padding:6px 14px;" onclick="sendFeedback(\'' + result.id + '\', \'accepted\', \'\', \'' + fid + '\')">Looks good</button>';
+    html += '<button class="btn btn-red" style="font-size:11px; padding:6px 14px;" onclick="showFeedbackInput(\'' + fid + '\', \'' + result.id + '\')">Something\'s wrong</button>';
+    html += '<div class="feedback-inline" id="' + fid + '-input" style="display:none;">';
+    html += '<input type="text" placeholder="What went wrong?" id="' + fid + '-text">';
+    html += '<button class="btn btn-dim" onclick="sendFeedback(\'' + result.id + '\', \'rejected\', document.getElementById(\'' + fid + '-text\').value, \'' + fid + '\')">Submit</button>';
+    html += '</div>';
+    html += '</div>';
   }
 
-  // Confidence indicator
-  if(conf!==null){
-    const color=conf>=90?'#22c55e':conf>=70?'#f59e0b':'#ef4444';
-    const label=conf>=90?'High':conf>=70?'Moderate':'Low';
-    html+=`<div style="margin-top:8px"><span class="conf-dot" style="background:${color}"></span><span class="conf-label" style="color:${color}">${label} confidence (${conf}/100)</span></div>`;
+  card.innerHTML = html;
+  area.prepend(card);
+}
+
+function renderErrorResponse(msg, userInput) {
+  var area = document.getElementById("responseArea");
+  var card = document.createElement("div");
+  card.className = "response-card";
+  card.innerHTML = '<div class="response-input">' + escapeHtml(userInput) + '</div><div class="error-inline">' + escapeHtml(msg) + '</div>';
+  area.prepend(card);
+}
+
+function toggleReasoning(id, el) {
+  var block = document.getElementById(id);
+  if (block.style.display === "none") {
+    block.style.display = "block";
+    el.innerHTML = "&#9660; Hide reasoning";
+  } else {
+    block.style.display = "none";
+    el.innerHTML = "&#9654; Show reasoning";
   }
-
-  // Feedback buttons
-  const fbId='fb'+reqId.slice(0,8);
-  html+=`<div class="fb-row" id="${fbId}">`;
-  html+=`<button class="fb-btn" style="border-color:#22c55e;color:#22c55e" onclick="sendFb('${reqId}','accepted','${fbId}')">Looks good</button>`;
-  html+=`<button class="fb-btn" style="border-color:#ef4444;color:#ef4444" onclick="showFbInput('${fbId}','${reqId}')">Something's wrong</button>`;
-  html+=`</div>`;
-  return html;
 }
 
-function showFbInput(fbId,reqId){
-  document.getElementById(fbId).innerHTML=`<input class="fb-input" id="fbt${fbId}" placeholder="What was wrong?"><button class="btn sm" onclick="submitFb('${reqId}','${fbId}')">Submit</button><button class="btn sm dim" onclick="document.getElementById('${fbId}').remove()">Cancel</button>`;
-}
-async function sendFb(reqId,outcome,fbId){
-  await fetch('/route/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:reqId,outcome})});
-  document.getElementById(fbId).innerHTML='<span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#666">✓ Recorded</span>';
-  setTimeout(()=>{const el=document.getElementById(fbId);if(el)el.remove()},2000);
-}
-async function submitFb(reqId,fbId){
-  const text=document.getElementById('fbt'+fbId)?.value||'';if(!text.trim())return;
-  await fetch('/route/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:reqId,outcome:'rejected',feedback:text.trim()})});
-  document.getElementById(fbId).innerHTML='<span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#ef4444">✓ Recorded</span>';
-  setTimeout(()=>{const el=document.getElementById(fbId);if(el)el.remove()},2000);
+function showFeedbackInput(fid, reqId) {
+  document.getElementById(fid + "-input").style.display = "flex";
 }
 
-// ── Improvement ──────────────────────────────────────────────────
-async function doImprove(){
-  const btn=document.getElementById('improveBtn');const st=document.getElementById('improveStatus');
-  btn.disabled=true;st.textContent='Analyzing...';
-  try{
-    const res=await fetch('/improve/run',{method:'POST'});const data=await res.json();
-    if(data.error){st.textContent='Error: '+data.error;st.style.color='#ef4444'}
-    else{st.textContent='Proposal generated';st.style.color='#22c55e';loadProposals()}
-  }catch{st.textContent='Connection error';st.style.color='#ef4444'}
-  btn.disabled=false;
+async function sendFeedback(requestId, outcome, feedback, fid) {
+  try {
+    await apiFetch("/route/feedback", {
+      method: "POST",
+      body: JSON.stringify({ request_id: requestId, outcome: outcome, feedback: feedback }),
+    });
+    var row = document.getElementById(fid);
+    row.innerHTML = '<span class="feedback-recorded">&#10003; Recorded</span>';
+    setTimeout(function() { row.style.display = "none"; }, 2000);
+  } catch (e) {
+    var row = document.getElementById(fid);
+    row.innerHTML = '<span class="error-inline">' + escapeHtml(e.message) + '</span>';
+  }
 }
 
-async function loadProposals(){
-  try{
-    const res=await fetch('/improve/history');const history=await res.json();
-    const pending=history.filter(p=>p.status==='pending');
-    const resolved=history.filter(p=>p.status!=='pending');
-    let html='';
-    for(const p of pending)html+=renderProposal(p,false);
-    if(resolved.length){
-      document.getElementById('history-section').innerHTML=resolved.slice(0,10).map(p=>
-        `<div style="font-size:12px;color:#666;margin-bottom:6px;font-family:'JetBrains Mono',monospace">${(p.timestamp||'').slice(0,10)} · ${p.status} · ${p.requests_reviewed||0} requests</div>`
-      ).join('');
+// -- Improvement --
+
+async function handleImprove() {
+  var btn = document.getElementById("improveBtn");
+  var loading = document.getElementById("improveLoading");
+  var errEl = document.getElementById("improveError");
+
+  btn.disabled = true;
+  loading.style.display = "block";
+  errEl.style.display = "none";
+
+  try {
+    var proposal = await apiFetch("/improve/run", { method: "POST" });
+    renderProposal(proposal);
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    loading.style.display = "none";
+  }
+}
+
+function parseProposalPatterns(text) {
+  var match = text.match(/PATTERNS OBSERVED\s*\n([\s\S]*?)(?=\nPROPOSED CHANGES|\nOVERALL ASSESSMENT|$)/);
+  if (!match) return [];
+  var lines = match[1].trim().split("\n").filter(function(l) { return l.trim(); });
+  return lines.map(function(l) { return l.replace(/^\d+[\.\)]\s*/, "").trim(); }).filter(Boolean);
+}
+
+function parseProposalAssessment(text) {
+  var match = text.match(/OVERALL ASSESSMENT\s*\n([\s\S]*?)(?=\u2500{6,}|$)/);
+  return match ? match[1].trim() : "";
+}
+
+function parseProposalChanges(text) {
+  var changes = [];
+  var parts = text.split(/Change\s*\[?\d+\]?\s*:/);
+  if (parts.length <= 1) return changes;
+
+  for (var i = 1; i < parts.length; i++) {
+    var part = parts[i];
+    var change = {};
+    var fields = ["Type", "Evidence", "Current", "Proposed", "Reasoning", "Risk", "Confidence"];
+    for (var j = 0; j < fields.length; j++) {
+      var field = fields[j];
+      var re = new RegExp(field + ":\\s*([\\s\\S]*?)(?=\\n\\s*(?:Type|Evidence|Current|Proposed|Reasoning|Risk|Confidence|Change|OVERALL|$))", "");
+      var m = part.match(re);
+      if (m) {
+        change[field.toLowerCase()] = m[1].trim();
+      }
     }
-    document.getElementById('proposals').innerHTML=html||'<div style="color:#444;font-style:italic">No pending proposals</div>';
-  }catch{}
-  loadContext();
-}
-
-function renderProposal(p,collapsed){
-  const text=p.proposal||'';
-  const pm=text.match(/PATTERNS OBSERVED\n([\s\S]*?)(?=PROPOSED CHANGES|$)/);
-  const am=text.match(/OVERALL ASSESSMENT\n([\s\S]*?)(?=──────|$)/);
-  const patterns=pm?pm[1].trim():'';
-  const assessment=am?am[1].trim():'';
-  const parts=text.split(/Change\s*\[?\d+\]?\s*:/);
-  const changes=[];
-  for(let i=1;i<parts.length;i++){
-    const c=parts[i];const g=f=>{const lines=c.split('\n');for(const l of lines){if(l.trim().startsWith(f+':'))return l.trim().substring(f.length+1).trim()}return''};
-    changes.push({type:g('Type'),evidence:g('Evidence'),current:g('Current'),proposed:g('Proposed'),reasoning:g('Reasoning'),risk:g('Risk'),confidence:g('Confidence')});
-  }
-  const appIdx=(p.approved_changes||[]).map(a=>a.change_index);
-  const rejIdx=(p.rejected_changes||[]).map(r=>r.change_index);
-  let html=`<div class="proposal-card${p.status!=='pending'?' resolved':''}">`;
-  html+=`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#888">${(p.timestamp||'').slice(0,10)} · ${p.requests_reviewed||0} requests</span><span class="badge" style="background:${p.status==='pending'?'#f59e0b22':'#33333344'};color:${p.status==='pending'?'#f59e0b':'#666'}">${p.status}</span></div>`;
-  if(patterns){html+=`<div class="field-label">Patterns Observed</div><div class="field-value">${esc(patterns)}</div>`}
-  if(assessment){html+=`<div class="field-label">Overall Assessment</div><div class="field-value">${esc(assessment)}</div>`}
-  for(let i=0;i<changes.length;i++){
-    const ch=changes[i];const isApp=appIdx.includes(i);const isRej=rejIdx.includes(i);
-    html+=`<div class="change-card${isApp?' approved':''}${isRej?' rejected':''}">`;
-    html+=`<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;font-weight:600">Change ${i+1}</span>`;
-    if(ch.confidence){const cc=ch.confidence.trim();html+=`<span class="badge" style="color:${cc==='High'?'#22c55e':cc==='Medium'?'#f59e0b':'#888'}">${cc}</span>`}
-    html+=`</div>`;
-    if(ch.type){html+=`<div class="field-label">Type</div><div class="field-value">${esc(ch.type)}</div>`}
-    if(ch.evidence){html+=`<div class="field-label">Evidence</div><div class="field-value">${esc(ch.evidence)}</div>`}
-    if(ch.reasoning){html+=`<div class="field-label">Reasoning</div><div class="field-value">${esc(ch.reasoning)}</div>`}
-    if(ch.risk){html+=`<div class="field-label">Risk</div><div class="field-value">${esc(ch.risk)}</div>`}
-    if(ch.current||ch.proposed){html+=`<div class="diff-grid"><div><div class="field-label">Current</div><div class="diff-current">${esc(ch.current||'(none)')}</div></div><div><div class="field-label">Proposed</div><div class="diff-proposed">${esc(ch.proposed||'(none)')}</div></div></div>`}
-    if(!isApp&&!isRej&&p.status==='pending'){html+=`<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm green" onclick="doApprove('${p.id}',${i})">Approve</button><button class="btn sm dim" onclick="doReject('${p.id}',${i})">Reject</button></div>`}
-    else if(isApp){html+=`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#22c55e;margin-top:6px">✓ Approved</div>`}
-    else if(isRej){html+=`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;margin-top:6px">✗ Rejected</div>`}
-    html+=`</div>`;
-  }
-  html+=`</div>`;return html;
-}
-
-async function doApprove(pid,idx){
-  await fetch('/improve/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_id:pid,change_index:idx})});
-  loadProposals();
-}
-async function doReject(pid,idx){
-  await fetch('/improve/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposal_id:pid,change_index:idx})});
-  loadProposals();
-}
-
-async function loadContext(){
-  try{
-    const res=await fetch('/context');const ctx=await res.json();
-    const sections=[['Preferences',ctx.preferences||[]],['Constraints',ctx.constraints||[]],['Learned Patterns',ctx.learned_patterns||[]]];
-    let html='';
-    for(const[title,items]of sections){
-      html+=`<div class="field-label">${title} (${items.length})</div>`;
-      if(!items.length)html+=`<div style="color:#444;font-size:12px;font-style:italic;margin-bottom:8px">None</div>`;
-      for(const item of items){html+=`<div style="font-size:11px;color:#ccc;margin-bottom:4px;padding:4px 8px;background:#141414;border-radius:4px">${esc(item.content||'')} <span style="color:#444;font-size:9px">${item.source||''} · ${(item.added||'').slice(0,10)}</span></div>`}
+    if (Object.keys(change).length > 0) {
+      changes.push(change);
     }
-    document.getElementById('ctx-section').innerHTML=html;
-  }catch{}
+  }
+  return changes;
 }
 
-loadProposals();
+function renderProposal(proposal) {
+  var area = document.getElementById("proposalArea");
+
+  if (proposal.status !== "pending") return;
+
+  var card = document.createElement("div");
+  card.className = "proposal-card";
+  card.id = "proposal-" + proposal.id;
+
+  var date = new Date(proposal.timestamp).toLocaleDateString();
+  var patterns = parseProposalPatterns(proposal.proposal);
+  var assessment = parseProposalAssessment(proposal.proposal);
+  var changes = parseProposalChanges(proposal.proposal);
+
+  var html = "";
+  html += '<div class="proposal-header">' + date + ' &mdash; ' + proposal.requests_reviewed + ' requests reviewed</div>';
+
+  // Patterns
+  if (patterns.length) {
+    html += '<ol class="patterns-list">';
+    for (var i = 0; i < patterns.length; i++) {
+      html += '<li>' + escapeHtml(patterns[i]) + '</li>';
+    }
+    html += '</ol>';
+  }
+
+  // Assessment
+  if (assessment) {
+    html += '<div class="assessment-text">' + escapeHtml(assessment) + '</div>';
+  }
+
+  // Changes
+  for (var ci = 0; ci < changes.length; ci++) {
+    var c = changes[ci];
+    var isApproved = (proposal.approved_changes || []).some(function(a) { return a.change_index === ci; });
+    var isRejected = (proposal.rejected_changes || []).some(function(a) { return a.change_index === ci; });
+    var stateClass = isApproved ? " approved" : isRejected ? " rejected" : "";
+    var cid = "change-" + proposal.id + "-" + ci;
+
+    html += '<div class="change-card' + stateClass + '" id="' + cid + '">';
+    html += '<div>';
+    html += '<span class="badge badge-type">' + escapeHtml(c.type || "unknown") + '</span>';
+    if (c.confidence) {
+      html += '<span class="badge ' + confidenceBadgeClass(c.confidence) + '">' + escapeHtml(c.confidence) + '</span>';
+    }
+    html += '</div>';
+
+    if (c.evidence) {
+      html += '<div class="change-field-label">Evidence</div>';
+      html += '<div class="change-field-text">' + escapeHtml(c.evidence) + '</div>';
+    }
+    if (c.reasoning) {
+      html += '<div class="change-field-label">Reasoning</div>';
+      html += '<div class="change-field-text">' + escapeHtml(c.reasoning) + '</div>';
+    }
+    if (c.risk) {
+      html += '<div class="change-field-label">Risk</div>';
+      html += '<div class="change-field-text">' + escapeHtml(c.risk) + '</div>';
+    }
+
+    // Diff columns
+    if (c.current || c.proposed) {
+      html += '<div class="diff-columns">';
+      html += '<div><div class="diff-label">Current</div><div class="diff-current">' + escapeHtml(c.current || "(none)") + '</div></div>';
+      html += '<div><div class="diff-label">Proposed</div><div class="diff-proposed">' + escapeHtml(c.proposed || "(none)") + '</div></div>';
+      html += '</div>';
+    }
+
+    // Action buttons or status
+    if (isApproved) {
+      html += '<div class="change-status" style="color:#22c55e;">&#10003; Approved</div>';
+    } else if (isRejected) {
+      html += '<div class="change-status" style="color:#666;">&#10007; Rejected</div>';
+    } else {
+      html += '<div class="change-actions">';
+      html += '<button class="btn btn-approve" onclick="handleApprove(\'' + proposal.id + '\', ' + ci + ', \'' + cid + '\')">Approve</button>';
+      html += '<button class="btn btn-reject" onclick="handleReject(\'' + proposal.id + '\', ' + ci + ', \'' + cid + '\')">Reject</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  card.innerHTML = html;
+  area.prepend(card);
+}
+
+async function handleApprove(proposalId, changeIndex, cid) {
+  try {
+    var result = await apiFetch("/improve/approve", {
+      method: "POST",
+      body: JSON.stringify({ proposal_id: proposalId, change_index: changeIndex }),
+    });
+    var el = document.getElementById(cid);
+    el.classList.add("approved");
+    var actions = el.querySelector(".change-actions");
+    if (actions) actions.innerHTML = '<div class="change-status" style="color:#22c55e;">&#10003; Approved</div>';
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function handleReject(proposalId, changeIndex, cid) {
+  try {
+    await apiFetch("/improve/reject", {
+      method: "POST",
+      body: JSON.stringify({ proposal_id: proposalId, change_index: changeIndex }),
+    });
+    var el = document.getElementById(cid);
+    el.classList.add("rejected");
+    var actions = el.querySelector(".change-actions");
+    if (actions) actions.innerHTML = '<div class="change-status" style="color:#666;">&#10007; Rejected</div>';
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// -- Load context + history on page load --
+
+async function loadContext() {
+  try {
+    var ctx = await apiFetch("/context");
+    var el = document.getElementById("contextSection");
+    var html = "";
+
+    var prefs = ctx.preferences || [];
+    var constraints = ctx.constraints || [];
+    var patterns = ctx.learned_patterns || [];
+
+    html += '<div class="sub-list-header">Preferences (' + prefs.length + ')</div>';
+    for (var i = 0; i < prefs.length; i++) {
+      var p = prefs[i];
+      html += '<div class="context-entry">' + escapeHtml(p.content || JSON.stringify(p)) + '<div class="context-meta">' + escapeHtml(p.source || "") + ' &mdash; ' + (p.added ? new Date(p.added).toLocaleDateString() : "") + '</div></div>';
+    }
+
+    html += '<div class="sub-list-header">Constraints (' + constraints.length + ')</div>';
+    for (var j = 0; j < constraints.length; j++) {
+      var co = constraints[j];
+      html += '<div class="context-entry">' + escapeHtml(co.content || JSON.stringify(co)) + '<div class="context-meta">' + escapeHtml(co.source || "") + ' &mdash; ' + (co.added ? new Date(co.added).toLocaleDateString() : "") + '</div></div>';
+    }
+
+    html += '<div class="sub-list-header">Learned patterns (' + patterns.length + ')</div>';
+    for (var k = 0; k < patterns.length; k++) {
+      var lp = patterns[k];
+      html += '<div class="context-entry">' + escapeHtml(lp.content || JSON.stringify(lp)) + '<div class="context-meta">' + escapeHtml(lp.source || "") + ' &mdash; ' + (lp.added ? new Date(lp.added).toLocaleDateString() : "") + '</div></div>';
+    }
+
+    if (!prefs.length && !constraints.length && !patterns.length) {
+      html = '<div style="color:#555; font-family: JetBrains Mono, monospace; font-size: 11px;">No context entries yet.</div>';
+    }
+
+    el.innerHTML = html;
+  } catch (e) {
+    document.getElementById("contextSection").innerHTML = '<div class="error-inline">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function loadHistory() {
+  try {
+    var history = await apiFetch("/improve/history");
+    var el = document.getElementById("historySection");
+    var html = "";
+
+    if (!history.length) {
+      html = '<div style="color:#555; font-family: JetBrains Mono, monospace; font-size: 11px;">No improvement history yet.</div>';
+    }
+
+    for (var i = 0; i < history.length; i++) {
+      var h = history[i];
+      var date = new Date(h.timestamp).toLocaleDateString();
+      var statusClass = h.status === "pending" ? "status-pending" : "status-resolved";
+      var changeCount = (h.approved_changes || []).length + (h.rejected_changes || []).length;
+      var totalChanges = parseProposalChanges(h.proposal).length;
+      html += '<div class="history-entry">';
+      html += '<span>' + date + '</span>';
+      html += '<span class="status-badge ' + statusClass + '">' + h.status + '</span>';
+      html += '<span>' + changeCount + '/' + totalChanges + ' changes resolved</span>';
+      html += '</div>';
+    }
+
+    el.innerHTML = html;
+
+    // Render any pending proposals
+    for (var j = 0; j < history.length; j++) {
+      var hp = history[j];
+      if (hp.status === "pending" && !document.getElementById("proposal-" + hp.id)) {
+        renderProposal(hp);
+      }
+    }
+  } catch (e) {
+    document.getElementById("historySection").innerHTML = '<div class="error-inline">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+// Load on startup
+loadContext();
+loadHistory();
 </script>
 </body>
 </html>
