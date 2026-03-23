@@ -19,6 +19,10 @@ import {
 } from "./agents/test-agent.js";
 import { deployAgent } from "./tools/deploy-tools.js";
 import { runIntegrityCheck, getIntegrityReports } from "./agents/registry-integrity-agent.js";
+import {
+  runIntelligenceScan, getFindings, getFinding, approveFinding,
+  rejectFinding, getAllSources
+} from "./agents/intelligence-update-agent.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -475,6 +479,48 @@ app.post("/integrity/alerts/:id/acknowledge", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Intelligence Update ─────────────────────────────────────────────────────
+
+app.post("/intelligence/run", async (req, res) => {
+  try { res.json(await runIntelligenceScan("manual")); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/intelligence/run/:source", async (req, res) => {
+  try { res.json(await runIntelligenceScan("manual", req.params.source)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/intelligence/findings", async (req, res) => {
+  try { res.json(await getFindings({ status: req.query.status, score: req.query.score, category: req.query.category })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/intelligence/findings/:id", async (req, res) => {
+  try {
+    const f = await getFinding(req.params.id);
+    if (!f) return res.status(404).json({ error: "Finding not found" });
+    res.json(f);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/intelligence/approve/:id", async (req, res) => {
+  try { res.json(await approveFinding(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/intelligence/reject/:id", async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    res.json(await rejectFinding(req.params.id, reason || ""));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/intelligence/sources", async (req, res) => {
+  try { res.json(await getAllSources()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Dynamic health endpoint — handles ALL agents via registry lookup
 app.get("/agents/:name/health", async (req, res) => {
   try {
@@ -497,6 +543,9 @@ app.all("/agents/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
 app.all("/improve/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
+app.all("/intelligence/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
 app.all("/integrity/*", (req, res) => {
@@ -603,12 +652,34 @@ async function registerIntegrityAgent() {
   }
 }
 
+async function registerIntelligenceAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "intelligence-update-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "intelligence-update-agent",
+      domain: "System",
+      purpose: "Scans external sources daily for Claude, Replit, and AI advancements relevant to LifeBridge. Scores findings, surfaces high-relevance items as proposals, snapshots state before any approved change.",
+      status: "Active",
+      trigger_patterns: ["intelligence", "scan sources", "what's new", "updates", "changelog"],
+      triggers: ["scheduled_daily_6am", "manual"],
+      endpoints: ["/intelligence/run", "/intelligence/findings", "/intelligence/approve/:id", "/intelligence/reject/:id", "/intelligence/sources"],
+      requires_approval: ["all — nothing auto-applies"],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: intelligence-update-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
   await registerAccountAgent();
   await registerBuilderAgent();
   await registerTestAgent();
   await registerIntegrityAgent();
+  await registerIntelligenceAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
@@ -619,6 +690,17 @@ async function start() {
   // Seed test suites for all active agents
   const seeded = await seedAllSuites();
   if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
+
+  // Daily intelligence scan at 6:00 AM UTC
+  cron.schedule("0 6 * * *", async () => {
+    try {
+      const result = await runIntelligenceScan("scheduled");
+      console.log(`[INTEL] Daily scan: ${result.findings_count} found, ${result.surfaced_count} surfaced`);
+    } catch (e) {
+      console.error(`[INTEL] Daily scan failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Intelligence Update Agent registered — daily scan at 6:00 AM UTC");
 
   // Weekly integrity scan Sunday 5:00 AM UTC
   cron.schedule("0 5 * * 0", async () => {
