@@ -24,6 +24,11 @@ import {
   runIntelligenceScan, getFindings, getFinding, approveFinding,
   rejectFinding, getAllSources
 } from "./agents/intelligence-update-agent.js";
+import {
+  getStatus as getConnectorStatus, testConnector, sendGmail, readGmail,
+  sendSlack, approveSend, getSendLog, getConfig as getConnectorConfig,
+  updateConfig as updateConnectorConfig
+} from "./agents/connectors.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -568,6 +573,56 @@ app.get("/intelligence/status", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Connectors ──────────────────────────────────────────────────────────────
+
+app.get("/connectors/status", async (req, res) => {
+  try { res.json(await getConnectorStatus()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/connectors/test", async (req, res) => {
+  try {
+    const { connector } = req.body || {};
+    if (!connector) return res.status(400).json({ error: "connector required" });
+    res.json(await testConnector(connector));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/connectors/gmail/send", async (req, res) => {
+  try { res.json(await sendGmail(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/connectors/gmail/read", async (req, res) => {
+  try { res.json(await readGmail(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/connectors/slack/send", async (req, res) => {
+  try { res.json(await sendSlack(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/connectors/approve/:id", async (req, res) => {
+  try { res.json(await approveSend(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/connectors/log", async (req, res) => {
+  try { res.json(await getSendLog()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/connectors/config", async (req, res) => {
+  try { res.json(await getConnectorConfig()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/connectors/config", async (req, res) => {
+  try { res.json(await updateConnectorConfig(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Dynamic health endpoint — handles ALL agents via registry lookup
 app.get("/agents/:name/health", async (req, res) => {
   try {
@@ -921,6 +976,9 @@ app.all("/test/*", (req, res) => {
 app.all("/improve/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
+app.all("/connectors/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
 app.all("/intelligence/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
@@ -1114,6 +1172,7 @@ async function start() {
   await registerIntegrityAgent();
   await registerIntelligenceAgent();
   await registerConnectors();
+  console.log("Connectors Agent registered — Gmail and Slack connected");
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);

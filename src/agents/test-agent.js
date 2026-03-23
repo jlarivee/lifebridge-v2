@@ -7,6 +7,7 @@
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 import { readRegistry } from "../tools/registry-tools.js";
+import { sendSystemAlert } from "./connectors.js";
 
 const STATIC_AGENTS = new Set(["test-agent"]);
 const TEST_TIMEOUT_MS = 30000;
@@ -391,6 +392,11 @@ export async function runFullTestSuite(trigger = "scheduled") {
   const errors = allResults.filter(r => r.status === "error").length;
 
   await checkDeadAgents();
+
+  if (failed > 0 || errors > 0) {
+    try { await sendSystemAlert({ message: `Test run: ${failed} failed, ${errors} errors out of ${allResults.length} cases`, severity: "WARNING", source: "test-agent" }); }
+    catch {}
+  }
 
   return {
     run_batch_id: batchId,

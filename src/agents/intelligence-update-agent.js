@@ -11,6 +11,7 @@ import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 import { readRegistry } from "../tools/registry-tools.js";
+import { sendSystemAlert } from "./connectors.js";
 import { readContext } from "../tools/context-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -222,6 +223,11 @@ async function generateProposals(findings) {
     finding.status = "proposed";
     finding.proposal_id = proposalId;
     await db.set(`intelligence:${finding.id}`, finding);
+
+    if (finding.relevance_score >= 9) {
+      try { await sendSystemAlert({ message: `High-relevance finding (${finding.relevance_score}/10): ${finding.title}`, severity: "INFO", source: "intelligence-update-agent" }); }
+      catch {}
+    }
   }
   return surfaced.length;
 }

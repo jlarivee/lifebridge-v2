@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import { v4 as uuidv4 } from "uuid";
 import { readRegistry } from "../tools/registry-tools.js";
 import * as db from "../db.js";
+import { sendSystemAlert } from "./connectors.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AGENTS_DIR = join(__dirname, ".");
@@ -187,6 +188,12 @@ export async function runIntegrityCheck(trigger = "manual", agentName = null) {
   };
 
   await db.set(`integrity-report:${report.report_id}`, report);
+
+  if (status === "critical") {
+    try { await sendSystemAlert({ message: `${criticals} critical issue(s): ${report.summary}`, severity: "CRITICAL", source: "registry-integrity-agent" }); }
+    catch {}
+  }
+
   return report;
 }
 
