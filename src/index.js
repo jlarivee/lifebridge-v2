@@ -7,8 +7,9 @@ import { route } from "./agents/master-agent.js";
 import { runImprovementCycle } from "./agents/improvement-agent.js";
 import { logFeedback, readRecentLog } from "./tools/log-tools.js";
 import { approveChange, rejectChange } from "./tools/approval-tools.js";
-import { readRegistry } from "./tools/registry-tools.js";
+import { readRegistry, writeRegistry } from "./tools/registry-tools.js";
 import { readContext } from "./tools/context-tools.js";
+import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
 import * as db from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,14 +100,52 @@ app.get("/context", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/agents/account", async (req, res) => {
+  try {
+    const { input, context } = req.body || {};
+    if (!input) return res.status(400).json({ error: "input required" });
+    const result = await runAccountAgent(input, context || {});
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
 // ── Startup ─────────────────────────────────────────────────────────────────
 
+async function registerAccountAgent() {
+  const registry = await readRegistry();
+  const alreadyRegistered = (registry.agents || []).some(
+    (a) => a.name === "life-sciences-account-agent"
+  );
+  if (!alreadyRegistered) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "life-sciences-account-agent",
+      domain: "Work",
+      trigger_patterns: [
+        "account brief", "meeting prep", "executive briefing",
+        "stakeholder dossier", "competitive positioning",
+        "outreach email", "follow up", "account strategy",
+        "Pfizer", "BMS", "Bristol Myers", "Novartis", "Lilly",
+        "Cigna", "Elevance", "pharma", "payer", "SCA", "ProServe"
+      ],
+      tools: ["web_search"],
+      requires_approval: ["outbound email", "external sharing"],
+      status: "Active",
+    });
+    await writeRegistry(registry);
+    console.log("Registered: life-sciences-account-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
+  await registerAccountAgent();
 
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {

@@ -228,6 +228,12 @@ Each entry contains:
 The master agent consults the registry on every request. New agents are added after successful
 build and validation. Gaps are logged automatically when a partial match is routed.
 
+When a request involves any of Josh's pharma or payer accounts
+(Pfizer, BMS, Novartis, Lilly, Cigna, Elevance), executive meeting
+prep, competitive positioning against Microsoft or Google in life
+sciences, SCA deal work, or outreach to pharma/payer executives —
+route to life-sciences-account-agent, not Claude-native.
+
 ---
 
 ## Connectors Registry
