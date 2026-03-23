@@ -10,7 +10,9 @@ import { approveChange, rejectChange } from "./tools/approval-tools.js";
 import { readRegistry, writeRegistry } from "./tools/registry-tools.js";
 import { readContext } from "./tools/context-tools.js";
 import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
+import { runAgentBuilder } from "./agents/agent-builder-agent.js";
 import * as db from "./db.js";
+import Database from "@replit/database";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -111,6 +113,32 @@ app.post("/agents/account", async (req, res) => {
   }
 });
 
+app.post("/agents/builder", async (req, res) => {
+  try {
+    const { build_brief, context } = req.body || {};
+    if (!build_brief) return res.status(400).json({ error: "build_brief required" });
+    const result = await runAgentBuilder(build_brief, context || {});
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/system/agent-loaded", async (req, res) => {
+  const { agent, timestamp } = req.body || {};
+  console.log(`\n[LIFEBRIDGE] New agent hot-loaded: ${agent} at ${timestamp}`);
+  console.log(`[LIFEBRIDGE] Route: POST /agents/${agent}`);
+  console.log(`[LIFEBRIDGE] Registry updated. System ready.\n`);
+  try {
+    const rawDb = new Database();
+    const registryRaw = await rawDb.get("registry");
+    const registry = registryRaw ? JSON.parse(registryRaw) : { agents: [] };
+    res.json({ success: true, message: `Agent ${agent} is now live`, total_agents: registry.agents?.length || 0 });
+  } catch (e) {
+    res.json({ success: true, message: `Agent ${agent} hot-loaded` });
+  }
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
@@ -143,9 +171,33 @@ async function registerAccountAgent() {
   }
 }
 
+async function registerBuilderAgent() {
+  const registry = await readRegistry();
+  const alreadyRegistered = (registry.agents || []).some(
+    (a) => a.name === "agent-builder-agent"
+  );
+  if (!alreadyRegistered) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "agent-builder-agent",
+      domain: "System",
+      trigger_patterns: [
+        "build brief", "build this agent", "create a new agent",
+        "new agent needed", "deploy an agent", "agent builder", "BUILD BRIEF"
+      ],
+      tools: ["web_search"],
+      requires_approval: ["all deployments"],
+      status: "Active",
+    });
+    await writeRegistry(registry);
+    console.log("Registered: agent-builder-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
   await registerAccountAgent();
+  await registerBuilderAgent();
 
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {

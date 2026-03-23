@@ -234,6 +234,10 @@ prep, competitive positioning against Microsoft or Google in life
 sciences, SCA deal work, or outreach to pharma/payer executives —
 route to life-sciences-account-agent, not Claude-native.
 
+When the master agent generates a BUILD BRIEF for any new agent,
+route it to agent-builder-agent. The build brief output is the
+direct input — pass it as the build_brief field in context.
+
 ---
 
 ## Connectors Registry
