@@ -2,6 +2,7 @@ import express from "express";
 import cron from "node-cron";
 import path from "path";
 import { fileURLToPath } from "url";
+import Anthropic from "@anthropic-ai/sdk";
 import { initDefaults } from "./db.js";
 import { route } from "./agents/master-agent.js";
 import { runImprovementCycle } from "./agents/improvement-agent.js";
@@ -28,6 +29,7 @@ import * as db from "./db.js";
 import Database from "@replit/database";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const client = new Anthropic();
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
@@ -559,11 +561,225 @@ app.get("/agents/:name/health", async (req, res) => {
   }
 });
 
+// ── Slab Inventory Action Endpoint ───────────────────────────────────────────
+
+app.post("/agents/slab-inventory-tracker-agent", async (req, res) => {
+  try {
+    const { request: reqText, input, context } = req.body || {};
+    const userRequest = reqText || input || "";
+    if (!userRequest) return res.status(400).json({ error: "request or input required" });
+
+    // Load current inventory
+    const slabKeys = await db.list("slab:");
+    const inventory = [];
+    for (const key of slabKeys) {
+      const slab = await db.get(key);
+      if (slab) {
+        slab.age_days = Math.floor((Date.now() - new Date(slab.cut_date || slab.created_at).getTime()) / 86400000);
+        slab.aging_alert = slab.age_days >= 60 && slab.status !== "sold";
+        inventory.push(slab);
+      }
+    }
+
+    const sysPrompt = `You are the Slab Inventory Tracker for Three Rivers Slab Co.
+Current inventory: ${inventory.length} slabs.
+${JSON.stringify(inventory.slice(0, 50), null, 2)}
+
+Parse the user's request and return ONLY valid JSON:
+{
+  "action": "add|view|update|search|aging_report",
+  "data": (action-specific — for "add": the new slab record with fields species/thickness/length_inches/width_inches/cut_date/asking_price/status/yard_location/notes; for "update": {id, ...fields_to_update}; for "search": {filters}; for "view" and "aging_report": null),
+  "response_text": "human-readable summary of what was done"
+}`;
+
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system: sysPrompt,
+      messages: [{ role: "user", content: userRequest }],
+    });
+
+    const text = resp.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+    let parsed;
+    try {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}") + 1;
+      parsed = JSON.parse(text.slice(start, end));
+    } catch {
+      return res.json({ success: true, action_taken: "query", result: text, data: null });
+    }
+
+    // Execute the action
+    if (parsed.action === "add" && parsed.data) {
+      const id = uuidv4();
+      const slab = {
+        id, ...parsed.data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        alert_sent: false,
+      };
+      await db.set(`slab:${id}`, slab);
+      return res.json({ success: true, action_taken: "add", result: parsed.response_text, data: slab });
+    }
+
+    if (parsed.action === "update" && parsed.data?.id) {
+      const existing = await db.get(`slab:${parsed.data.id}`);
+      if (!existing) return res.json({ success: false, action_taken: "update", result: "Slab not found", data: null });
+      Object.assign(existing, parsed.data, { updated_at: new Date().toISOString() });
+      await db.set(`slab:${existing.id}`, existing);
+      return res.json({ success: true, action_taken: "update", result: parsed.response_text, data: existing });
+    }
+
+    if (parsed.action === "aging_report") {
+      const aging = inventory.filter(s => s.age_days >= 60 && s.status !== "sold");
+      return res.json({ success: true, action_taken: "aging_report", result: parsed.response_text || `${aging.length} slabs aged 60+ days`, data: aging });
+    }
+
+    // view, search, or any other action
+    return res.json({ success: true, action_taken: parsed.action || "query", result: parsed.response_text || text, data: parsed.data || inventory });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Intelligence Action Endpoint ────────────────────────────────────────────
+
+app.post("/agents/intelligence-update-agent", async (req, res) => {
+  try {
+    const { request: reqText, input, context } = req.body || {};
+    const userRequest = reqText || input || "";
+    if (!userRequest) return res.status(400).json({ error: "request or input required" });
+
+    // Load findings and sources
+    const findingKeys = await db.list("intelligence:");
+    const findings = [];
+    for (const key of findingKeys) {
+      const f = await db.get(key);
+      if (f) findings.push(f);
+    }
+    findings.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+
+    const pending = findings.filter(f => f.status === "proposed" || f.status === "surfaced");
+    const byCategory = {};
+    for (const f of findings) {
+      byCategory[f.category] = (byCategory[f.category] || 0) + 1;
+    }
+    const byStatus = {};
+    for (const f of findings) {
+      byStatus[f.status] = (byStatus[f.status] || 0) + 1;
+    }
+
+    const lower = userRequest.toLowerCase();
+
+    // Direct action matching (no Claude call needed for simple queries)
+    if (lower.includes("pending") || lower.includes("proposal")) {
+      return res.json({
+        success: true,
+        action_taken: "list_pending_proposals",
+        result: `${pending.length} pending proposals`,
+        data: pending.map(f => ({
+          id: f.id, title: f.title, source: f.source,
+          score: f.relevance_score, category: f.category,
+          suggested_action: f.suggested_action, status: f.status,
+        })),
+      });
+    }
+
+    if (lower.includes("summary") || lower.includes("overview")) {
+      return res.json({
+        success: true,
+        action_taken: "findings_summary",
+        result: `${findings.length} total findings across ${Object.keys(byCategory).length} categories`,
+        data: {
+          total: findings.length,
+          by_category: byCategory,
+          by_status: byStatus,
+          top_scored: findings.slice(0, 5).map(f => ({ title: f.title, score: f.relevance_score, category: f.category })),
+        },
+      });
+    }
+
+    if (lower.includes("recommend") || lower.includes("approve first") || lower.includes("priorit")) {
+      const prioritized = pending
+        .sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
+        .slice(0, 5);
+      return res.json({
+        success: true,
+        action_taken: "approval_recommendation",
+        result: `Top ${prioritized.length} proposals to approve first, by relevance score`,
+        data: prioritized.map((f, i) => ({
+          rank: i + 1, id: f.id, title: f.title,
+          score: f.relevance_score, category: f.category,
+          reason: f.reason, suggested_action: f.suggested_action,
+        })),
+      });
+    }
+
+    // Category filter
+    const categories = ["new_capability", "model_update", "tool_integration", "platform_change", "best_practice", "deprecation"];
+    const matchedCat = categories.find(c => lower.includes(c.replace("_", " ")));
+    if (matchedCat) {
+      const filtered = findings.filter(f => f.category === matchedCat);
+      return res.json({
+        success: true,
+        action_taken: "filter_by_category",
+        result: `${filtered.length} findings in category: ${matchedCat}`,
+        data: filtered.map(f => ({ id: f.id, title: f.title, score: f.relevance_score, status: f.status, summary: f.summary })),
+      });
+    }
+
+    // Fallback — return summary
+    return res.json({
+      success: true,
+      action_taken: "general_query",
+      result: `${findings.length} findings total, ${pending.length} pending review. Ask about: pending proposals, summary, recommendations, or filter by category.`,
+      data: { total: findings.length, pending: pending.length, categories: Object.keys(byCategory) },
+    });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Dynamic Agent Action Endpoint (catch-all for registered agents) ─────────
+
+app.post("/agents/:name", async (req, res) => {
+  try {
+    const registry = await readRegistry();
+    const agent = (registry.agents || []).find(a => a.name === req.params.name);
+    if (!agent) return res.status(404).json({ error: `Agent ${req.params.name} not found in registry` });
+    const isActive = agent.status === "Active" || agent.status === "active";
+    if (!isActive) return res.status(503).json({ error: `Agent ${req.params.name} is not active` });
+
+    const { request: reqText, input, context } = req.body || {};
+    const userRequest = reqText || input || "";
+    if (!userRequest) return res.status(400).json({ error: "request or input required" });
+
+    // Try to load the agent's skill file
+    const { existsSync, readFileSync } = await import("fs");
+    const { join } = await import("path");
+    const skillPath = join(__dirname, `skills/${req.params.name}.md`);
+    const skillContent = existsSync(skillPath) ? readFileSync(skillPath, "utf8") : `You are the ${req.params.name} agent.`;
+
+    const aiClient = new Anthropic();
+    const resp = await aiClient.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      system: skillContent,
+      messages: [{ role: "user", content: userRequest }],
+    });
+
+    const output = resp.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+    res.json({ agent: req.params.name, request: userRequest, output, requires_approval: false });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // JSON 404 for API/test paths — prevents HTML fallback
 app.all("/test/*", (req, res) => {
-  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
-});
-app.all("/agents/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
 app.all("/improve/*", (req, res) => {

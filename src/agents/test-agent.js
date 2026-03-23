@@ -28,6 +28,7 @@ const DEFAULT_CASES = {
   ],
   "slab-inventory-tracker-agent": [
     { input: "Health: slab-inventory-tracker-agent", type: "endpoint", method: "GET", path: "/agents/slab-inventory-tracker-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { input: "Action: show inventory status", type: "endpoint", method: "POST", path: "/agents/slab-inventory-tracker-agent", expect_status: 200, expect_fields: ["success", "action_taken"], body: { request: "show me current inventory status" } },
   ],
   "registry-integrity-agent": [
     { input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
@@ -42,6 +43,7 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
     { input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
+    { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "data"], body: { request: "list pending proposals" } },
   ],
 };
 
@@ -56,6 +58,7 @@ export async function initTestSuite(agentName) {
     type: d.type || "route",
     method: d.method || "POST",
     path: d.path || null,
+    body: d.body || null,
     expect_status: d.expect_status || 200,
     expect_fields: d.expect_fields || null,
     expected_output_shape: { required_fields: d.expect_fields || ["agent", "output"] },
@@ -129,13 +132,13 @@ export async function seedAllSuites() {
 
 // ── Test Execution ──────────────────────────────────────────────────────────
 
-async function callEndpoint(method, path) {
+async function callEndpoint(method, path, requestBody) {
   const start = Date.now();
   try {
     const opts = { method, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) };
     if (method === "POST") {
       opts.headers = { "Content-Type": "application/json" };
-      opts.body = JSON.stringify({});
+      opts.body = JSON.stringify(requestBody || {});
     }
     const resp = await fetch(`http://localhost:${PORT}${path}`, opts);
     const contentType = resp.headers.get("content-type") || "";
@@ -215,7 +218,7 @@ export async function runTestCase(agentName, testCase, trigger) {
 
   if (testCase.type === "endpoint" && testCase.path) {
     // Endpoint test — hit HTTP directly
-    const resp = await callEndpoint(testCase.method || "GET", testCase.path);
+    const resp = await callEndpoint(testCase.method || "GET", testCase.path, testCase.body);
     duration_ms = resp.duration_ms;
     error = resp.error;
 
