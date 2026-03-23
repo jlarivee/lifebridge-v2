@@ -601,6 +601,19 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
+  // Register health endpoints for all active agents
+  const reg = await readRegistry();
+  for (const agent of (reg.agents || []).filter(a => a.status === "Active")) {
+    const healthPath = `/agents/${agent.name}/health`;
+    const existing = app._router?.stack?.some(l => l.route?.path === healthPath);
+    if (!existing) {
+      app.get(healthPath, (req, res) => {
+        res.json({ status: "ok", agent: agent.name, checked_at: new Date().toISOString() });
+      });
+    }
+  }
+  console.log(`Health endpoints registered for ${reg.agents?.filter(a => a.status === "Active").length || 0} agents`);
+
   // Weekly integrity scan Sunday 5:00 AM UTC
   cron.schedule("0 5 * * 0", async () => {
     try {

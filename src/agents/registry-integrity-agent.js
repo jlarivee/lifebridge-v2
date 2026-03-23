@@ -68,27 +68,29 @@ export async function runIntegrityCheck(trigger = "manual", agentName = null) {
       agentHealthy = false;
     }
 
-    // 3. Route responds
+    // 3. Route responds (via dedicated health endpoint)
     try {
-      const resp = await fetch(`http://localhost:${PORT}/agents/${name}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: "health check", context: {} }),
-        signal: AbortSignal.timeout(10000),
+      const resp = await fetch(`http://localhost:${PORT}/agents/${name}/health`, {
+        signal: AbortSignal.timeout(5000),
       });
       if (resp.status === 404) {
         issues.push({
           agent_name: name, severity: "critical", type: "route_not_responding",
-          detail: `POST /agents/${name} returned 404`,
-          recommended_action: `Route not registered — restart server or re-deploy agent`,
+          detail: `GET /agents/${name}/health returned 404 — no health endpoint registered`,
+          recommended_action: `Restart server to register health endpoints, or re-deploy agent`,
         });
         agentHealthy = false;
+      } else if (resp.status !== 200) {
+        issues.push({
+          agent_name: name, severity: "warning", type: "route_not_responding",
+          detail: `GET /agents/${name}/health returned HTTP ${resp.status}`,
+          recommended_action: `Check agent for errors`,
+        });
       }
-      // 400/500 are acceptable — means the route exists but the request was bad or errored
     } catch (e) {
       issues.push({
         agent_name: name, severity: "critical", type: "route_not_responding",
-        detail: `POST /agents/${name} failed: ${e.message}`,
+        detail: `GET /agents/${name}/health failed: ${e.message}`,
         recommended_action: `Route unreachable — check server status`,
       });
       agentHealthy = false;
