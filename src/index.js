@@ -112,6 +112,27 @@ app.get("/registry", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/registry/update", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const registry = await readRegistry();
+    if (body.agent) {
+      registry.agents = registry.agents || [];
+      registry.agents.push(body.agent);
+    }
+    if (body.domain_signal) {
+      registry.domain_signals = registry.domain_signals || [];
+      registry.domain_signals.push(body.domain_signal);
+    }
+    if (body.connector) {
+      registry.connectors = registry.connectors || [];
+      registry.connectors.push(body.connector);
+    }
+    await writeRegistry(registry);
+    res.json({ status: "updated", registry });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/context", async (req, res) => {
   try { res.json(await readContext()); }
   catch (e) { res.status(500).json({ error: e.message }); }
