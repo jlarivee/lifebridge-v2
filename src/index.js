@@ -606,7 +606,7 @@ Parse the user's request and return ONLY valid JSON:
       const end = text.lastIndexOf("}") + 1;
       parsed = JSON.parse(text.slice(start, end));
     } catch {
-      return res.json({ success: true, action_taken: "query", result: text, data: null });
+      return res.json({ agent: "slab-inventory-tracker-agent", output: text, success: true, action_taken: "query", result: text, data: null });
     }
 
     // Execute the action
@@ -619,24 +619,26 @@ Parse the user's request and return ONLY valid JSON:
         alert_sent: false,
       };
       await db.set(`slab:${id}`, slab);
-      return res.json({ success: true, action_taken: "add", result: parsed.response_text, data: slab });
+      return res.json({ agent: "slab-inventory-tracker-agent", output: parsed.response_text || `Added ${slab.species} slab ${slab.id}`, success: true, action_taken: "add", result: parsed.response_text, data: slab });
     }
 
     if (parsed.action === "update" && parsed.data?.id) {
       const existing = await db.get(`slab:${parsed.data.id}`);
-      if (!existing) return res.json({ success: false, action_taken: "update", result: "Slab not found", data: null });
+      if (!existing) return res.json({ agent: "slab-inventory-tracker-agent", output: "Slab not found", success: false, action_taken: "update", result: "Slab not found", data: null });
       Object.assign(existing, parsed.data, { updated_at: new Date().toISOString() });
       await db.set(`slab:${existing.id}`, existing);
-      return res.json({ success: true, action_taken: "update", result: parsed.response_text, data: existing });
+      return res.json({ agent: "slab-inventory-tracker-agent", output: parsed.response_text || `Updated slab ${existing.id}`, success: true, action_taken: "update", result: parsed.response_text, data: existing });
     }
 
     if (parsed.action === "aging_report") {
       const aging = inventory.filter(s => s.age_days >= 60 && s.status !== "sold");
-      return res.json({ success: true, action_taken: "aging_report", result: parsed.response_text || `${aging.length} slabs aged 60+ days`, data: aging });
+      const msg = parsed.response_text || `${aging.length} slabs aged 60+ days`;
+      return res.json({ agent: "slab-inventory-tracker-agent", output: msg, success: true, action_taken: "aging_report", result: msg, data: aging });
     }
 
     // view, search, or any other action
-    return res.json({ success: true, action_taken: parsed.action || "query", result: parsed.response_text || text, data: parsed.data || inventory });
+    const msg = parsed.response_text || text;
+    return res.json({ agent: "slab-inventory-tracker-agent", output: msg, success: true, action_taken: parsed.action || "query", result: msg, data: parsed.data || inventory });
 
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -672,70 +674,39 @@ app.post("/agents/intelligence-update-agent", async (req, res) => {
 
     const lower = userRequest.toLowerCase();
 
-    // Direct action matching (no Claude call needed for simple queries)
+    const A = "intelligence-update-agent";
+    function intelResp(actionTaken, resultText, data) {
+      return { agent: A, output: resultText, success: true, action_taken: actionTaken, result: resultText, data };
+    }
+
     if (lower.includes("pending") || lower.includes("proposal")) {
-      return res.json({
-        success: true,
-        action_taken: "list_pending_proposals",
-        result: `${pending.length} pending proposals`,
-        data: pending.map(f => ({
-          id: f.id, title: f.title, source: f.source,
-          score: f.relevance_score, category: f.category,
-          suggested_action: f.suggested_action, status: f.status,
-        })),
-      });
+      return res.json(intelResp("list_pending_proposals", `${pending.length} pending proposals`,
+        pending.map(f => ({ id: f.id, title: f.title, source: f.source, score: f.relevance_score, category: f.category, suggested_action: f.suggested_action, status: f.status }))));
     }
 
     if (lower.includes("summary") || lower.includes("overview")) {
-      return res.json({
-        success: true,
-        action_taken: "findings_summary",
-        result: `${findings.length} total findings across ${Object.keys(byCategory).length} categories`,
-        data: {
-          total: findings.length,
-          by_category: byCategory,
-          by_status: byStatus,
-          top_scored: findings.slice(0, 5).map(f => ({ title: f.title, score: f.relevance_score, category: f.category })),
-        },
-      });
+      return res.json(intelResp("findings_summary", `${findings.length} total findings across ${Object.keys(byCategory).length} categories`,
+        { total: findings.length, by_category: byCategory, by_status: byStatus, top_scored: findings.slice(0, 5).map(f => ({ title: f.title, score: f.relevance_score, category: f.category })) }));
     }
 
     if (lower.includes("recommend") || lower.includes("approve first") || lower.includes("priorit")) {
-      const prioritized = pending
-        .sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
-        .slice(0, 5);
-      return res.json({
-        success: true,
-        action_taken: "approval_recommendation",
-        result: `Top ${prioritized.length} proposals to approve first, by relevance score`,
-        data: prioritized.map((f, i) => ({
-          rank: i + 1, id: f.id, title: f.title,
-          score: f.relevance_score, category: f.category,
-          reason: f.reason, suggested_action: f.suggested_action,
-        })),
-      });
+      const prioritized = pending.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0)).slice(0, 5);
+      return res.json(intelResp("approval_recommendation", `Top ${prioritized.length} proposals to approve first, by relevance score`,
+        prioritized.map((f, i) => ({ rank: i + 1, id: f.id, title: f.title, score: f.relevance_score, category: f.category, reason: f.reason, suggested_action: f.suggested_action }))));
     }
 
-    // Category filter
     const categories = ["new_capability", "model_update", "tool_integration", "platform_change", "best_practice", "deprecation"];
     const matchedCat = categories.find(c => lower.includes(c.replace("_", " ")));
     if (matchedCat) {
       const filtered = findings.filter(f => f.category === matchedCat);
-      return res.json({
-        success: true,
-        action_taken: "filter_by_category",
-        result: `${filtered.length} findings in category: ${matchedCat}`,
-        data: filtered.map(f => ({ id: f.id, title: f.title, score: f.relevance_score, status: f.status, summary: f.summary })),
-      });
+      return res.json(intelResp("filter_by_category", `${filtered.length} findings in category: ${matchedCat}`,
+        filtered.map(f => ({ id: f.id, title: f.title, score: f.relevance_score, status: f.status, summary: f.summary }))));
     }
 
-    // Fallback — return summary
-    return res.json({
-      success: true,
-      action_taken: "general_query",
-      result: `${findings.length} findings total, ${pending.length} pending review. Ask about: pending proposals, summary, recommendations, or filter by category.`,
-      data: { total: findings.length, pending: pending.length, categories: Object.keys(byCategory) },
-    });
+    // Fallback
+    return res.json(intelResp("general_query",
+      `${findings.length} findings total, ${pending.length} pending review. Ask about: pending proposals, summary, recommendations, or filter by category.`,
+      { total: findings.length, pending: pending.length, categories: Object.keys(byCategory) }));
 
   } catch (e) {
     res.status(500).json({ error: e.message });
