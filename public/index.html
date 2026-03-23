@@ -1538,9 +1538,9 @@ body {
   border-radius: 50%;
 }
 
-.legend-dot.hub { background: var(--accent-hub); }
-.legend-dot.spoke { background: var(--accent-teal); }
-.legend-dot.empty { background: var(--text-muted); border: 1px dashed var(--text-muted); background: transparent; }
+.legend-dot.legend-hub { background: var(--accent-hub); }
+.legend-dot.legend-spoke { background: var(--accent-teal); }
+.legend-dot.legend-empty { border: 1px dashed var(--text-muted); background: transparent; }
 
 .landscape-hint {
   position: absolute;
@@ -1785,9 +1785,9 @@ body {
       </div>
       <div class="landscape-hint">Click an agent to open its workspace</div>
       <div class="landscape-legend">
-        <div class="landscape-legend-item"><span class="legend-dot hub"></span> Master Hub</div>
-        <div class="landscape-legend-item"><span class="legend-dot spoke"></span> Active Agent</div>
-        <div class="landscape-legend-item"><span class="legend-dot empty"></span> Available Slot</div>
+        <div class="landscape-legend-item"><span class="legend-dot legend-hub"></span> Master Hub</div>
+        <div class="landscape-legend-item"><span class="legend-dot legend-spoke"></span> Active Agent</div>
+        <div class="landscape-legend-item"><span class="legend-dot legend-empty"></span> Available Slot</div>
       </div>
     </div>
   </div>
