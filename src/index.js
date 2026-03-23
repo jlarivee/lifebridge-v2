@@ -10,7 +10,7 @@ import { approveChange, rejectChange } from "./tools/approval-tools.js";
 import { readRegistry, writeRegistry } from "./tools/registry-tools.js";
 import { readContext } from "./tools/context-tools.js";
 import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
-import { runAgentBuilder } from "./agents/agent-builder-agent.js";
+import { runAgentBuilder, continueBuild } from "./agents/agent-builder-agent.js";
 import * as db from "./db.js";
 import Database from "@replit/database";
 
@@ -118,6 +118,18 @@ app.post("/agents/builder", async (req, res) => {
     const { build_brief, context } = req.body || {};
     if (!build_brief) return res.status(400).json({ error: "build_brief required" });
     const result = await runAgentBuilder(build_brief, context || {});
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/agents/builder/continue", async (req, res) => {
+  try {
+    const { session_id, message } = req.body || {};
+    if (!session_id) return res.status(400).json({ error: "session_id required" });
+    const userMsg = message || "Approved. Proceed to the next phase.";
+    const result = await continueBuild(session_id, userMsg);
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
