@@ -474,6 +474,20 @@ app.post("/integrity/alerts/:id/acknowledge", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Dynamic health endpoint — handles ALL agents via registry lookup
+app.get("/agents/:name/health", async (req, res) => {
+  try {
+    const registry = await readRegistry();
+    const agent = (registry.agents || []).find(a => a.name === req.params.name);
+    if (!agent) return res.status(404).json({ error: "Agent not found in registry" });
+    const isActive = agent.status === "Active" || agent.status === "active";
+    if (!isActive) return res.status(503).json({ status: "inactive", agent: agent.name });
+    res.json({ status: "ok", agent: agent.name, domain: agent.domain, checked_at: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // JSON 404 for API/test paths — prevents HTML fallback
 app.all("/test/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -601,18 +615,7 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
-  // Register health endpoints for all active agents
-  const reg = await readRegistry();
-  for (const agent of (reg.agents || []).filter(a => a.status === "Active")) {
-    const healthPath = `/agents/${agent.name}/health`;
-    const existing = app._router?.stack?.some(l => l.route?.path === healthPath);
-    if (!existing) {
-      app.get(healthPath, (req, res) => {
-        res.json({ status: "ok", agent: agent.name, checked_at: new Date().toISOString() });
-      });
-    }
-  }
-  console.log(`Health endpoints registered for ${reg.agents?.filter(a => a.status === "Active").length || 0} agents`);
+  // Health endpoints handled by dynamic route registered before catch-all
 
   // Weekly integrity scan Sunday 5:00 AM UTC
   cron.schedule("0 5 * * 0", async () => {

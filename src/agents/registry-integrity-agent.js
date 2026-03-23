@@ -32,7 +32,7 @@ const PORT = process.env.PORT || 5000;
  */
 export async function runIntegrityCheck(trigger = "manual", agentName = null) {
   const registry = await readRegistry();
-  const allAgents = (registry.agents || []).filter(a => a.status === "Active");
+  const allAgents = (registry.agents || []).filter(a => a.status === "Active" || a.status === "active");
   const agents = agentName
     ? allAgents.filter(a => a.name === agentName)
     : allAgents;
