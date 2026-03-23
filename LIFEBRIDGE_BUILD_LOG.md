@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.0 (in progress)  
+**Current version:** v2.1 (live)  
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -132,36 +132,38 @@ The master agent learns domain signals by asking — never from hardcoded assump
 
 ---
 
-### v2.0 — Rebuild on Claude Agent SDK (IN PROGRESS)
+### v2.0 — Rebuild on Claude Agent SDK
 **Why rebuild:**
 - Flask was a web app pretending to be an agent runtime
 - Claude Agent SDK is the native runtime — orchestrator, sub-agents, tools, skills all built in
 - Replit Database replaces flat JSON files — persistent, reliable, no sync needed
 - UI issues in v1 were a symptom of the wrong architecture
 
-**Stack:** JavaScript, Claude Agent SDK (@anthropic-ai/claude-agent-sdk), Replit Database (@replit/database), Express, node-cron  
-**Repo:** github.com/jlarivee/lifebridge-v2  
-**Deployment:** Reserved VM (always-on, event-driven)  
+**Stack:** JavaScript, Anthropic SDK (@anthropic-ai/sdk), Replit Database (@replit/database), Express, node-cron
+**Repo:** github.com/jlarivee/lifebridge-v2
+**Deployment:** Reserved VM (always-on, event-driven)
+**Status:** Live
 
 **Project structure:**
 ```
 src/
   agents/
-    master-agent.js      ← orchestrator, loads master-agent skill
-    improvement-agent.js ← separate process, reads logs, proposes changes
-    index.js             ← entry point, exposes route/improve/approve/reject
+    master-agent.js                  ← orchestrator, loads master-agent skill
+    improvement-agent.js             ← separate process, reads logs, proposes changes
+    life-sciences-account-agent.js   ← first spoke agent (v2.1)
   skills/
-    master-agent.md      ← full system prompt (see below)
-    improvement-agent.md ← improvement agent instructions
+    master-agent.md                  ← full system prompt
+    improvement-agent.md             ← improvement agent instructions
+    life-sciences-account-agent.md   ← account intelligence skill (v2.1)
   tools/
     registry-tools.js    ← readRegistry, writeRegistry
     context-tools.js     ← readContext, writeContext
     log-tools.js         ← logRequest, logFeedback, readRecentLog
     approval-tools.js    ← approveChange, rejectChange
-  mcpServers/            ← future spoke agent connectors
-  permissions/
-    master-agent.js      ← read: all DB, write: request log only
-    improvement-agent.js ← read: all DB, write: improvement history only
+  db.js                  ← Replit Database wrapper
+  index.js               ← Express server, all routes, startup, cron
+public/
+  index.html             ← command center UI
 .replit                  ← run = "node src/index.js"
 replit.nix               ← nodejs_20
 package.json             ← all dependencies
@@ -176,33 +178,55 @@ package.json             ← all dependencies
 - UI design and behavior
 
 **What changes:**
-- Runtime: Flask → Claude Agent SDK
+- Runtime: Flask → Anthropic SDK + Express
 - State: flat JSON files → Replit Database
 - Language: Python → JavaScript
 - Deployment: always-on Reserved VM from day one
 
 ---
 
-## The Master Agent System Prompt (Current — v1.3)
+### v2.1 — First Spoke Agent + Auto-Execution
+**What was built:**
 
-This is the live system prompt as of v1.3. Stored as src/skills/master-agent.md in v2.
+**Life Sciences Account Intelligence Agent:**
+- src/skills/life-sciences-account-agent.md — 200-line skill file with Josh's full account portfolio (Pfizer, BMS, Novartis, Lilly, Cigna, Elevance), Project Helix framework, SCA anatomy, TAM/TAS/TOS, competitive landscape (Microsoft primary, Google secondary), AWS differentiators, five output formats (executive briefing, meeting prep dossier, competitive positioning, outreach email, account strategy narrative), research protocol (web search before every output), writing standards (Amazon narrative style), and approval requirements
+- src/agents/life-sciences-account-agent.js — calls Anthropic API with web search tool enabled, returns structured output with requires_approval flag for email/send/outreach requests
+- POST /agents/account endpoint — direct access to the spoke agent
+- Auto-registration: on startup, checks Replit Database registry and adds the agent with 20+ trigger patterns if not present
+- Master agent routing instruction added to system prompt: pharma/payer account work routes to this agent, not Claude-native
 
-```
-You are the master agent of the LifeBridge autonomous agent operating system. You are not
-an assistant. You are an orchestration intelligence — the central decision-maker that receives
-every request, classifies it, determines how to fulfill it, and routes it to the right agent
-or workflow. You do not execute tasks directly unless no other agent is appropriate.
+**Automatic Spoke Agent Execution in UI:**
+- UI parses "Route to:" field from every routing package
+- Generic AGENT_ROUTES map: `{"life-sciences-account-agent": "/agents/account"}`
+- When routed to a spoke agent, UI automatically calls the agent endpoint with original input + parsed "Context passed:" field
+- Animated loading state: "Agent running — searching for current signals..." with cycling dots (400ms)
+- Agent output displays below routing package in green-bordered section: "AGENT OUTPUT — [agent-name]"
+- REQUIRES APPROVAL banner shown for email/outreach requests
+- 60-second AbortController timeout with clear error display
+- Feedback buttons ([Looks good] / [Something's wrong]) appear after agent output, not after routing package
+- When no spoke agent matches (Claude-native or BUILD BRIEF), feedback buttons appear immediately
+- Adding a new spoke agent requires one line in AGENT_ROUTES + one endpoint
 
-[Full content in src/skills/master-agent.md — identical to system-prompt.txt in v1]
-```
+**DOM timing fix:** Agent call fires after card is prepended to DOM (not via setTimeout), preventing null element references that caused the initial "nothing showing" bug
+
+---
+
+## The Master Agent System Prompt (Current — v2.1)
+
+Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
 
 ---
 
 ## Capability Registry (Current State)
 
-Empty — no spoke agents built yet. claude_capabilities populated:
-- web_search, code_execution, file_reading, api_calls, 
-  artifact_creation, structured_reasoning, skill_invocation
+**Agents:**
+| Agent | Domain | Status | Trigger Patterns |
+|---|---|---|---|
+| life-sciences-account-agent | Work | Active | account brief, meeting prep, executive briefing, stakeholder dossier, competitive positioning, outreach email, follow up, account strategy, Pfizer, BMS, Novartis, Lilly, Cigna, Elevance, pharma, payer, SCA, ProServe |
+
+**Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
+
+**Connectors:** None registered yet
 
 ---
 
@@ -218,28 +242,27 @@ Empty — no spoke agents built yet. claude_capabilities populated:
 
 ---
 
-## What Gets Built Next (After v2.0 is Live)
+## What Gets Built Next
 
-### Immediate — verify v2.0
-Nine checks to confirm v2.0 is working:
-1. POST /route returns { id, confidence, response } with valid routing package
-2. POST /route/feedback updates Replit Database correctly
-3. POST /improve/run returns structured proposal
-4. POST /improve/approve updates skill file or DB correctly
-5. POST /improve/reject marks only, no other writes
-6. GET /registry returns initialized registry
-7. UI loads, submit works, reasoning toggle works, feedback buttons work
-8. Replit Database has registry and context keys initialized
-9. Console: "LifeBridge v2.0 running on Claude Agent SDK"
+### Completed — v2.0 verification ✅
+All nine checks passed. System is live.
 
-### Next priority — first spoke agent
-The master agent has no spokes yet. It routes to agents that don't exist.
-Strategy: send 5-10 real requests through the live system. Look at what 
-the master agent tries to route to. That pattern reveals which spoke to 
-build first — data-driven, not assumed.
+### Completed — first spoke agent ✅
+Life Sciences Account Intelligence Agent built and auto-executing from routing packages.
 
-### Future spoke agents (TBD by usage)
-Domains will emerge from real requests. No hardcoded assumptions.
+### Next priority — second spoke agent
+Strategy remains data-driven: run 10-20 requests through the live system. Look at what the master agent tries to route to that isn't the account agent. That pattern reveals the second spoke.
+
+Likely candidates based on early routing packages:
+- Personal business agent (Three Rivers Slab, MadSprings Cookies)
+- Personal life agent (travel, health, family logistics)
+- System admin agent (LifeBridge self-management, registry maintenance)
+
+### Future capabilities
+- Connectors (Gmail, Calendar, Todoist, Google Drive) — spoke agents will need these
+- Multi-turn conversation memory within a session
+- Agent-to-agent delegation (spoke agent calls another spoke agent)
+- Approval workflow with email notification
 
 ---
 
@@ -257,6 +280,11 @@ Domains will emerge from real requests. No hardcoded assumptions.
 | Confidence gates | 90/70/50 thresholds | Graduated autonomy earned by track record |
 | SDK rebuild | New repo lifebridge-v2 | Clean slate, v1 preserved as reference |
 | JoshOS | Zero carry-over | LifeBridge is a clean-slate project |
+| First spoke agent | Life Sciences Account Intelligence | Data-driven: Josh's most frequent request type is pharma account work |
+| Agent auto-execution | UI calls spoke agent automatically after routing | Eliminates manual second step — routing + execution in one flow |
+| Web search on every agent call | Account agent always searches before output | Prevents stale briefings — current signals are non-negotiable |
+| Feedback after agent output | Buttons appear after spoke agent completes | User judges the final output, not the routing decision |
+| GitHub ↔ Replit sync | Git panel Pull, not auto-deploy | Deliberate deployment — no accidental pushes to production |
 
 ---
 
@@ -271,4 +299,3 @@ When the registry gains agents, update Capability Registry.
 When the system prompt evolves, update the Master Agent System Prompt section.
 
 This document lives in: github.com/jlarivee/lifebridge-v2/LIFEBRIDGE_BUILD_LOG.md
-```
