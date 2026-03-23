@@ -521,6 +521,30 @@ app.get("/intelligence/sources", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/intelligence/sources", async (req, res) => {
+  try { res.json(await getAllSources()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/intelligence/status", async (req, res) => {
+  try {
+    const lastRun = await db.get("intel-last-run");
+    const sources = await getAllSources();
+    const healthy = sources.filter(s => s.consecutive_failures === 0).length;
+    const failing = sources.filter(s => s.consecutive_failures > 0).length;
+    const findingKeys = await db.list("intelligence:");
+    res.json({
+      status: "ok",
+      agent: "intelligence-update-agent",
+      last_run_at: lastRun?.run_at || null,
+      findings_count: findingKeys.length,
+      sources_count: sources.length,
+      sources_healthy: healthy,
+      sources_failing: failing,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Dynamic health endpoint — handles ALL agents via registry lookup
 app.get("/agents/:name/health", async (req, res) => {
   try {
@@ -673,8 +697,45 @@ async function registerIntelligenceAgent() {
   }
 }
 
+async function cleanRegistry() {
+  const registry = await readRegistry();
+  const removeNames = new Set([
+    "three-rivers-slab-inventory-agent",
+    "professional-networking-agent",
+  ]);
+  const before = registry.agents?.length || 0;
+  registry.agents = (registry.agents || []).filter(a => !removeNames.has(a.name));
+
+  // Fix slab tracker domain
+  const slab = registry.agents.find(a => a.name === "slab-inventory-tracker-agent");
+  if (slab) slab.domain = "Personal Business";
+
+  if (registry.agents.length !== before || slab) {
+    await writeRegistry(registry);
+    const removed = before - registry.agents.length;
+    if (removed > 0) console.log(`[CLEANUP] Removed ${removed} ghost/pending registry entries`);
+    if (slab) console.log(`[CLEANUP] Fixed slab-inventory-tracker-agent domain → Personal Business`);
+  }
+}
+
+async function resetTestSuites() {
+  // Delete existing test suites so they get re-seeded with new endpoint-based cases
+  const keys = await db.list("test-suite:");
+  for (const key of keys) {
+    const suite = await db.get(key);
+    if (suite) {
+      const hasRouteTests = (suite.test_cases || []).some(tc => tc.type === "route");
+      if (hasRouteTests) {
+        // Re-create from scratch with endpoint-based cases
+        await db.set(key, null);
+      }
+    }
+  }
+}
+
 async function start() {
   await initDefaults();
+  await cleanRegistry();
   await registerAccountAgent();
   await registerBuilderAgent();
   await registerTestAgent();
@@ -687,7 +748,8 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
-  // Seed test suites for all active agents
+  // Reset stale test suites (ones with natural language route tests) then re-seed
+  await resetTestSuites();
   const seeded = await seedAllSuites();
   if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
 

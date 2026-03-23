@@ -18,8 +18,17 @@ export async function getTestSuite(agentName) {
   return await db.get(`test-suite:${agentName}`);
 }
 
-// Default test cases per agent type
+// Default test cases per agent type — all endpoint-based, no natural language routing
 const DEFAULT_CASES = {
+  "life-sciences-account-agent": [
+    { input: "Health: life-sciences-account-agent", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+  ],
+  "agent-builder-agent": [
+    { input: "Health: agent-builder-agent", type: "endpoint", method: "GET", path: "/agents/agent-builder-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+  ],
+  "slab-inventory-tracker-agent": [
+    { input: "Health: slab-inventory-tracker-agent", type: "endpoint", method: "GET", path: "/agents/slab-inventory-tracker-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+  ],
   "registry-integrity-agent": [
     { input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
     { input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
@@ -27,11 +36,12 @@ const DEFAULT_CASES = {
   "test-agent": [
     { input: "GET /test/suites", type: "endpoint", method: "GET", path: "/test/suites", expect_status: 200 },
     { input: "GET /test/warnings", type: "endpoint", method: "GET", path: "/test/warnings", expect_status: 200 },
+    { input: "GET /test/verify", type: "endpoint", method: "GET", path: "/test/verify", expect_status: 200, expect_fields: ["overall"] },
   ],
   "intelligence-update-agent": [
-    { input: "POST /intelligence/sources", type: "endpoint", method: "POST", path: "/intelligence/sources", expect_status: 200 },
+    { input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
     { input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
-    { input: "POST /intelligence/run", type: "endpoint", method: "POST", path: "/intelligence/run", expect_status: 200, expect_fields: ["scan_id", "scanned_at", "findings_count"] },
+    { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
   ],
 };
 
@@ -54,20 +64,22 @@ export async function initTestSuite(agentName) {
     last_output: null,
   }));
 
-  // Always include a generic routing test
-  cases.push({
-    id: uuidv4(),
-    input: `Test request for ${agentName}: provide a brief status check`,
-    type: "route",
-    method: null,
-    path: null,
-    expect_status: null,
-    expect_fields: null,
-    expected_output_shape: { required_fields: ["agent", "output"] },
-    last_run_at: null,
-    last_status: null,
-    last_output: null,
-  });
+  // If no specific test cases defined, add a health check as fallback
+  if (cases.length === 0) {
+    cases.push({
+      id: uuidv4(),
+      input: `Health: ${agentName}`,
+      type: "endpoint",
+      method: "GET",
+      path: `/agents/${agentName}/health`,
+      expect_status: 200,
+      expect_fields: ["status", "agent"],
+      expected_output_shape: { required_fields: ["status", "agent"] },
+      last_run_at: null,
+      last_status: null,
+      last_output: null,
+    });
+  }
 
   suite = {
     agent_name: agentName,
