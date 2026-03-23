@@ -1,0 +1,43 @@
+Redesign the LifeBridge frontend as an immersive multi-state experience.
+
+The concept: LifeBridge is a hub-and-spoke autonomous agent operating system. 
+The UI should physically reflect that. You start at a master agent hub, it 
+routes you, and the interface transitions you into a specialized agent 
+workspace that feels purpose-built for that domain.
+
+Three states:
+
+1. HUB — the home screen. Always the starting point. Clean, commanding, 
+   dark. Shows the master agent input and the registered spoke agents 
+   as navigable elements. One back button always returns here from anywhere.
+
+2. ROUTING — transitional. Shows the master agent's reasoning and routing 
+   decision. If confidence is 90+, auto-transition to the agent workspace 
+   after a brief moment. If below 90, pause and let the user confirm before 
+   entering.
+
+3. AGENT WORKSPACE — each registered agent gets its own visual environment. 
+   Different accent color, different input context, different output format. 
+   The Life Sciences agent should feel like an AWS account intelligence tool — 
+   not a generic chatbot. Quick action chips for common requests. Structured 
+   output sections, not raw monospace.
+
+Existing endpoints to wire to:
+   POST /route — master agent routing
+   POST /agents/account — life sciences agent execution
+   GET /registry — to know which agents are registered
+   POST /route/feedback — feedback on routing quality
+   POST /improve/run — trigger improvement cycle
+   GET /improve/history — improvement proposals
+
+Keep the improvement panel accessible but secondary — this is primarily 
+a routing and execution interface, not an admin dashboard.
+
+Design it however feels right to you. The only hard constraints:
+- Dark throughout
+- One back button always returns to hub
+- High confidence routes auto-transition, low confidence pauses for confirmation
+- The life sciences workspace must feel distinct from the hub
+- Agent output must be readable and structured, not a raw text dump
+
+Make it feel like a command center that someone would actually want to use.
