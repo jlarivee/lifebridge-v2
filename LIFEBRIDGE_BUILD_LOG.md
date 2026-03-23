@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.2 (live)  
+**Current version:** v2.3 (live)  
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -253,7 +253,33 @@ package.json             ← all dependencies
 
 ---
 
-## The Master Agent System Prompt (Current — v2.2)
+### v2.3 — Spoke Agents Operational + Test-Driven Build Process
+**What was fixed:**
+- POST /agents/{name} action endpoints built for all spoke agents
+- slab-inventory-tracker-agent fully operational — adds inventory records, queries, aging detection all working end to end
+- intelligence-update-agent fully operational — lists proposals, prioritizes approvals, filters by category
+- Dynamic fallback handler added — every registered active agent can receive requests automatically
+- Response format standardized — all agents return { agent, output, success, action_taken }
+- "No output" UI bug identified, test cases added, fixed, verified
+
+**Process change — Test-Driven Agent Building:**
+- Test cases must be written BEFORE agent code
+- Test Agent runs confirm FAIL before build starts
+- Test Agent runs confirm PASS before build is declared complete
+- Agent Builder Phase 4 rewritten with 8 mandatory steps
+- No agent can be declared complete without passing Test Agent suite
+- Every agent response must include { agent, output }
+
+**Verified end-to-end in UI:**
+- Novartis meeting prep — Life Sciences Account Agent ✅
+- Top 3 accounts this quarter — Life Sciences Account Agent ✅
+- Add slab to inventory — Slab Inventory Tracker Agent ✅
+- Pending proposals — Intelligence Update Agent ✅
+- Personal Life domain — Claude-native handled correctly ✅
+
+---
+
+## The Master Agent System Prompt (Current — v2.3)
 
 Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
 
@@ -308,11 +334,14 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ### Completed — administration agent suite ✅
 ### Completed — intelligence update agent ✅
 ### Completed — test pipeline verified (8/8 passing) ✅
+### Completed — spoke agents operational + test-driven build process ✅
 
 ### Next priority
-- Morning Briefing Agent — daily summary of intelligence findings, test results, improvement proposals, system health
+- Morning Briefing Agent — NEXT
+  Daily summary: system health, intelligence findings, improvement proposals pending, test results, ideas queued
+  Delivered every morning at 7:30 AM UTC
+  Single structured briefing to start the day
 - Three Rivers Slab workflows — pricing, aging alerts, inventory reports
-- First real Work domain request through live system to surface next spoke agent need
 
 ### Future capabilities
 - Connectors (Gmail, Calendar, Todoist, Google Drive) — spoke agents will need these
@@ -344,6 +373,8 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | Agent health endpoints | Single dynamic route /agents/:name/health | Handles all agents without per-agent manual registration |
 | Agent persistence | Bootstrap from registry on startup | Agents survive restarts without manual re-registration |
 | Administration agents | Build order: Test → Integrity → Intelligence | Test first so other agents can be verified as they ship |
+| Test-driven agent building | Tests first, build second | Caught "No output" bug class before it reaches production |
+| Agent response standard | { agent, output, success, action_taken } | Required on all spoke agent responses for UI rendering |
 
 ---
 
