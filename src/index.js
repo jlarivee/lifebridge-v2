@@ -12,6 +12,10 @@ import { readContext } from "./tools/context-tools.js";
 import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
 import { runAgentBuilder, continueBuild } from "./agents/agent-builder-agent.js";
 import { loadDynamicAgents } from "./agent-loader.js";
+import {
+  runFullTestSuite, runAgentTestSuite, getAllSuites, getTestSuite,
+  addTestCase, getRecentRuns, getWarnings, approveBaseline, initTestSuite
+} from "./agents/test-agent.js";
 import { deployAgent } from "./tools/deploy-tools.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
@@ -151,6 +155,16 @@ app.post("/system/deploy-agent", async (req, res) => {
     const loaded = await loadDynamicAgents(app);
     console.log(`[DEPLOY] Hot-loaded ${loaded} new agent(s)`);
 
+    // Auto-run test suite for the newly deployed agent
+    try {
+      await initTestSuite(agent_name);
+      const testResults = await runAgentTestSuite(agent_name, "deploy");
+      console.log(`[TEST] Post-deploy test for ${agent_name}: ${testResults.filter(r => r.status === "pass").length}/${testResults.length} passed`);
+      result.test_results = testResults;
+    } catch (e) {
+      console.log(`[TEST] Post-deploy test failed for ${agent_name}: ${e.message}`);
+    }
+
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -170,6 +184,83 @@ app.post("/system/agent-loaded", async (req, res) => {
   } catch (e) {
     res.json({ success: true, message: `Agent ${agent} hot-loaded` });
   }
+});
+
+// ── Test Agent ──────────────────────────────────────────────────────────────
+
+app.post("/test/run", async (req, res) => {
+  try {
+    const result = await runFullTestSuite("manual");
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/test/run/:agent", async (req, res) => {
+  try {
+    const results = await runAgentTestSuite(req.params.agent, "manual");
+    const passed = results.filter(r => r.status === "pass").length;
+    const failed = results.filter(r => r.status === "fail").length;
+    const errors = results.filter(r => r.status === "error").length;
+    res.json({ agent: req.params.agent, total: results.length, passed, failed, errors, results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/test/suites", async (req, res) => {
+  try { res.json(await getAllSuites()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/test/suites/:agent", async (req, res) => {
+  try {
+    const suite = await getTestSuite(req.params.agent);
+    if (!suite) return res.status(404).json({ error: "No test suite found" });
+    res.json(suite);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/test/suites/:agent/cases", async (req, res) => {
+  try {
+    const { input, expected_output_shape } = req.body || {};
+    if (!input) return res.status(400).json({ error: "input required" });
+    const tc = await addTestCase(req.params.agent, input, expected_output_shape);
+    res.json(tc);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/test/runs", async (req, res) => {
+  try { res.json(await getRecentRuns(null, 50)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/test/runs/:agent", async (req, res) => {
+  try { res.json(await getRecentRuns(req.params.agent, 50)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/test/warnings", async (req, res) => {
+  try { res.json(await getWarnings()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/test/baseline/approve/:agent", async (req, res) => {
+  try {
+    const result = await approveBaseline(req.params.agent);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/test/baseline/reject/:agent", async (req, res) => {
+  res.json({ rejected: true, agent: req.params.agent, message: "Baseline kept as-is" });
 });
 
 // ── Ideas ───────────────────────────────────────────────────────────────────
@@ -317,16 +408,49 @@ async function registerBuilderAgent() {
   }
 }
 
+async function registerTestAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "test-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "test-agent",
+      domain: "System",
+      purpose: "Verifies all spoke agents are functioning correctly via structured test suites, baseline comparison, and trend tracking",
+      status: "Active",
+      trigger_patterns: ["test", "run tests", "check agents", "test suite", "agent health"],
+      triggers: ["scheduled_daily_7am", "on_agent_deploy", "manual"],
+      endpoints: ["/test/run", "/test/run/:agent", "/test/suites", "/test/runs", "/test/warnings"],
+      requires_approval: ["baseline_overwrite"],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: test-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
   await registerAccountAgent();
   await registerBuilderAgent();
+  await registerTestAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
   if (dynamicCount > 0) {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
+
+  // Daily test suite at 7:00 AM UTC
+  cron.schedule("0 7 * * *", async () => {
+    try {
+      const result = await runFullTestSuite("scheduled");
+      console.log(`[TEST] Daily run: ${result.passed}/${result.total_cases} passed, ${result.failed} failed, ${result.errors} errors`);
+    } catch (e) {
+      console.error(`[TEST] Daily run failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Test Agent registered — daily run at 7:00 AM UTC");
 
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {
