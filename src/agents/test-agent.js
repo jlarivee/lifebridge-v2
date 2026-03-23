@@ -45,6 +45,14 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
     { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
+  "connectors": [
+    { input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
+    { input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
+    { input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
+    { input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
+    { input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
+    { input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
+  ],
   "agent-lifecycle": [
     { input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
     { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/life-sciences-account-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# test update" } },

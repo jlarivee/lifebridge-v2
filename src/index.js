@@ -1085,6 +1085,26 @@ async function resetTestSuites() {
   }
 }
 
+async function registerConnectors() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "connectors");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "connectors",
+      domain: "System",
+      purpose: "Gmail and Slack connectors for spoke agent use",
+      status: "Active",
+      trigger_patterns: ["connector", "gmail", "slack", "email", "send message"],
+      endpoints: ["/connectors/status", "/connectors/gmail/send", "/connectors/gmail/read", "/connectors/slack/send", "/connectors/test"],
+      requires_approval: ["send_email", "send_slack_message"],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: connectors");
+  }
+}
+
 async function start() {
   await initDefaults();
   await cleanRegistry();
@@ -1093,6 +1113,7 @@ async function start() {
   await registerTestAgent();
   await registerIntegrityAgent();
   await registerIntelligenceAgent();
+  await registerConnectors();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
