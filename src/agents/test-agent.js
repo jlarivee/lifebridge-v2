@@ -50,7 +50,7 @@ const DEFAULT_CASES = {
     { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/life-sciences-account-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# test update" } },
     { input: "Lifecycle: POST pause agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/pause", expect_status: 200, expect_fields: ["success", "agent", "status"] },
     { input: "Lifecycle: POST resume agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/resume", expect_status: 200, expect_fields: ["success", "agent", "status"] },
-    { input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"], setup: [{ method: "POST", path: "/registry/update", body: { agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary agent for deletion test" } } }] },
+    { input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"], pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary agent for deletion test" } } },
     { input: "Lifecycle: GET version history", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/versions", expect_status: 200 },
   ],
 };
@@ -236,10 +236,21 @@ export async function runTestCase(agentName, testCase, trigger) {
   let result, duration_ms, error, failureType;
 
   if (testCase.type === "endpoint" && testCase.path) {
-    // Run setup if defined (e.g., create a test agent before DELETE test)
+    // Run setup if defined
     if (testCase.setup) {
       for (const step of testCase.setup) {
         await callEndpoint(step.method, step.path, step.body);
+      }
+    }
+    // Direct DB setup (more reliable than HTTP setup for tests that modify registry)
+    if (testCase.pre_db_setup?.agent) {
+      const registry = await readRegistry();
+      const exists = (registry.agents || []).some(a => a.name === testCase.pre_db_setup.agent.name);
+      if (!exists) {
+        registry.agents = registry.agents || [];
+        registry.agents.push(testCase.pre_db_setup.agent);
+        const { writeRegistry } = await import("../tools/registry-tools.js");
+        await writeRegistry(registry);
       }
     }
 
