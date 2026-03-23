@@ -333,16 +333,31 @@ export async function runAgentTestSuite(agentName, trigger = "manual") {
 export async function runFullTestSuite(trigger = "scheduled") {
   const registry = await readRegistry();
   const agents = (registry.agents || []).filter(a =>
-    a.status === "Active" && !STATIC_AGENTS.has(a.name)
+    (a.status === "Active" || a.status === "active") && !STATIC_AGENTS.has(a.name)
   );
 
   const batchId = uuidv4();
   const batchStart = Date.now();
   const allResults = [];
 
+  // Run tests for all registered agents
   for (const agent of agents) {
     const results = await runAgentTestSuite(agent.name, trigger);
     allResults.push(...results);
+  }
+
+  // Also run any non-agent test suites (e.g., agent-lifecycle)
+  const allSuiteKeys = await db.list("test-suite:");
+  const agentNames = new Set(agents.map(a => a.name));
+  for (const key of allSuiteKeys) {
+    const suiteName = key.replace("test-suite:", "");
+    if (!agentNames.has(suiteName) && !STATIC_AGENTS.has(suiteName)) {
+      const suite = await db.get(key);
+      if (suite && suite.test_cases?.length > 0) {
+        const results = await runAgentTestSuite(suiteName, trigger);
+        allResults.push(...results);
+      }
+    }
   }
 
   const passed = allResults.filter(r => r.status === "pass").length;
@@ -353,7 +368,7 @@ export async function runFullTestSuite(trigger = "scheduled") {
 
   return {
     run_batch_id: batchId,
-    agents_tested: agents.length,
+    agents_tested: new Set(allResults.map(r => r.agent_name)).size,
     total_cases: allResults.length,
     passed,
     failed,
