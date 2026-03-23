@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.3 (live)  
+**Current version:** v2.4 (live)  
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -279,7 +279,22 @@ package.json             ← all dependencies
 
 ---
 
-## The Master Agent System Prompt (Current — v2.3)
+### v2.4 — Agent Lifecycle Management
+**What was built:**
+- GET /agents/{name}/detail — full agent detail including skill file, code file, test suite, run history, version history
+- PUT /agents/{name}/skill — edit skill file from UI with automatic version saving
+- POST /agents/{name}/pause — pause agent without deleting
+- POST /agents/{name}/resume — resume paused agent
+- DELETE /agents/{name} — clean delete, removes registry entry, health endpoint, test suite, commits removal to GitHub
+- GET /agents/{name}/versions — full version history per agent
+- Version tracking on all skill file edits — 5 versions captured on life-sciences-account-agent during testing
+
+**Test results:** 14 passed, 0 failed
+**Agents with lifecycle management:** all 6 active agents
+
+---
+
+## The Master Agent System Prompt (Current — v2.4)
 
 Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
 
@@ -335,12 +350,14 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ### Completed — intelligence update agent ✅
 ### Completed — test pipeline verified (8/8 passing) ✅
 ### Completed — spoke agents operational + test-driven build process ✅
+### Completed — agent lifecycle management (14/14 tests passing) ✅
 
 ### Next priority
-- Morning Briefing Agent — NEXT
-  Daily summary: system health, intelligence findings, improvement proposals pending, test results, ideas queued
-  Delivered every morning at 7:30 AM UTC
-  Single structured briefing to start the day
+- Connectors (Gmail + Slack) — NEXT
+  Wire Gmail and Slack as available connectors for spoke agents
+  Morning Briefing Agent needs this to deliver briefings
+  Integrity alerts need this to reach Josh proactively
+- Morning Briefing Agent — after connectors
 - Three Rivers Slab workflows — pricing, aging alerts, inventory reports
 
 ### Future capabilities
@@ -375,6 +392,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | Administration agents | Build order: Test → Integrity → Intelligence | Test first so other agents can be verified as they ship |
 | Test-driven agent building | Tests first, build second | Caught "No output" bug class before it reaches production |
 | Agent response standard | { agent, output, success, action_taken } | Required on all spoke agent responses for UI rendering |
+| Agent lifecycle | Full CRUD on agents from UI | Agents can be edited, paused, resumed, deleted without touching code directly |
 
 ---
 
