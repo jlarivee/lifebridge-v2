@@ -13,6 +13,7 @@ import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
 import { runAgentBuilder, continueBuild } from "./agents/agent-builder-agent.js";
 import { loadDynamicAgents } from "./agent-loader.js";
 import { deployAgent } from "./tools/deploy-tools.js";
+import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
 
@@ -168,6 +169,96 @@ app.post("/system/agent-loaded", async (req, res) => {
     res.json({ success: true, message: `Agent ${agent} is now live`, total_agents: registry.agents?.length || 0 });
   } catch (e) {
     res.json({ success: true, message: `Agent ${agent} hot-loaded` });
+  }
+});
+
+// ── Ideas ───────────────────────────────────────────────────────────────────
+
+app.post("/ideas", async (req, res) => {
+  try {
+    const { text } = req.body || {};
+    if (!text?.trim()) return res.status(400).json({ error: "text required" });
+    const idea = {
+      id: uuidv4(),
+      text: text.trim(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      status: "saved",
+      last_sent_at: null,
+      send_count: 0,
+      agent_responses: [],
+    };
+    await db.set(`idea:${idea.id}`, idea);
+    res.json(idea);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/ideas", async (req, res) => {
+  try {
+    const keys = await db.list("idea:");
+    const ideas = [];
+    for (const key of keys) {
+      const idea = await db.get(key);
+      if (idea) ideas.push(idea);
+    }
+    ideas.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    res.json(ideas);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put("/ideas/:id", async (req, res) => {
+  try {
+    const idea = await db.get(`idea:${req.params.id}`);
+    if (!idea) return res.status(404).json({ error: "Idea not found" });
+    const { text } = req.body || {};
+    if (text !== undefined) idea.text = text.trim();
+    idea.updated_at = new Date().toISOString();
+    await db.set(`idea:${idea.id}`, idea);
+    res.json(idea);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/ideas/:id", async (req, res) => {
+  try {
+    const idea = await db.get(`idea:${req.params.id}`);
+    if (!idea) return res.status(404).json({ error: "Idea not found" });
+    idea.status = "archived";
+    idea.updated_at = new Date().toISOString();
+    await db.set(`idea:${idea.id}`, idea);
+    res.json(idea);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/ideas/:id/send", async (req, res) => {
+  try {
+    const idea = await db.get(`idea:${req.params.id}`);
+    if (!idea) return res.status(404).json({ error: "Idea not found" });
+
+    const result = await route(idea.text);
+
+    idea.status = "sent";
+    idea.last_sent_at = new Date().toISOString();
+    idea.send_count = (idea.send_count || 0) + 1;
+    idea.agent_responses.push({
+      sent_at: idea.last_sent_at,
+      response: result.response,
+      confidence: result.confidence,
+      id: result.id,
+    });
+    idea.updated_at = new Date().toISOString();
+    await db.set(`idea:${idea.id}`, idea);
+
+    res.json({ idea, routing_result: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
