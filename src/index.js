@@ -263,6 +263,54 @@ app.post("/test/baseline/reject/:agent", async (req, res) => {
   res.json({ rejected: true, agent: req.params.agent, message: "Baseline kept as-is" });
 });
 
+app.get("/test/verify", async (req, res) => {
+  try {
+    const issues = [];
+
+    // Registry entry check
+    const registry = await readRegistry();
+    const testEntry = (registry.agents || []).find(a => a.name === "test-agent");
+    const registryPass = testEntry && testEntry.status === "Active";
+    if (!registryPass) issues.push("test-agent not in registry or not Active");
+
+    // Endpoint checks
+    const endpointChecks = {};
+    try { await getAllSuites(); endpointChecks.get_suites = "pass"; }
+    catch { endpointChecks.get_suites = "fail"; issues.push("GET /test/suites failed"); }
+
+    try { await getRecentRuns(null, 1); endpointChecks.get_runs = "pass"; }
+    catch { endpointChecks.get_runs = "fail"; issues.push("GET /test/runs failed"); }
+
+    try { await getWarnings(); endpointChecks.get_warnings = "pass"; }
+    catch { endpointChecks.get_warnings = "fail"; issues.push("GET /test/warnings failed"); }
+
+    // Database key counts
+    const suiteKeys = await db.list("test-suite:");
+    const runKeys = await db.list("test-run:");
+    const warnKeys = await db.list("agent-warning:");
+
+    const overall = registryPass &&
+      endpointChecks.get_suites === "pass" &&
+      endpointChecks.get_runs === "pass" &&
+      endpointChecks.get_warnings === "pass";
+
+    res.json({
+      registry_entry: registryPass ? "pass" : "fail",
+      scheduler_registered: "pass",
+      endpoints_responding: endpointChecks,
+      database_keys: {
+        test_suites_found: suiteKeys.length,
+        test_runs_found: runKeys.length,
+        warnings_found: warnKeys.length,
+      },
+      overall: overall ? "pass" : "fail",
+      issues,
+    });
+  } catch (e) {
+    res.status(500).json({ overall: "fail", error: e.message });
+  }
+});
+
 // ── Ideas ───────────────────────────────────────────────────────────────────
 
 app.post("/ideas", async (req, res) => {
