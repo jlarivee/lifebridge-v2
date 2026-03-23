@@ -1811,6 +1811,10 @@ function escapeHtml(str) {
 async function apiFetch(url, opts) {
   opts = opts || {};
   var res = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+  var contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Server returned non-JSON response (HTTP ' + res.status + ') for ' + url);
+  }
   var data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
