@@ -1634,6 +1634,10 @@ body {
           <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           Tests
         </button>
+        <button class="hub-footer-btn" onclick="navigateTo('health');loadHealth();">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Health
+        </button>
         <button class="hub-footer-btn" onclick="openImprovePanel()">
           <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
           Improvement
@@ -1675,6 +1679,26 @@ body {
         </div>
 
         <div class="workspace-output-area" id="workspaceOutput"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SYSTEM HEALTH VIEW ═══ -->
+  <div class="view" id="viewHealth">
+    <div style="max-width:700px;margin:0 auto;padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:var(--font-mono);font-size:18px;font-weight:700;letter-spacing:0.12em;color:var(--text-primary);">SYSTEM HEALTH</div>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);">Registry integrity</div>
+        </div>
+        <button id="runIntegrityBtn" onclick="runIntegrityScan()" style="background:var(--amber);border:none;border-radius:8px;color:#000;padding:10px 20px;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;">Run Scan</button>
+      </div>
+      <div id="healthAlerts"></div>
+      <div id="healthStatus"></div>
+      <div id="healthAgents"></div>
+      <div style="margin-top:24px;">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);letter-spacing:0.1em;margin-bottom:8px;">REPORT HISTORY</div>
+        <div id="healthHistory"></div>
       </div>
     </div>
   </div>
@@ -1832,7 +1856,8 @@ function navigateTo(viewName, skipPush) {
     workspace: 'viewWorkspace',
     landscape: 'viewLandscape',
     ideas: 'viewIdeas',
-    tests: 'viewTests'
+    tests: 'viewTests',
+    health: 'viewHealth'
   };
 
   var target = document.getElementById(viewMap[viewName]);
@@ -3105,6 +3130,118 @@ async function runAgentTest(agentName, btn) {
     loadTests();
   } catch {
     btn.textContent = 'Err'; btn.disabled = false;
+  }
+}
+
+// ── System Health ────────────────────────────────────────────────
+
+async function loadHealth() {
+  await loadHealthAlerts();
+  await loadHealthLatest();
+  await loadHealthHistory();
+}
+
+async function loadHealthAlerts() {
+  var el = document.getElementById('healthAlerts');
+  if (!el) return;
+  try {
+    var alerts = await apiFetch('/integrity/alerts');
+    if (!alerts.length) { el.innerHTML = ''; return; }
+    var html = '';
+    for (var i = 0; i < alerts.length; i++) {
+      var a = alerts[i];
+      html += '<div style="background:#ef444411;border:1px solid #ef444433;border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-family:var(--font-mono);font-size:11px;color:#ef4444;">🚨 Critical: ' + a.issue_count + ' issue(s) — ' + new Date(a.created_at).toLocaleString() + '</div>';
+      html += '<button onclick="acknowledgeAlert(\'' + a.id + '\')" style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;">Acknowledge</button>';
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  } catch { el.innerHTML = ''; }
+}
+
+async function acknowledgeAlert(alertId) {
+  try {
+    await apiFetch('/integrity/alerts/' + alertId + '/acknowledge', {
+      method: 'POST', body: JSON.stringify({ reason: 'Acknowledged via UI' })
+    });
+    loadHealth();
+  } catch {}
+}
+
+async function loadHealthLatest() {
+  var statusEl = document.getElementById('healthStatus');
+  var agentsEl = document.getElementById('healthAgents');
+  if (!statusEl) return;
+  try {
+    var report = await apiFetch('/integrity/reports/latest');
+    if (report.status === 'no reports yet') {
+      statusEl.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:12px;padding:20px 0;text-align:center;">No scans yet. Run one above.</div>';
+      agentsEl.innerHTML = '';
+      return;
+    }
+    var color = report.status === 'healthy' ? '#22c55e' : report.status === 'degraded' ? '#f59e0b' : '#ef4444';
+    statusEl.innerHTML = '<div style="background:' + color + '11;border:1px solid ' + color + '33;border-radius:8px;padding:14px 16px;margin-bottom:16px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+      '<span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:' + color + ';">' + report.status.toUpperCase() + '</span>' +
+      '<span style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);">' + report.agents_healthy + '/' + report.agents_checked + ' healthy — ' + report.trigger + ' — ' + new Date(report.run_at).toLocaleString() + '</span>' +
+      '</div>' +
+      '<div style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);margin-top:6px;">' + escapeHtml(report.summary) + '</div>' +
+      '</div>';
+
+    // Issues list
+    var issues = report.issues || [];
+    var html = '';
+    if (issues.length > 0) {
+      for (var i = 0; i < issues.length; i++) {
+        var issue = issues[i];
+        var ic = issue.severity === 'critical' ? '#ef4444' : '#f59e0b';
+        html += '<div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-left:3px solid ' + ic + ';border-radius:6px;padding:10px 14px;margin-bottom:6px;">';
+        html += '<div style="display:flex;justify-content:space-between;">';
+        html += '<span style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">' + escapeHtml(issue.agent_name) + '</span>';
+        html += '<span style="font-family:var(--font-mono);font-size:10px;color:' + ic + ';">' + issue.severity + ': ' + issue.type + '</span>';
+        html += '</div>';
+        html += '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);margin-top:4px;">' + escapeHtml(issue.detail) + '</div>';
+        html += '<div style="font-family:var(--font-mono);font-size:10px;color:var(--amber);margin-top:2px;">' + escapeHtml(issue.recommended_action) + '</div>';
+        html += '</div>';
+      }
+    }
+    agentsEl.innerHTML = html;
+  } catch (e) {
+    statusEl.innerHTML = '<div style="color:#ef4444;font-family:var(--font-mono);font-size:11px;">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function loadHealthHistory() {
+  var el = document.getElementById('healthHistory');
+  if (!el) return;
+  try {
+    var reports = await apiFetch('/integrity/reports');
+    if (!reports.length) { el.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:11px;">No reports yet.</div>'; return; }
+    var html = '';
+    for (var i = 0; i < Math.min(reports.length, 10); i++) {
+      var r = reports[i];
+      var c = r.status === 'healthy' ? '#22c55e' : r.status === 'degraded' ? '#f59e0b' : '#ef4444';
+      html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:10px;">';
+      html += '<span style="color:' + c + ';">' + r.status + '</span>';
+      html += '<span style="color:var(--text-tertiary);">' + r.agents_checked + ' agents, ' + r.issues.length + ' issues</span>';
+      html += '<span style="color:var(--text-tertiary);">' + r.trigger + '</span>';
+      html += '<span style="color:var(--text-tertiary);">' + new Date(r.run_at).toLocaleString() + '</span>';
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  } catch {}
+}
+
+async function runIntegrityScan() {
+  var btn = document.getElementById('runIntegrityBtn');
+  btn.textContent = 'Scanning...'; btn.disabled = true;
+  try {
+    await apiFetch('/integrity/run', { method: 'POST' });
+    btn.textContent = 'Done'; btn.style.color = '#22c55e';
+    setTimeout(function() { btn.textContent = 'Run Scan'; btn.style.color = '#000'; btn.disabled = false; }, 2000);
+    loadHealth();
+  } catch (e) {
+    btn.textContent = 'Failed'; btn.style.color = '#ef4444'; btn.disabled = false;
   }
 }
 </script>

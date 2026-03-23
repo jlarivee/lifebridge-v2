@@ -17,6 +17,7 @@ import {
   addTestCase, getRecentRuns, getWarnings, approveBaseline, initTestSuite
 } from "./agents/test-agent.js";
 import { deployAgent } from "./tools/deploy-tools.js";
+import { runIntegrityCheck, getIntegrityReports } from "./agents/registry-integrity-agent.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -163,6 +164,23 @@ app.post("/system/deploy-agent", async (req, res) => {
       result.test_results = testResults;
     } catch (e) {
       console.log(`[TEST] Post-deploy test failed for ${agent_name}: ${e.message}`);
+    }
+
+    // Post-deploy integrity scan
+    try {
+      const intReport = await runIntegrityCheck("deploy", agent_name);
+      console.log(`[INTEGRITY] Post-deploy scan for ${agent_name}: ${intReport.status}`);
+      if (intReport.status === "critical") {
+        await db.set(`system-alert:${uuidv4()}`, {
+          id: uuidv4(), created_at: new Date().toISOString(),
+          severity: "critical", source: "registry-integrity-agent",
+          issue_count: intReport.issues.length, report_id: intReport.report_id,
+          acknowledged: false,
+        });
+      }
+      result.integrity_report = intReport;
+    } catch (e) {
+      console.log(`[INTEGRITY] Post-deploy scan failed: ${e.message}`);
     }
 
     res.json(result);
@@ -401,6 +419,61 @@ app.post("/ideas/:id/send", async (req, res) => {
   }
 });
 
+// ── Registry Integrity ───────────────────────────────────────────────────────
+
+app.post("/integrity/run", async (req, res) => {
+  try { res.json(await runIntegrityCheck("manual")); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/integrity/run/:agent", async (req, res) => {
+  try { res.json(await runIntegrityCheck("manual", req.params.agent)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/integrity/reports", async (req, res) => {
+  try { res.json(await getIntegrityReports(20)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/integrity/reports/latest", async (req, res) => {
+  try {
+    const reports = await getIntegrityReports(1);
+    res.json(reports[0] || { status: "no reports yet" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/integrity/alerts", async (req, res) => {
+  try {
+    const keys = await db.list("system-alert:");
+    const alerts = [];
+    for (const key of keys) {
+      const a = await db.get(key);
+      if (a && !a.acknowledged) alerts.push(a);
+    }
+    alerts.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    res.json(alerts);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/integrity/alerts/:id/acknowledge", async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const keys = await db.list("system-alert:");
+    for (const key of keys) {
+      const alert = await db.get(key);
+      if (alert && alert.id === req.params.id) {
+        alert.acknowledged = true;
+        alert.acknowledged_at = new Date().toISOString();
+        alert.acknowledged_reason = reason || "";
+        await db.set(key, alert);
+        return res.json({ success: true, alert });
+      }
+    }
+    res.status(404).json({ error: "Alert not found" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // JSON 404 for API/test paths — prevents HTML fallback
 app.all("/test/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -409,6 +482,9 @@ app.all("/agents/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
 app.all("/improve/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
+app.all("/integrity/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
 app.all("/system/*", (req, res) => {
@@ -491,17 +567,58 @@ async function registerTestAgent() {
   }
 }
 
+async function registerIntegrityAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "registry-integrity-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "registry-integrity-agent",
+      domain: "System",
+      purpose: "Verifies all active registry entries have real files on disk, live routes, and in-sync skill files. Detects orphans and ghost entries. Never modifies — only reports.",
+      status: "Active",
+      trigger_patterns: ["integrity", "health check", "registry check", "orphan", "ghost entry"],
+      triggers: ["scheduled_weekly_sunday_5am", "on_agent_deploy", "manual"],
+      endpoints: ["/integrity/run", "/integrity/run/:agent", "/integrity/reports", "/integrity/reports/latest", "/integrity/alerts"],
+      requires_approval: [],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: registry-integrity-agent");
+  }
+}
+
 async function start() {
   await initDefaults();
   await registerAccountAgent();
   await registerBuilderAgent();
   await registerTestAgent();
+  await registerIntegrityAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
   if (dynamicCount > 0) {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
+
+  // Weekly integrity scan Sunday 5:00 AM UTC
+  cron.schedule("0 5 * * 0", async () => {
+    try {
+      const report = await runIntegrityCheck("scheduled");
+      console.log(`[INTEGRITY] Weekly scan: ${report.status} — ${report.agents_checked} agents, ${report.issues.length} issues`);
+      if (report.status === "critical") {
+        await db.set(`system-alert:${uuidv4()}`, {
+          id: uuidv4(), created_at: new Date().toISOString(),
+          severity: "critical", source: "registry-integrity-agent",
+          issue_count: report.issues.length, report_id: report.report_id,
+          acknowledged: false,
+        });
+      }
+    } catch (e) {
+      console.error(`[INTEGRITY] Weekly scan failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Registry Integrity Agent registered — weekly scan Sunday 5:00 AM UTC");
 
   // Daily test suite at 7:00 AM UTC
   cron.schedule("0 7 * * *", async () => {
