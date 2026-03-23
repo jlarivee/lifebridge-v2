@@ -672,7 +672,7 @@ function renderResponse(result, userInput) {
       var fbId = "fb-" + Math.random().toString(36).slice(2);
       html += '<div id="' + agentId + '" style="margin-top:16px;padding:16px;background:#0a0f0a;border:1px solid #1a331a;border-left:3px solid #22c55e;border-radius:6px;">';
       html += '<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;margin-bottom:8px;">AGENT OUTPUT \u2014 ' + escapeHtml(routedAgent) + '</div>';
-      html += '<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#f59e0b;">Agent running\u2026</div>';
+      html += '<div class="agent-loading-text" style="font-family:JetBrains Mono,monospace;font-size:11px;color:#f59e0b;">Agent running \u2014 searching for current signals</div>';
       html += '</div>';
 
       // Feedback buttons (hidden until agent completes)
@@ -685,10 +685,8 @@ function renderResponse(result, userInput) {
       html += '</div>';
       html += '</div>';
 
-      // Fire agent call after card is rendered
-      setTimeout(function() {
-        callSpokeAgent(agentEndpoint, routedAgent, userInput, routedContext, conf, agentId, fbId);
-      }, 0);
+      // _pendingAgentCall is picked up after card.innerHTML and area.prepend
+      card._pendingAgentCall = { endpoint: agentEndpoint, agentName: routedAgent, input: userInput, context: routedContext, conf: conf, agentDivId: agentId, fbDivId: fbId };
 
     } else {
       // No spoke agent — show feedback buttons immediately
@@ -706,33 +704,65 @@ function renderResponse(result, userInput) {
 
   card.innerHTML = html;
   area.prepend(card);
+
+  // Now the card is in the DOM — fire any pending agent call
+  if (card._pendingAgentCall) {
+    var p = card._pendingAgentCall;
+    callSpokeAgent(p.endpoint, p.agentName, p.input, p.context, p.conf, p.agentDivId, p.fbDivId);
+  }
 }
 
 async function callSpokeAgent(endpoint, agentName, originalInput, contextStr, confidence, agentDivId, fbDivId) {
+  var el = document.getElementById(agentDivId);
+  if (!el) { console.error("Agent output div not found:", agentDivId); return; }
+
+  // Animated loading
+  var dotCount = 0;
+  var loadingInterval = setInterval(function() {
+    dotCount = (dotCount + 1) % 4;
+    var dots = ".".repeat(dotCount);
+    var loadEl = el.querySelector(".agent-loading-text");
+    if (loadEl) loadEl.textContent = "Agent running \u2014 searching for current signals" + dots;
+  }, 400);
+
   try {
-    var agentResult = await apiFetch(endpoint, {
+    var controller = new AbortController();
+    var timeout = setTimeout(function() { controller.abort(); }, 60000);
+
+    var res = await fetch(endpoint, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         input: originalInput,
-        context: { routed_by: "master-agent", confidence: confidence, context_passed: contextStr }
+        context: { routing_context: contextStr, routed_by: "master-agent", confidence: confidence }
       }),
+      signal: controller.signal,
     });
-    var el = document.getElementById(agentDivId);
-    if (!el) return;
-    var agentHtml = '<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;margin-bottom:10px;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div>';
+    clearTimeout(timeout);
+    var agentResult = await res.json();
+    if (agentResult.error) throw new Error(agentResult.error);
+
+    clearInterval(loadingInterval);
+
+    var agentHtml = '';
+    agentHtml += '<div style="border-top:1px solid #22c55e44;border-bottom:1px solid #22c55e44;padding:2px 0;margin-bottom:12px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div>';
     if (agentResult.requires_approval) {
       agentHtml += '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:8px 12px;margin-bottom:10px;font-family:JetBrains Mono,monospace;font-size:10px;color:#f59e0b;">\u26A0 REQUIRES APPROVAL BEFORE SENDING</div>';
     }
-    agentHtml += '<div style="font-family:JetBrains Mono,monospace;font-size:12px;color:#ccc;white-space:pre-wrap;line-height:1.6;">' + escapeHtml(agentResult.output || "No output") + '</div>';
+    agentHtml += '<div style="font-family:JetBrains Mono,monospace;font-size:12px;color:#e0e0e0;white-space:pre-wrap;line-height:1.7;word-break:break-word;">' + escapeHtml(agentResult.output || "No output") + '</div>';
     el.innerHTML = agentHtml;
-    // Show feedback buttons now that agent output is rendered
+
     var fb = document.getElementById(fbDivId);
     if (fb) fb.style.display = "flex";
   } catch (err) {
-    var el = document.getElementById(agentDivId);
-    if (el) el.innerHTML = '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:#22c55e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div><div class="error-inline">' + escapeHtml(err.message) + '</div>';
-    var fb = document.getElementById(fbDivId);
-    if (fb) fb.style.display = "flex";
+    clearInterval(loadingInterval);
+    var errMsg = err.name === "AbortError" ? "Agent timed out after 60 seconds" : err.message;
+    var el2 = document.getElementById(agentDivId);
+    if (el2) {
+      el2.innerHTML = '<div style="border-top:1px solid #ef444444;padding:2px 0;margin-bottom:8px;font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div><div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#ef4444;">Agent call failed \u2014 ' + escapeHtml(errMsg) + '</div>';
+    }
+    var fb2 = document.getElementById(fbDivId);
+    if (fb2) fb2.style.display = "flex";
   }
 }
 
