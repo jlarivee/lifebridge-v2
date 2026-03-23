@@ -654,20 +654,86 @@ function renderResponse(result, userInput) {
   } else {
     html += '<div class="routing-block">' + escapeHtml(rest) + '</div>';
 
-    // Feedback buttons
-    var fid = "fb-" + Math.random().toString(36).slice(2);
-    html += '<div class="feedback-row" id="' + fid + '">';
-    html += '<button class="btn btn-green" style="font-size:11px; padding:6px 14px;" onclick="sendFeedback(\'' + result.id + '\', \'accepted\', \'\', \'' + fid + '\')">Looks good</button>';
-    html += '<button class="btn btn-red" style="font-size:11px; padding:6px 14px;" onclick="showFeedbackInput(\'' + fid + '\', \'' + result.id + '\')">Something\'s wrong</button>';
-    html += '<div class="feedback-inline" id="' + fid + '-input" style="display:none;">';
-    html += '<input type="text" placeholder="What went wrong?" id="' + fid + '-text">';
-    html += '<button class="btn btn-dim" onclick="sendFeedback(\'' + result.id + '\', \'rejected\', document.getElementById(\'' + fid + '-text\').value, \'' + fid + '\')">Submit</button>';
-    html += '</div>';
-    html += '</div>';
+    // Parse Route to: and Context passed: from routing package
+    var routeMatch = rest.match(/Route to:\s*(.+)/);
+    var contextMatch = rest.match(/Context passed:\s*(.+)/);
+    var routedAgent = routeMatch ? routeMatch[1].trim() : "";
+    var routedContext = contextMatch ? contextMatch[1].trim() : "";
+
+    // Agent route map — add new spoke agents here
+    var agentEndpoints = {
+      "life-sciences-account-agent": "/agents/account",
+    };
+
+    // If routed to a spoke agent, show placeholder and auto-call
+    var agentEndpoint = agentEndpoints[routedAgent];
+    if (agentEndpoint) {
+      var agentId = "agent-out-" + Math.random().toString(36).slice(2);
+      var fbId = "fb-" + Math.random().toString(36).slice(2);
+      html += '<div id="' + agentId + '" style="margin-top:16px;padding:16px;background:#0a0f0a;border:1px solid #1a331a;border-left:3px solid #22c55e;border-radius:6px;">';
+      html += '<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;margin-bottom:8px;">AGENT OUTPUT \u2014 ' + escapeHtml(routedAgent) + '</div>';
+      html += '<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#f59e0b;">Agent running\u2026</div>';
+      html += '</div>';
+
+      // Feedback buttons (hidden until agent completes)
+      html += '<div class="feedback-row" id="' + fbId + '" style="display:none;">';
+      html += '<button class="btn btn-green" style="font-size:11px; padding:6px 14px;" onclick="sendFeedback(\'' + result.id + '\', \'accepted\', \'\', \'' + fbId + '\')">Looks good</button>';
+      html += '<button class="btn btn-red" style="font-size:11px; padding:6px 14px;" onclick="showFeedbackInput(\'' + fbId + '\', \'' + result.id + '\')">Something\'s wrong</button>';
+      html += '<div class="feedback-inline" id="' + fbId + '-input" style="display:none;">';
+      html += '<input type="text" placeholder="What went wrong?" id="' + fbId + '-text">';
+      html += '<button class="btn btn-dim" onclick="sendFeedback(\'' + result.id + '\', \'rejected\', document.getElementById(\'' + fbId + '-text\').value, \'' + fbId + '\')">Submit</button>';
+      html += '</div>';
+      html += '</div>';
+
+      // Fire agent call after card is rendered
+      setTimeout(function() {
+        callSpokeAgent(agentEndpoint, routedAgent, userInput, routedContext, conf, agentId, fbId);
+      }, 0);
+
+    } else {
+      // No spoke agent — show feedback buttons immediately
+      var fid = "fb-" + Math.random().toString(36).slice(2);
+      html += '<div class="feedback-row" id="' + fid + '">';
+      html += '<button class="btn btn-green" style="font-size:11px; padding:6px 14px;" onclick="sendFeedback(\'' + result.id + '\', \'accepted\', \'\', \'' + fid + '\')">Looks good</button>';
+      html += '<button class="btn btn-red" style="font-size:11px; padding:6px 14px;" onclick="showFeedbackInput(\'' + fid + '\', \'' + result.id + '\')">Something\'s wrong</button>';
+      html += '<div class="feedback-inline" id="' + fid + '-input" style="display:none;">';
+      html += '<input type="text" placeholder="What went wrong?" id="' + fid + '-text">';
+      html += '<button class="btn btn-dim" onclick="sendFeedback(\'' + result.id + '\', \'rejected\', document.getElementById(\'' + fid + '-text\').value, \'' + fid + '\')">Submit</button>';
+      html += '</div>';
+      html += '</div>';
+    }
   }
 
   card.innerHTML = html;
   area.prepend(card);
+}
+
+async function callSpokeAgent(endpoint, agentName, originalInput, contextStr, confidence, agentDivId, fbDivId) {
+  try {
+    var agentResult = await apiFetch(endpoint, {
+      method: "POST",
+      body: JSON.stringify({
+        input: originalInput,
+        context: { routed_by: "master-agent", confidence: confidence, context_passed: contextStr }
+      }),
+    });
+    var el = document.getElementById(agentDivId);
+    if (!el) return;
+    var agentHtml = '<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:0.1em;color:#22c55e;text-transform:uppercase;margin-bottom:10px;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div>';
+    if (agentResult.requires_approval) {
+      agentHtml += '<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:8px 12px;margin-bottom:10px;font-family:JetBrains Mono,monospace;font-size:10px;color:#f59e0b;">\u26A0 REQUIRES APPROVAL BEFORE SENDING</div>';
+    }
+    agentHtml += '<div style="font-family:JetBrains Mono,monospace;font-size:12px;color:#ccc;white-space:pre-wrap;line-height:1.6;">' + escapeHtml(agentResult.output || "No output") + '</div>';
+    el.innerHTML = agentHtml;
+    // Show feedback buttons now that agent output is rendered
+    var fb = document.getElementById(fbDivId);
+    if (fb) fb.style.display = "flex";
+  } catch (err) {
+    var el = document.getElementById(agentDivId);
+    if (el) el.innerHTML = '<div style="font-family:JetBrains Mono,monospace;font-size:10px;color:#22c55e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">AGENT OUTPUT \u2014 ' + escapeHtml(agentName) + '</div><div class="error-inline">' + escapeHtml(err.message) + '</div>';
+    var fb = document.getElementById(fbDivId);
+    if (fb) fb.style.display = "flex";
+  }
 }
 
 function renderErrorResponse(msg, userInput) {
