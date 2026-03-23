@@ -1,16 +1,20 @@
 /**
  * LifeBridge Connectors Agent
- * Gmail + Slack via MCP servers. Approval gate on sends. Full logging.
+ * Gmail via SMTP (nodemailer), Slack via Webhook.
+ * Approval gate on sends. Full logging.
+ *
+ * Secrets needed in Replit:
+ *   GMAIL_USER — sender email address
+ *   GMAIL_APP_PASSWORD — Google App Password (16 chars, no spaces)
+ *   SLACK_WEBHOOK_URL — Slack incoming webhook URL
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 
-const client = new Anthropic();
-
-const MCP_GMAIL = { type: "url", url: "https://gmail.mcp.claude.com/mcp", name: "gmail-mcp" };
-const MCP_SLACK = { type: "url", url: "https://mcp.slack.com/mcp", name: "slack-mcp" };
+const GMAIL_USER = process.env.GMAIL_USER || "";
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD || "";
+const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
 
 const DEFAULT_CONFIG = {
   gmail: { approved_recipients: [], default_from_name: "LifeBridge", log_sends: true },
@@ -35,13 +39,19 @@ export async function updateConfig(partial) {
 
 async function checkGmail() {
   const start = Date.now();
+  const configured = !!(GMAIL_USER && GMAIL_APP_PASSWORD);
+  if (!configured) {
+    return { connected: false, status: "not_configured", error: "GMAIL_USER or GMAIL_APP_PASSWORD not set", latency_ms: 0, last_checked: new Date().toISOString() };
+  }
+  // Verify SMTP connection
   try {
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 100,
-      mcp_servers: [MCP_GMAIL],
-      messages: [{ role: "user", content: "List the 1 most recent email subject line. Return ONLY the subject line text, nothing else." }],
+    const nodemailer = await import("nodemailer");
+    const transport = nodemailer.default.createTransport({
+      service: "gmail",
+      auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
     });
+    await transport.verify();
+    transport.close();
     return { connected: true, status: "ok", latency_ms: Date.now() - start, last_checked: new Date().toISOString() };
   } catch (e) {
     return { connected: false, status: "error", error: e.message, latency_ms: Date.now() - start, last_checked: new Date().toISOString() };
@@ -50,26 +60,26 @@ async function checkGmail() {
 
 async function checkSlack() {
   const start = Date.now();
+  if (!SLACK_WEBHOOK_URL) {
+    return { connected: false, status: "not_configured", error: "SLACK_WEBHOOK_URL not set", latency_ms: 0, last_checked: new Date().toISOString() };
+  }
+  // Ping the webhook with a dry-run (Slack webhooks don't have a test mode,
+  // but a GET returns method_not_allowed which confirms the URL is live)
   try {
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 100,
-      mcp_servers: [MCP_SLACK],
-      messages: [{ role: "user", content: "List 1 recent Slack channel name. Return ONLY the channel name, nothing else." }],
-    });
-    return { connected: true, status: "ok", latency_ms: Date.now() - start, last_checked: new Date().toISOString() };
+    const resp = await fetch(SLACK_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "" }), signal: AbortSignal.timeout(10000) });
+    // Slack returns 200 even for empty text, or 400 "no_text" — both mean it's connected
+    const ok = resp.status === 200 || resp.status === 400;
+    return { connected: ok, status: ok ? "ok" : "error", latency_ms: Date.now() - start, last_checked: new Date().toISOString() };
   } catch (e) {
     return { connected: false, status: "error", error: e.message, latency_ms: Date.now() - start, last_checked: new Date().toISOString() };
   }
 }
 
 export async function getStatus() {
-  // Return cached status if checked within last 5 minutes
   const cached = await db.get("connector-status");
   if (cached && cached.checked_at && Date.now() - new Date(cached.checked_at).getTime() < 300000) {
     return cached;
   }
-
   const [gmail, slack] = await Promise.all([checkGmail(), checkSlack()]);
   const status = { gmail, slack, checked_at: new Date().toISOString() };
   await db.set("connector-status", status);
@@ -118,23 +128,36 @@ export async function sendGmail({ to, subject, body, cc, require_approval = true
     return { success: true, connector: "gmail", pending: true, approval_id: id, message_id: null };
   }
 
-  try {
-    const prompt = cc
-      ? `Send an email to ${to} (cc: ${cc}) with subject "${subject}" and body: ${body}`
-      : `Send an email to ${to} with subject "${subject}" and body: ${body}`;
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+    entry.status = "failed";
+    entry.error = "Gmail not configured";
+    await logSend(entry);
+    return { success: false, connector: "gmail", error: "GMAIL_USER or GMAIL_APP_PASSWORD not set", message_id: null };
+  }
 
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 200,
-      mcp_servers: [MCP_GMAIL],
-      messages: [{ role: "user", content: prompt }],
+  try {
+    const nodemailer = await import("nodemailer");
+    const transport = nodemailer.default.createTransport({
+      service: "gmail",
+      auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
     });
 
-    const output = resp.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+    const config = await getConfig();
+    const mailOpts = {
+      from: `${config.gmail.default_from_name} <${GMAIL_USER}>`,
+      to,
+      subject,
+      text: body,
+    };
+    if (cc) mailOpts.cc = cc;
+
+    const info = await transport.sendMail(mailOpts);
+    transport.close();
+
     entry.status = "sent";
-    entry.message_id = id;
+    entry.message_id = info.messageId;
     await logSend(entry);
-    return { success: true, connector: "gmail", message_id: id, pending: false };
+    return { success: true, connector: "gmail", message_id: info.messageId, pending: false };
   } catch (e) {
     entry.status = "failed";
     entry.error = e.message;
@@ -143,34 +166,15 @@ export async function sendGmail({ to, subject, body, cc, require_approval = true
   }
 }
 
-// ── Gmail Read ──────────────────────────────────────────────────────────────
+// ── Gmail Read (stub — requires Google API OAuth, not available via SMTP) ───
 
 export async function readGmail({ count = 10, from, subject: subjectFilter } = {}) {
-  try {
-    let prompt = `List the ${count} most recent emails.`;
-    if (from) prompt += ` Filter to emails from: ${from}.`;
-    if (subjectFilter) prompt += ` Filter to subjects containing: ${subjectFilter}.`;
-    prompt += ` For each email return: from, subject, date, preview of body (first 50 chars). Return as JSON array.`;
-
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      mcp_servers: [MCP_GMAIL],
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const text = resp.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
-    let emails = [];
-    try {
-      const start = text.indexOf("[");
-      const end = text.lastIndexOf("]") + 1;
-      if (start >= 0 && end > start) emails = JSON.parse(text.slice(start, end));
-    } catch {}
-
-    return { success: true, emails, count: emails.length };
-  } catch (e) {
-    return { success: false, emails: [], count: 0, error: e.message };
-  }
+  return {
+    success: false,
+    emails: [],
+    count: 0,
+    error: "Gmail read requires Google API OAuth — not yet implemented. Use Gmail MCP in Claude Desktop for now.",
+  };
 }
 
 // ── Slack Send ──────────────────────────────────────────────────────────────
@@ -194,16 +198,25 @@ export async function sendSlack({ channel, message, thread_ts, require_approval 
     return { success: true, connector: "slack", pending: true, approval_id: id, timestamp: null };
   }
 
-  try {
-    let prompt = `Send a message to Slack channel ${targetChannel}: ${message}`;
-    if (thread_ts) prompt += ` (in thread: ${thread_ts})`;
+  if (!SLACK_WEBHOOK_URL) {
+    entry.status = "failed";
+    entry.error = "Slack not configured";
+    await logSend(entry);
+    return { success: false, connector: "slack", error: "SLACK_WEBHOOK_URL not set", timestamp: null };
+  }
 
-    const resp = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 200,
-      mcp_servers: [MCP_SLACK],
-      messages: [{ role: "user", content: prompt }],
+  try {
+    const resp = await fetch(SLACK_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: message, channel: targetChannel }),
+      signal: AbortSignal.timeout(15000),
     });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Slack API ${resp.status}: ${errText}`);
+    }
 
     entry.status = "sent";
     entry.timestamp = new Date().toISOString();
