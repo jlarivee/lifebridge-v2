@@ -11,6 +11,8 @@ import { readRegistry, writeRegistry } from "./tools/registry-tools.js";
 import { readContext } from "./tools/context-tools.js";
 import { runAccountAgent } from "./agents/life-sciences-account-agent.js";
 import { runAgentBuilder, continueBuild } from "./agents/agent-builder-agent.js";
+import { loadDynamicAgents } from "./agent-loader.js";
+import { deployAgent } from "./tools/deploy-tools.js";
 import * as db from "./db.js";
 import Database from "@replit/database";
 
@@ -136,6 +138,24 @@ app.post("/agents/builder/continue", async (req, res) => {
   }
 });
 
+app.post("/system/deploy-agent", async (req, res) => {
+  try {
+    const { agent_name, skill_content, code_content, registry_entry } = req.body || {};
+    if (!agent_name || !skill_content || !code_content || !registry_entry) {
+      return res.status(400).json({ error: "agent_name, skill_content, code_content, registry_entry required" });
+    }
+    const result = await deployAgent(agent_name, skill_content, code_content, registry_entry);
+
+    // Dynamically load the new agent's route immediately
+    const loaded = await loadDynamicAgents(app);
+    console.log(`[DEPLOY] Hot-loaded ${loaded} new agent(s)`);
+
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/system/agent-loaded", async (req, res) => {
   const { agent, timestamp } = req.body || {};
   console.log(`\n[LIFEBRIDGE] New agent hot-loaded: ${agent} at ${timestamp}`);
@@ -210,6 +230,12 @@ async function start() {
   await initDefaults();
   await registerAccountAgent();
   await registerBuilderAgent();
+
+  // Dynamic agent loader — mounts routes for any deployed spoke agents
+  const dynamicCount = await loadDynamicAgents(app);
+  if (dynamicCount > 0) {
+    console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
+  }
 
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {

@@ -1733,6 +1733,7 @@ var currentRouteResult = null;
 var currentRouteInput = '';
 var currentAgent = null;
 
+// Static routes for core agents + dynamic fallback for deployed agents
 var agentEndpoints = {
   'life-sciences-account-agent': '/agents/account',
   'agent-builder-agent': '/agents/builder'
@@ -1937,7 +1938,8 @@ function renderRoutingResult(result, userInput) {
   var contextMatch = rest.match(/Context passed:\s*(.+)/);
   var routedAgent = routeMatch ? routeMatch[1].trim() : '';
   var routedContext = contextMatch ? contextMatch[1].trim() : '';
-  var agentEndpoint = agentEndpoints[routedAgent];
+  // Check static map first, then fall back to convention: /agents/{agent-name}
+  var agentEndpoint = agentEndpoints[routedAgent] || (routedAgent && routedAgent !== 'Claude-native' && !routedAgent.includes('BUILD BRIEF') ? '/agents/' + routedAgent : null);
 
   var confColor = '#666';
   var confLabel = 'Unknown';
