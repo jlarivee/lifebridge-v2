@@ -14,10 +14,6 @@ externalPort = 3000
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 23636
-externalPort = 3001
-
 [workflows]
 runButton = "Project"
 
@@ -34,13 +30,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "git fetch origin && git reset --hard origin/main && npm install --silent 2>/dev/null && npm start"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install --silent 2>/dev/null && npm start"
+waitForPort = 5000
 
 [postMerge]
 path = "scripts/post-merge.sh"
