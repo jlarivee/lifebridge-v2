@@ -1569,6 +1569,404 @@ body {
   background-clip: text;
 }
 
+/* ─── AGENT DASHBOARDS ─── */
+
+.dashboard {
+  min-height: 100vh;
+  padding: 24px;
+  padding-top: 72px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.dash-header {
+  margin-bottom: 32px;
+}
+
+.dash-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.dash-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dash-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.dash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent-hub-dim);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--accent-hub);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dash-btn:hover {
+  background: var(--accent-hub);
+  color: #fff;
+  border-color: var(--accent-hub);
+}
+
+.dash-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dash-btn-danger {
+  background: var(--color-error-dim);
+  color: var(--color-error);
+  border-color: transparent;
+}
+
+.dash-btn-danger:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+.dash-btn-success {
+  background: var(--color-success-dim);
+  color: var(--color-success);
+  border-color: transparent;
+}
+
+.dash-btn-success:hover {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.dash-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  margin-top: 28px;
+}
+
+.dash-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 12px;
+  transition: all var(--transition-fast);
+}
+
+.dash-card:hover {
+  border-color: var(--border-hover);
+}
+
+.dash-card-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.dash-card-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.dash-card-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.dash-card-expandable {
+  cursor: pointer;
+}
+
+.dash-card-expand-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent-hub);
+  cursor: pointer;
+  margin-top: 8px;
+  display: inline-block;
+}
+
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.dash-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-table td {
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-table tr:hover td {
+  background: var(--bg-card-hover);
+}
+
+.dash-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-tab {
+  padding: 10px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dash-tab:hover {
+  color: var(--text-secondary);
+}
+
+.dash-tab.active {
+  color: var(--accent-hub);
+  border-bottom-color: var(--accent-hub);
+}
+
+.dash-tab-content {
+  display: none;
+}
+
+.dash-tab-content.active {
+  display: block;
+}
+
+.dash-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.dash-account-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.dash-account-card:hover {
+  border-color: var(--accent-teal);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.dash-account-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.dash-account-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.dash-summary-row {
+  display: flex;
+  gap: 20px;
+  padding: 12px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-default);
+  margin-top: 8px;
+}
+
+.dash-summary-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dash-summary-value {
+  color: var(--accent-teal);
+  font-weight: 600;
+}
+
+/* ─── DASHBOARD CHAT ─── */
+
+.dash-chat {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dash-chat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.dash-chat-output {
+  min-height: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.dash-chat-response {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.dash-chat-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.dash-chat-input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 12px 16px;
+  outline: none;
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+  transition: border-color var(--transition-fast);
+}
+
+.dash-chat-input:focus {
+  border-color: var(--accent-hub);
+  box-shadow: 0 0 0 3px var(--accent-hub-dim);
+}
+
+.dash-chat-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--accent-hub);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dash-chat-send:hover {
+  background: #9d90f9;
+  transform: scale(1.05);
+}
+
+.dash-chat-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.dash-chat-send svg {
+  width: 18px;
+  height: 18px;
+  stroke: #fff;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+.dash-loading {
+  text-align: center;
+  padding: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dash-empty {
+  text-align: center;
+  padding: 32px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dash-proposal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dash-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.dash-badge-pending { background: var(--accent-amber-dim); color: var(--accent-amber); }
+.dash-badge-approved { background: var(--color-success-dim); color: var(--color-success); }
+.dash-badge-rejected { background: var(--color-error-dim); color: var(--color-error); }
+
 @media (max-width: 640px) {
   .spoke-grid {
     grid-template-columns: 1fr;
@@ -1577,6 +1975,9 @@ body {
   .workspace { padding: 16px; }
   .workspace-container { padding-top: 48px; }
   .improve-panel { width: 100vw; }
+  .dashboard { padding: 16px; padding-top: 64px; }
+  .dash-cols { grid-template-columns: 1fr; }
+  .dash-account-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </head>
@@ -1780,6 +2181,11 @@ body {
     </div>
   </div>
 
+  <!-- ═══ AGENT DASHBOARD VIEW ═══ -->
+  <div class="view" id="viewDashboard">
+    <div class="dashboard" id="dashboardContent"></div>
+  </div>
+
 </div>
 
 <!-- ═══ IMPROVEMENT PANEL ═══ -->
@@ -1820,27 +2226,35 @@ var currentAgent = null;
 
 // Static routes for core agents + dynamic fallback for deployed agents
 var agentEndpoints = {
-  'life-sciences-account-agent': '/agents/account',
+  'life-sciences-account-agent': '/agents/life-sciences-account-agent',
   'agent-builder-agent': '/agents/builder',
-  'slab-inventory-tracker-agent': '/agents/slab-inventory-tracker-agent',
-  'registry-integrity-agent': '/agents/registry-integrity-agent',
-  'intelligence-update-agent': '/agents/intelligence-update-agent',
-  'memory-consolidation-agent': '/agents/memory-consolidation-agent',
   'morning-briefing-agent': '/agents/morning-briefing-agent',
   'travel-agent': '/agents/travel-agent',
+  'slab-inventory-tracker-agent': '/agents/slab-inventory-tracker-agent',
+  'memory-consolidation-agent': '/agents/memory-consolidation-agent',
+  'registry-integrity-agent': '/agents/registry-integrity-agent',
+  'intelligence-update-agent': '/agents/intelligence-update-agent',
   'connectors': '/agents/connectors'
 };
 
 var agentLabels = {
   'life-sciences-account-agent': 'Life Sciences Account Agent',
   'agent-builder-agent': 'Agent Builder Agent',
-  'slab-inventory-tracker-agent': 'Slab Inventory Tracker',
+  'morning-briefing-agent': 'Morning Briefing',
+  'travel-agent': 'Travel Agent',
+  'slab-inventory-tracker-agent': 'Three Rivers Slab',
+  'memory-consolidation-agent': 'Memory Consolidation',
   'registry-integrity-agent': 'Registry Integrity Agent',
   'intelligence-update-agent': 'Intelligence Update Agent',
-  'memory-consolidation-agent': 'Memory Consolidation Agent',
-  'morning-briefing-agent': 'Morning Briefing Agent',
-  'travel-agent': 'Travel Agent',
   'connectors': 'Connectors'
+};
+
+var dashboardAgents = {
+  'morning-briefing-agent': true,
+  'life-sciences-account-agent': true,
+  'travel-agent': true,
+  'slab-inventory-tracker-agent': true,
+  'memory-consolidation-agent': true
 };
 
 var quickActions = {
@@ -1886,7 +2300,8 @@ function navigateTo(viewName, skipPush) {
     ideas: 'viewIdeas',
     tests: 'viewTests',
     health: 'viewHealth',
-    intel: 'viewIntel'
+    intel: 'viewIntel',
+    dashboard: 'viewDashboard'
   };
 
   var target = document.getElementById(viewMap[viewName]);
@@ -1927,7 +2342,14 @@ function loadSpokeAgents() {
         '<div class="spoke-card-domain">' + escapeHtml(a.domain || 'General') + '</div>' +
         '<div class="spoke-card-status"><span class="dot"></span> ' + escapeHtml(hasEndpoint ? (a.status || 'Active') : 'Coming soon') + '</div>';
       if (hasEndpoint) {
-        card.addEventListener('click', function() { openAgentWorkspace(this.dataset.agent); });
+        card.addEventListener('click', function() {
+          var name = this.dataset.agent;
+          if (dashboardAgents[name]) {
+            openDashboard(name);
+          } else {
+            openAgentWorkspace(name);
+          }
+        });
       }
       grid.appendChild(card);
     }
@@ -3345,6 +3767,499 @@ async function approveIntel(id) {
 
 async function rejectIntel(id) {
   try { await apiFetch('/intelligence/reject/' + id, { method: 'POST', body: JSON.stringify({ reason: 'Rejected via UI' }) }); loadIntelFindings(); } catch {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AGENT DASHBOARDS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+var currentDashboardAgent = null;
+
+function openDashboard(agentName) {
+  currentDashboardAgent = agentName;
+  var el = document.getElementById('dashboardContent');
+  el.innerHTML = '<div class="dash-loading">Loading dashboard...</div>';
+  navigateTo('dashboard');
+
+  var renderers = {
+    'morning-briefing-agent': renderBriefingDashboard,
+    'life-sciences-account-agent': renderAccountDashboard,
+    'travel-agent': renderTravelDashboard,
+    'slab-inventory-tracker-agent': renderSlabDashboard,
+    'memory-consolidation-agent': renderMemoryDashboard
+  };
+
+  var renderer = renderers[agentName];
+  if (renderer) {
+    renderer(el);
+  } else {
+    el.innerHTML = '<div class="dash-empty">No dashboard available for this agent.</div>';
+  }
+}
+
+function dashChatHtml(agentName) {
+  return '<div class="dash-chat">' +
+    '<div class="dash-chat-label">Send a Request</div>' +
+    '<div class="dash-chat-output" id="dashChatOutput"></div>' +
+    '<div class="dash-chat-input-wrap">' +
+      '<textarea class="dash-chat-input" id="dashChatInput" placeholder="Type a request..." rows="1" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();dashChatSend();}"></textarea>' +
+      '<button class="dash-chat-send" id="dashChatSendBtn" onclick="dashChatSend()">' +
+        '<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
+      '</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function dashChatSend() {
+  var input = document.getElementById('dashChatInput');
+  var output = document.getElementById('dashChatOutput');
+  var btn = document.getElementById('dashChatSendBtn');
+  var text = input.value.trim();
+  if (!text) return;
+
+  btn.disabled = true;
+  input.disabled = true;
+  output.innerHTML = '<div class="dash-loading">Processing...</div>' + output.innerHTML;
+
+  try {
+    var endpoint = agentEndpoints[currentDashboardAgent] || ('/agents/' + currentDashboardAgent);
+    var data = await apiFetch(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ request: text, context: {} })
+    });
+    var responseText = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
+    output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(responseText) + '</div>' + output.innerHTML.replace('<div class="dash-loading">Processing...</div>', '');
+  } catch (e) {
+    output.innerHTML = '<div class="dash-chat-response" style="border-color:var(--color-error);">Error: ' + escapeHtml(e.message) + '</div>' + output.innerHTML.replace('<div class="dash-loading">Processing...</div>', '');
+  }
+
+  input.value = '';
+  btn.disabled = false;
+  input.disabled = false;
+  input.focus();
+}
+
+// ─── Morning Briefing Dashboard ─────────────────────────────────────────────
+
+async function renderBriefingDashboard(el) {
+  el.innerHTML = '<div class="dash-header"><div class="dash-title">Morning Briefing</div><div class="dash-subtitle">Daily system briefing &mdash; 7:30 AM UTC</div></div>' +
+    '<div class="dash-actions">' +
+      '<button class="dash-btn" onclick="dashBriefingRun()">Run Now</button>' +
+      '<button class="dash-btn" onclick="dashBriefingPreview()">Preview</button>' +
+    '</div>' +
+    '<div class="dash-section-label">Recent Briefings</div>' +
+    '<div id="dashBriefingList"><div class="dash-loading">Loading...</div></div>' +
+    dashChatHtml('morning-briefing-agent');
+
+  try {
+    var history = await apiFetch('/briefing/history');
+    var list = document.getElementById('dashBriefingList');
+    var items = Array.isArray(history) ? history.slice(0, 7) : [];
+    if (items.length === 0) {
+      list.innerHTML = '<div class="dash-empty">No briefings yet.</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < items.length; i++) {
+      var b = items[i];
+      var preview = (b.summary || 'No summary').substring(0, 200);
+      html += '<div class="dash-card dash-card-expandable" onclick="dashExpandBriefing(\'' + escapeHtml(b.briefing_id) + '\',this)">' +
+        '<div class="dash-card-title">' + escapeHtml(b.date || 'Unknown') + '</div>' +
+        '<div class="dash-card-meta">Delivered via: ' + escapeHtml((b.delivered_via || []).join(', ') || 'none') + ' &bull; ' + escapeHtml(b.status || '') + '</div>' +
+        '<div class="dash-card-body">' + escapeHtml(preview) + '</div>' +
+        '<div class="dash-card-expand-toggle">Read full &rarr;</div>' +
+      '</div>';
+    }
+    list.innerHTML = html;
+  } catch (e) {
+    document.getElementById('dashBriefingList').innerHTML = '<div class="dash-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function dashExpandBriefing(id, card) {
+  var body = card.querySelector('.dash-card-body');
+  var toggle = card.querySelector('.dash-card-expand-toggle');
+  if (card.dataset.expanded === 'true') {
+    body.textContent = body.dataset.preview;
+    toggle.innerHTML = 'Read full &rarr;';
+    card.dataset.expanded = 'false';
+    return;
+  }
+  toggle.textContent = 'Loading...';
+  try {
+    var data = await apiFetch('/briefing/latest');
+    var full = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
+    body.dataset.preview = body.textContent;
+    body.textContent = full;
+    toggle.innerHTML = 'Collapse &uarr;';
+    card.dataset.expanded = 'true';
+  } catch {
+    toggle.textContent = 'Failed to load';
+  }
+}
+
+async function dashBriefingRun() {
+  if (!confirm('Run the full morning briefing now? This will send to Gmail and Slack.')) return;
+  try {
+    var data = await apiFetch('/briefing/run', { method: 'POST' });
+    var output = document.getElementById('dashChatOutput');
+    output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
+  } catch (e) {
+    alert('Failed: ' + e.message);
+  }
+}
+
+async function dashBriefingPreview() {
+  try {
+    var data = await apiFetch('/briefing/preview', { method: 'POST' });
+    var output = document.getElementById('dashChatOutput');
+    output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
+  } catch (e) {
+    alert('Preview failed: ' + e.message);
+  }
+}
+
+// ─── Life Sciences Account Dashboard ────────────────────────────────────────
+
+async function renderAccountDashboard(el) {
+  var accounts = ['Pfizer', 'BMS', 'Novartis', 'Lilly', 'Cigna', 'Elevance'];
+  var accountCards = '';
+  for (var i = 0; i < accounts.length; i++) {
+    accountCards += '<div class="dash-account-card" onclick="dashAccountBrief(\'' + accounts[i] + '\')">' +
+      '<div class="dash-account-name">' + accounts[i] + '</div>' +
+      '<div class="dash-account-meta">Click for briefing</div>' +
+    '</div>';
+  }
+
+  el.innerHTML = '<div class="dash-header"><div class="dash-title">Life Sciences Account Intelligence</div><div class="dash-subtitle">Work &mdash; Pharma &amp; Payer Accounts</div></div>' +
+    '<div class="dash-actions"><button class="dash-btn" onclick="dashAccountNew()">New Briefing</button></div>' +
+    '<div class="dash-cols">' +
+      '<div>' +
+        '<div class="dash-section-label">Recent Requests</div>' +
+        '<div id="dashAccountRequests"><div class="dash-loading">Loading...</div></div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="dash-section-label">Accounts</div>' +
+        '<div class="dash-account-grid">' + accountCards + '</div>' +
+      '</div>' +
+    '</div>' +
+    dashChatHtml('life-sciences-account-agent');
+
+  try {
+    var logs = await apiFetch('/logs/recent?limit=10');
+    var reqList = document.getElementById('dashAccountRequests');
+    var filtered = (Array.isArray(logs) ? logs : []).filter(function(l) {
+      return l.routed_to === 'life-sciences-account-agent' || (l.domain || '').toLowerCase() === 'work';
+    }).slice(0, 10);
+    if (filtered.length === 0) {
+      reqList.innerHTML = '<div class="dash-empty">No recent account requests.</div>';
+      return;
+    }
+    var html = '';
+    for (var j = 0; j < filtered.length; j++) {
+      var r = filtered[j];
+      html += '<div class="dash-card"><div class="dash-card-title">' + escapeHtml((r.input || '').substring(0, 60)) + '</div>' +
+        '<div class="dash-card-meta">' + escapeHtml(r.created_at || r.timestamp || '') + '</div></div>';
+    }
+    reqList.innerHTML = html;
+  } catch {
+    document.getElementById('dashAccountRequests').innerHTML = '<div class="dash-empty">No recent logs available.</div>';
+  }
+}
+
+function dashAccountBrief(account) {
+  var input = document.getElementById('dashChatInput');
+  input.value = 'Give me a full account briefing for ' + account;
+  input.focus();
+}
+
+function dashAccountNew() {
+  var input = document.getElementById('dashChatInput');
+  input.value = '';
+  input.focus();
+  input.placeholder = 'e.g., Prepare Novartis meeting brief for next Tuesday...';
+}
+
+// ─── Travel Dashboard ───────────────────────────────────────────────────────
+
+async function renderTravelDashboard(el) {
+  el.innerHTML = '<div class="dash-header"><div class="dash-title">Travel Agent</div><div class="dash-subtitle">Personal Life &mdash; Trips, Flights, Loyalty</div></div>' +
+    '<div class="dash-actions"><button class="dash-btn" onclick="dashTravelPlan()">Plan a Trip</button></div>' +
+    '<div class="dash-section-label">Upcoming Trips</div>' +
+    '<div id="dashTravelTrips"><div class="dash-loading">Loading...</div></div>' +
+    '<div class="dash-section-label">Active Flight Watches</div>' +
+    '<div id="dashTravelWatches"><div class="dash-loading">Loading...</div></div>' +
+    '<div class="dash-section-label">Travel Profile</div>' +
+    '<div id="dashTravelProfile"><div class="dash-loading">Loading...</div></div>' +
+    dashChatHtml('travel-agent');
+
+  // Fetch all three in parallel
+  Promise.allSettled([
+    apiFetch('/travel/trips'),
+    apiFetch('/travel/flights/watch'),
+    apiFetch('/travel/profile')
+  ]).then(function(results) {
+    // Trips
+    var tripsEl = document.getElementById('dashTravelTrips');
+    if (results[0].status === 'fulfilled') {
+      var trips = Array.isArray(results[0].value) ? results[0].value : [];
+      if (trips.length === 0) {
+        tripsEl.innerHTML = '<div class="dash-empty">No upcoming trips.</div>';
+      } else {
+        var html = '';
+        for (var i = 0; i < trips.length; i++) {
+          var t = trips[i];
+          html += '<div class="dash-card"><div class="dash-card-title">' + escapeHtml(t.destination || t.name || 'Trip') + '</div>' +
+            '<div class="dash-card-meta">' + escapeHtml((t.start_date || '') + ' to ' + (t.end_date || '')) + '</div>' +
+            '<div class="dash-card-body">' + escapeHtml(t.notes || t.purpose || '') + '</div></div>';
+        }
+        tripsEl.innerHTML = html;
+      }
+    } else {
+      tripsEl.innerHTML = '<div class="dash-empty">Failed to load trips.</div>';
+    }
+
+    // Flight watches
+    var watchEl = document.getElementById('dashTravelWatches');
+    if (results[1].status === 'fulfilled') {
+      var watches = Array.isArray(results[1].value) ? results[1].value : [];
+      if (watches.length === 0) {
+        watchEl.innerHTML = '<div class="dash-empty">No active flight watches.</div>';
+      } else {
+        var whtml = '<table class="dash-table"><thead><tr><th>Route</th><th>Max Price</th><th>Class</th><th>Status</th></tr></thead><tbody>';
+        for (var w = 0; w < watches.length; w++) {
+          var fw = watches[w];
+          whtml += '<tr><td>' + escapeHtml((fw.origin || '') + ' → ' + (fw.destination || '')) + '</td>' +
+            '<td>' + escapeHtml(fw.max_price ? ('$' + fw.max_price) : 'Any') + '</td>' +
+            '<td>' + escapeHtml(fw.cabin_class || 'Any') + '</td>' +
+            '<td>' + escapeHtml(fw.status || 'active') + '</td></tr>';
+        }
+        whtml += '</tbody></table>';
+        watchEl.innerHTML = whtml;
+      }
+    } else {
+      watchEl.innerHTML = '<div class="dash-empty">Failed to load watches.</div>';
+    }
+
+    // Profile
+    var profEl = document.getElementById('dashTravelProfile');
+    if (results[2].status === 'fulfilled') {
+      var p = results[2].value || {};
+      var profHtml = '<div class="dash-card">';
+      if (p.home_airports) profHtml += '<div class="dash-card-meta"><strong>Home Airports:</strong> ' + escapeHtml(Array.isArray(p.home_airports) ? p.home_airports.join(', ') : p.home_airports) + '</div>';
+      if (p.airline_preference) profHtml += '<div class="dash-card-meta"><strong>Airline:</strong> ' + escapeHtml(p.airline_preference) + '</div>';
+      if (p.hotel_programs) profHtml += '<div class="dash-card-meta"><strong>Hotel Programs:</strong> ' + escapeHtml(Array.isArray(p.hotel_programs) ? p.hotel_programs.map(function(h){return h.program || h;}).join(', ') : JSON.stringify(p.hotel_programs)) + '</div>';
+      if (p.car_rental) profHtml += '<div class="dash-card-meta"><strong>Car Rental:</strong> ' + escapeHtml(typeof p.car_rental === 'object' ? (p.car_rental.company || JSON.stringify(p.car_rental)) : p.car_rental) + '</div>';
+      profHtml += '</div>';
+      profEl.innerHTML = profHtml;
+    } else {
+      profEl.innerHTML = '<div class="dash-empty">Failed to load profile.</div>';
+    }
+  });
+}
+
+function dashTravelPlan() {
+  var input = document.getElementById('dashChatInput');
+  input.value = '';
+  input.focus();
+  input.placeholder = 'e.g., Plan a trip to Indianapolis next week, 2 nights...';
+}
+
+// ─── Slab Inventory Dashboard ───────────────────────────────────────────────
+
+async function renderSlabDashboard(el) {
+  el.innerHTML = '<div class="dash-header"><div class="dash-title">Three Rivers Slab</div><div class="dash-subtitle">Personal Business &mdash; Inventory Tracker</div></div>' +
+    '<div class="dash-actions">' +
+      '<button class="dash-btn" onclick="dashSlabAdd()">Add Slab</button>' +
+      '<button class="dash-btn" onclick="dashSlabViewAll()">View All</button>' +
+    '</div>' +
+    '<div class="dash-section-label">Current Inventory</div>' +
+    '<div id="dashSlabInventory"><div class="dash-loading">Loading...</div></div>' +
+    dashChatHtml('slab-inventory-tracker-agent');
+
+  try {
+    var data = await apiFetch('/agents/slab-inventory-tracker-agent', {
+      method: 'POST',
+      body: JSON.stringify({ request: 'show full inventory', context: {} })
+    });
+    var inv = document.getElementById('dashSlabInventory');
+    var output = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
+    inv.innerHTML = '<div class="dash-card"><div class="dash-card-body">' + escapeHtml(output) + '</div></div>';
+  } catch (e) {
+    document.getElementById('dashSlabInventory').innerHTML = '<div class="dash-empty">Failed to load inventory: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function dashSlabAdd() {
+  var input = document.getElementById('dashChatInput');
+  input.value = '';
+  input.focus();
+  input.placeholder = 'e.g., Add a walnut slab, 48x24x2.5, yard location A3...';
+}
+
+function dashSlabViewAll() {
+  var input = document.getElementById('dashChatInput');
+  input.value = 'Show full inventory with aging report';
+  dashChatSend();
+}
+
+// ─── Memory Consolidation Dashboard ─────────────────────────────────────────
+
+async function renderMemoryDashboard(el) {
+  el.innerHTML = '<div class="dash-header"><div class="dash-title">Memory Consolidation</div><div class="dash-subtitle">System &mdash; Weekly Context Learning</div></div>' +
+    '<div class="dash-actions"><button class="dash-btn" id="dashMemRunBtn" onclick="dashMemRun()">Run Consolidation Now</button></div>' +
+    '<div class="dash-tabs">' +
+      '<button class="dash-tab active" onclick="dashMemTab(\'proposals\',this)">Pending Proposals</button>' +
+      '<button class="dash-tab" onclick="dashMemTab(\'facts\',this)">Current Facts</button>' +
+      '<button class="dash-tab" onclick="dashMemTab(\'history\',this)">History</button>' +
+    '</div>' +
+    '<div class="dash-tab-content active" id="dashMemProposals"><div class="dash-loading">Loading...</div></div>' +
+    '<div class="dash-tab-content" id="dashMemFacts"></div>' +
+    '<div class="dash-tab-content" id="dashMemHistory"></div>' +
+    dashChatHtml('memory-consolidation-agent');
+
+  loadMemProposals();
+}
+
+function dashMemTab(tab, btn) {
+  var tabs = document.querySelectorAll('.dash-tab');
+  var contents = document.querySelectorAll('.dash-tab-content');
+  tabs.forEach(function(t) { t.classList.remove('active'); });
+  contents.forEach(function(c) { c.classList.remove('active'); });
+  btn.classList.add('active');
+
+  if (tab === 'proposals') {
+    document.getElementById('dashMemProposals').classList.add('active');
+    loadMemProposals();
+  } else if (tab === 'facts') {
+    document.getElementById('dashMemFacts').classList.add('active');
+    loadMemFacts();
+  } else if (tab === 'history') {
+    document.getElementById('dashMemHistory').classList.add('active');
+    loadMemHistory();
+  }
+}
+
+async function loadMemProposals() {
+  var container = document.getElementById('dashMemProposals');
+  container.innerHTML = '<div class="dash-loading">Loading...</div>';
+  try {
+    var data = await apiFetch('/memory/proposals');
+    var proposals = Array.isArray(data.output) ? data.output : [];
+    if (proposals.length === 0) {
+      container.innerHTML = '<div class="dash-empty">No pending proposals.</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < proposals.length; i++) {
+      var p = proposals[i];
+      html += '<div class="dash-card">' +
+        '<div class="dash-card-title">' + escapeHtml(p.fact || '') + '</div>' +
+        '<div class="dash-card-meta">' +
+          '<span class="dash-badge dash-badge-' + (p.status || 'pending') + '">' + escapeHtml(p.status || 'pending') + '</span>' +
+          ' &bull; Category: ' + escapeHtml(p.category || '') +
+          ' &bull; Confidence: ' + (p.confidence || 0) + '%' +
+        '</div>' +
+        '<div class="dash-card-body">' + escapeHtml(p.evidence || '') + '</div>' +
+        (p.status === 'pending' ? '<div class="dash-proposal-actions">' +
+          '<button class="dash-btn dash-btn-success" onclick="dashMemApprove(\'' + escapeHtml(p.id) + '\')">Approve</button>' +
+          '<button class="dash-btn dash-btn-danger" onclick="dashMemReject(\'' + escapeHtml(p.id) + '\')">Reject</button>' +
+        '</div>' : '') +
+      '</div>';
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="dash-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function loadMemFacts() {
+  var container = document.getElementById('dashMemFacts');
+  container.innerHTML = '<div class="dash-loading">Loading...</div>';
+  try {
+    var data = await apiFetch('/memory/facts');
+    var ctx = data.output || {};
+    var html = '';
+    var sections = ['preferences', 'constraints', 'learned_patterns'];
+    for (var s = 0; s < sections.length; s++) {
+      var key = sections[s];
+      var items = ctx[key] || [];
+      html += '<div class="dash-section-label">' + key.replace(/_/g, ' ') + ' (' + items.length + ')</div>';
+      if (items.length === 0) {
+        html += '<div class="dash-empty">None yet.</div>';
+      } else {
+        for (var j = 0; j < items.length; j++) {
+          var item = items[j];
+          var fact = typeof item === 'string' ? item : (item.fact || item.description || JSON.stringify(item));
+          html += '<div class="dash-card"><div class="dash-card-body">' + escapeHtml(fact) + '</div></div>';
+        }
+      }
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="dash-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function loadMemHistory() {
+  var container = document.getElementById('dashMemHistory');
+  container.innerHTML = '<div class="dash-loading">Loading...</div>';
+  try {
+    var data = await apiFetch('/memory/history');
+    var runs = Array.isArray(data.output) ? data.output : [];
+    if (runs.length === 0) {
+      container.innerHTML = '<div class="dash-empty">No consolidation runs yet.</div>';
+      return;
+    }
+    var html = '<table class="dash-table"><thead><tr><th>Date</th><th>Trigger</th><th>Logs Analyzed</th><th>Proposals</th><th>Duration</th></tr></thead><tbody>';
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i];
+      html += '<tr><td>' + escapeHtml(r.run_at || '') + '</td>' +
+        '<td>' + escapeHtml(r.trigger || '') + '</td>' +
+        '<td>' + (r.log_entries_analyzed || 0) + '</td>' +
+        '<td>' + (r.proposals_generated || 0) + '</td>' +
+        '<td>' + (r.duration_ms ? (r.duration_ms + 'ms') : '-') + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="dash-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function dashMemApprove(id) {
+  try {
+    await apiFetch('/memory/proposals/' + id + '/approve', { method: 'POST' });
+    loadMemProposals();
+  } catch (e) {
+    alert('Approve failed: ' + e.message);
+  }
+}
+
+async function dashMemReject(id) {
+  var reason = prompt('Rejection reason (optional):');
+  try {
+    await apiFetch('/memory/proposals/' + id + '/reject', { method: 'POST', body: JSON.stringify({ reason: reason || '' }) });
+    loadMemProposals();
+  } catch (e) {
+    alert('Reject failed: ' + e.message);
+  }
+}
+
+async function dashMemRun() {
+  var btn = document.getElementById('dashMemRunBtn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  try {
+    var data = await apiFetch('/memory/run', { method: 'POST' });
+    var output = document.getElementById('dashChatOutput');
+    output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
+    loadMemProposals();
+  } catch (e) {
+    alert('Consolidation failed: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Run Consolidation Now';
 }
 </script>
 </body>

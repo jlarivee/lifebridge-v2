@@ -185,6 +185,44 @@ package.json             ← all dependencies
 
 ---
 
+### v2.1 — Memory Consolidation Agent + Test Suite Hardening
+**What was built:**
+Memory Consolidation Agent (src/agents/memory-consolidation-agent.js)
+- Weekly Sunday 3:00 AM UTC — reads all request logs, extracts durable facts
+- Claude-powered analysis across 5 categories: preferences, constraints,
+  learned_patterns, people, accounts
+- Confidence threshold: 70+ to propose, never writes context directly
+- Full proposal CRUD with human approval gate
+- Staleness detection for outdated context facts
+
+Routes added:
+- POST /memory/run
+- GET  /memory/proposals
+- GET  /memory/proposals/:id
+- POST /memory/proposals/:id/approve  (writes to context on approval)
+- POST /memory/proposals/:id/reject
+- GET  /memory/facts
+- GET  /memory/history
+- POST /agents/memory-consolidation-agent
+
+Skill file: src/skills/memory-consolidation-agent.md (118 lines)
+
+Test Suite Hardening:
+- Fixed fast tier hanging (was 30s+ timeout, now ~11s)
+- Root cause: checkTrends() and checkDeadAgents() doing full DB scans
+  on every agent in fast tier
+- Fix: skip all DB scans and writes in fast tier
+- Added tier guard in runTestCase: fast tier never calls callAgentViaRoute
+- Added DB backfill: patches stored test cases missing type: "endpoint"
+- Fixed /agents/:name/detail timeout: replaced unbounded DB scan with
+  per-agent cache (agent-recent-runs:{name})
+
+Test results: 26/26 passing, 0 failures, ~11 seconds
+
+**Git commits:** c32dcfb, 5450c1a, d761fcd, ba61da2
+
+---
+
 ### v2.1 — Administration Agent Suite + Persistence Fixes
 **What was built:**
 - Agent Builder Agent fixed — now actually deploys real files to disk, registers agents in Replit Database, creates live Express routes
@@ -317,15 +355,17 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ## Capability Registry (Current State)
 
-**Agents:**
 | Agent | Domain | Status |
 |---|---|---|
 | life-sciences-account-agent | Work | Active |
-| agent-builder-agent | System | Active |
-| slab-inventory-tracker-agent | Personal Business | Active |
-| test-agent | System | Active |
-| registry-integrity-agent | System | Active |
+| morning-briefing-agent | System | Active |
 | intelligence-update-agent | System | Active |
+| registry-integrity-agent | System | Active |
+| test-agent | System | Active |
+| memory-consolidation-agent | System | Active |
+| travel-agent | Personal Life | Active |
+| slab-inventory-tracker-agent | Personal Business | Active |
+| agent-builder-agent | System | Active |
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
