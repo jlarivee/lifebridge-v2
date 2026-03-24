@@ -49,6 +49,10 @@ const DEFAULT_CASES = {
   ],
   "memory-consolidation-agent": [
     { tier: "fast", input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Memory: GET proposals", type: "endpoint", method: "GET", path: "/memory/proposals", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Memory: GET facts", type: "endpoint", method: "GET", path: "/memory/facts", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Memory: GET history", type: "endpoint", method: "GET", path: "/memory/history", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "full", input: "Memory: POST run consolidation", type: "endpoint", method: "POST", path: "/memory/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
   ],
   "travel-agent": [
     { tier: "fast", input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },

@@ -42,6 +42,8 @@ Smooth CSS transitions between states, dark theme throughout. No page reloads.
 - `src/agents/morning-briefing-agent.js` — Daily briefing agent
 - `src/agents/registry-integrity-agent.js` — Registry health checks
 - `src/agents/intelligence-update-agent.js` — Intelligence scanning and findings
+- `src/agents/memory-consolidation-agent.js` — Weekly context learning from request logs
+- `src/skills/memory-consolidation-agent.md` — Skill definition for memory consolidation
 - `src/db.js` — Database layer
 - `src/tools/` — Tool modules (log, approval, registry, context)
 
@@ -52,6 +54,9 @@ Smooth CSS transitions between states, dark theme throughout. No page reloads.
 - `intelligence:{id}` — Intelligence findings
 - `integrity-report:{id}` — Registry integrity reports
 - `trip:{id}` — Travel trips
+- `memory-proposal:{id}` — Memory consolidation proposals (pending/approved/rejected)
+- `memory-run:{id}` — Memory consolidation run history
+- `request:{id}` — Request logs (source data for memory consolidation)
 
 ## Design System
 - Background: `#050507` (primary), `#0c0c10` (secondary), `#111116` (cards)
