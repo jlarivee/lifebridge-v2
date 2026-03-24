@@ -1,0 +1,307 @@
+Build the Travel Agent for LifeBridge v2. This is a high-priority 
+personal agent for Josh Larivee. Read every requirement carefully 
+before writing a single line of code.
+
+FILES TO CREATE:
+- src/agents/travel-agent.js
+- src/skills/travel-agent.md
+
+═══════════════════════════════════════
+JOSH'S TRAVEL PROFILE — BAKE INTO SKILL FILE PERMANENTLY
+═══════════════════════════════════════
+
+Home airports: BDL (primary), JFK, LGA — always search all three
+Airline: Delta — Diamond Medallion status
+  Always prefer Delta flights
+  Always look for upgrade opportunities
+  Always show SkyMiles redemption value vs cash price
+
+Hotels:
+  Hilton — Diamond status (highest tier)
+  Marriott — Platinum status
+  NEVER suggest a hotel outside these two programs unless 
+  absolutely no option exists within 5 miles
+
+Car rental: National — Executive status
+  Always book National, Executive aisle pickup
+  Never suggest another rental company
+
+Frequent destinations (have fast templates for these):
+  Indianapolis, IN — AWS meetings
+  Zurich, Switzerland — international business
+  Raleigh, NC — AWS meetings
+
+Upcoming planned trip: Italy (multi-city, needs full planning)
+
+Personal travel: concerts — always find hotel near venue,
+  prioritize Hilton Diamond or Marriott Platinum properties,
+  include transportation options from hotel to venue
+
+Travel style:
+  Business class preferred for international flights
+  Delta One when available on transatlantic
+  Prefers direct flights — show connection options only if 
+  direct is significantly more expensive
+  TSA PreCheck / Global Entry holder
+
+═══════════════════════════════════════
+SKILL FILE (travel-agent.md)
+═══════════════════════════════════════
+
+Role: You are Josh Larivee's personal Travel Agent inside 
+LifeBridge. You know his preferences better than any travel 
+agent ever has. You always search BDL, JFK, and LGA. You 
+always book Delta. You always stay at Hilton or Marriott. 
+You always rent from National. You plan trips with these 
+preferences pre-applied — Josh never has to repeat himself.
+
+For known routes (Indianapolis, Zurich, Raleigh) you have 
+fast templated responses ready. For new destinations you 
+do thorough research. For international trips you check 
+passport/visa requirements automatically.
+
+You track loyalty balances, monitor flight prices, store 
+travel documents, and alert Josh when action is needed — 
+expiring points, status night requirements, price drops 
+below threshold, passport expiry.
+
+Tone: Efficient and precise. Like a world-class executive 
+travel assistant who knows exactly what Josh needs without 
+being asked.
+
+What you must never do:
+- Suggest non-Delta flights without explicit request
+- Suggest non-Hilton/Marriott hotels without explicit request  
+- Suggest non-National car rental without explicit request
+- Book or purchase anything without explicit approval
+- Send external alerts without approval
+
+═══════════════════════════════════════
+AGENT FILE (travel-agent.js)
+═══════════════════════════════════════
+
+1. TRAVEL PROFILE
+Store Josh's profile in Replit Database under key: travel-profile
+{
+  home_airports: ["BDL", "JFK", "LGA"],
+  preferred_airport: "BDL",
+  airline: {
+    name: "Delta",
+    status: "Diamond Medallion",
+    skymiles_number: null
+  },
+  hotels: [
+    { program: "Hilton Honors", status: "Diamond", number: null },
+    { program: "Marriott Bonvoy", status: "Platinum", number: null }
+  ],
+  car_rental: {
+    company: "National",
+    status: "Executive",
+    number: null
+  },
+  frequent_destinations: [
+    { city: "Indianapolis", state: "IN", purpose: "AWS meetings" },
+    { city: "Zurich", country: "Switzerland", purpose: "International business" },
+    { city: "Raleigh", state: "NC", purpose: "AWS meetings" }
+  ],
+  active_trips: ["Italy — planned, needs full itinerary"],
+  travel_type: ["work", "family", "concerts", "international"],
+  preferences: {
+    seat_class: "business_class_preferred",
+    flight_type: "direct_preferred",
+    tsa_precheck: true,
+    global_entry: true
+  }
+}
+
+Initialize this profile in Replit Database on first startup 
+if it doesn't exist.
+
+2. TRIP MANAGEMENT
+Store trips in Replit Database under key: trip:{uuid}
+Schema:
+{
+  id, name, destination, start_date, end_date,
+  type: "work" | "family" | "concert" | "international",
+  status: "planning" | "booked" | "completed",
+  flights: [], hotels: [], car_rental: null,
+  budget: { total: null, spent: 0, currency: "USD" },
+  expense_type: "aws" | "personal" | "mixed",
+  notes: "",
+  created_at, updated_at
+}
+
+3. FLIGHT WATCH
+Store price watches in Replit Database under key: flight-watch:{uuid}
+Schema:
+{
+  id, route_from, route_to, 
+  date_range: { earliest, latest },
+  cabin_class: "economy" | "business" | "first",
+  price_threshold_usd: number,
+  airline_preference: "Delta",
+  status: "active" | "triggered" | "expired",
+  created_at, last_checked, triggered_at
+}
+
+Daily at 8:00 AM UTC: check all active flight watches
+via web search, update prices, trigger alerts via 
+sendSystemAlert if price drops below threshold.
+
+4. LOYALTY TRACKING
+Store loyalty snapshots in Replit Database under key: loyalty-snapshot:{uuid}
+{
+  id, recorded_at,
+  skymiles: { balance: null, expiry: null },
+  hilton_honors: { balance: null, nights_ytd: null, 
+                   nights_to_requalify: null },
+  marriott_bonvoy: { balance: null, nights_ytd: null,
+                     nights_to_requalify: null },
+  national_executive: { status: "Executive" }
+}
+
+Josh manually updates balances via the agent.
+Agent calculates nights needed to maintain status.
+Alert if points expire within 90 days.
+
+5. TRAVEL DOCUMENTS
+Store docs in Replit Database under key: travel-doc:{name}
+{
+  name, type: "passport" | "global_entry" | "tsa_precheck" | "visa",
+  expiry_date, country, number,
+  alert_days_before: 180,
+  last_alerted: null
+}
+
+Monthly check: alert if any doc expires within 180 days.
+
+6. REQUEST HANDLING
+The main POST /agents/travel-agent endpoint receives natural 
+language requests and handles:
+
+"plan a trip to [destination]" 
+  → Create trip record, search flights from BDL/JFK/LGA on Delta,
+    search Hilton/Marriott hotels, build itinerary, return plan
+
+"set up a flight watch for [route] under $[amount] [cabin]"
+  → Create flight-watch record, confirm setup
+
+"what are my loyalty balances"
+  → Return current loyalty snapshot or prompt to update
+
+"update my [program] balance to [amount]"
+  → Update loyalty snapshot
+
+"add travel doc [type] expiring [date]"
+  → Store travel document
+
+"help me plan my Italy trip"
+  → Multi-city Italy planning: Milan/Rome/Florence/Amalfi options,
+    Hilton/Marriott properties in each city, Delta flights from 
+    BDL/JFK/LGA to MXP or FCO, Schengen entry requirements,
+    passport validity check, suggested itinerary
+
+"find hotel near [venue/location] for concert"
+  → Search Hilton Diamond and Marriott Platinum properties
+    within 1 mile of venue, include transportation options
+
+All responses must include: { agent, output, success, action_taken }
+
+7. ENDPOINTS — wire all into src/index.js:
+
+POST /agents/travel-agent
+  Natural language request handler (main endpoint)
+  
+GET /travel/profile
+  Returns Josh's travel profile from Replit Database
+  
+PUT /travel/profile
+  Update any field in the travel profile
+  
+GET /travel/trips
+  Returns all trips sorted by start_date desc
+  
+POST /travel/trips
+  Create a new trip record
+  Body: { name, destination, start_date, end_date, type }
+  
+GET /travel/trips/:id
+  Returns full trip detail
+  
+PUT /travel/trips/:id
+  Update trip fields
+  
+GET /travel/flights/watch
+  Returns all active flight watches
+  
+POST /travel/flights/watch
+  Create a new flight watch
+  Body: { route_from, route_to, date_range, cabin_class, 
+          price_threshold_usd }
+  
+GET /travel/loyalty
+  Returns most recent loyalty snapshot
+  
+POST /travel/loyalty
+  Update loyalty balances
+  Body: { skymiles?, hilton_honors?, marriott_bonvoy? }
+  
+GET /travel/docs
+  Returns all travel documents with expiry status
+  
+POST /travel/docs
+  Add a travel document
+  Body: { name, type, expiry_date, country?, number? }
+
+GET /agents/travel-agent/health
+  Returns { status: "ok", agent: "travel-agent" }
+
+8. SCHEDULING
+Daily 8:00 AM UTC — check flight watches
+Monthly 1st — check travel document expiry
+Weekly Sunday — loyalty balance reminder if not updated in 7 days
+Use node-cron, follow existing patterns.
+
+9. STARTUP
+Console log: "Travel Agent registered — Delta Diamond, 
+Hilton Diamond, Marriott Platinum preferences loaded"
+Initialize travel-profile in Replit Database if not exists.
+
+10. WIRE INTO src/index.js
+Import at top:
+const travelAgent = require('./agents/travel-agent')
+
+Register all endpoints following existing agent patterns.
+
+REGISTER in Replit Database registry:
+{
+  name: "travel-agent",
+  domain: "Personal Life",
+  purpose: "Trip planning with Josh's preferences baked in — 
+            Delta Diamond, Hilton Diamond, Marriott Platinum, 
+            National Executive. BDL/JFK/LGA home airports. 
+            Frequent routes: Indianapolis, Zurich, Raleigh. 
+            Italy trip planned. Flight price monitoring, 
+            loyalty tracking, travel doc management.",
+  status: "active",
+  skill_file: "src/skills/travel-agent.md",
+  code_file: "src/agents/travel-agent.js",
+  endpoints: ["/agents/travel-agent", "/travel/profile", 
+              "/travel/trips", "/travel/flights/watch",
+              "/travel/loyalty", "/travel/docs"],
+  requires_approval_for: ["booking", "purchasing", 
+                          "external_alerts"],
+  created_at: now
+}
+
+AFTER BUILDING:
+1. Run POST /test/run
+2. Show me all test results
+3. Travel agent test cases must PASS
+4. All previously passing tests must still pass
+5. Show me a sample response from:
+   POST /agents/travel-agent
+   Body: { "request": "plan a 2-night trip to Indianapolis 
+           next week for an AWS meeting" }
+
+Push everything to github.com/jlarivee/lifebridge-v2
