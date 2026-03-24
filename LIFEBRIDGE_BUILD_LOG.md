@@ -413,6 +413,71 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ---
 
+## Token Economy Rules
+
+Josh is on the Claude Max plan. Token burn must be managed carefully. These rules are non-negotiable for every agent and every build.
+
+### The Core Rule
+Never call the Anthropic API when a database read will do. Every unnecessary Claude API call costs tokens. Every test that invokes Claude costs tokens. Design agents to be data-first, Claude-last.
+
+### Test Tier Rules
+Every test case must be marked fast or full.
+
+fast — hits an endpoint, reads from DB, checks a status. Never calls Claude API. Runs in milliseconds. These run on every sync, every deploy, every morning.
+
+full — invokes Claude to generate a response. Costs tokens. Runs Sunday 7AM UTC only, or manually. Never runs automatically during daily operations.
+
+Fast tests are the default. Full tests require explicit intent. When in doubt, make it fast.
+
+### Agent Design Rules
+- Health check endpoints must NEVER call Claude API
+- GET endpoints must read from Replit Database only
+- Claude API calls happen only in POST action endpoints
+- Every agent must have a lightweight status check that costs zero tokens
+- Briefing previews and intelligence scans are full-tier only
+- Never run POST /briefing/run or POST /intelligence/run in automated test suites
+
+### Build Rules
+- Test cases are written before code (test-first)
+- New test cases default to fast tier unless Claude is required
+- Claude Code prompts must specify tier for every new test case
+- Never add a full-tier test without a comment explaining why Claude invocation is necessary for that specific case
+
+### Monitoring Rules
+- If daily token usage seems high, run GET /test/verify first to check how many full-tier tests ran unexpectedly
+- The morning briefing compiles data but should NOT run POST /intelligence/run or POST /test/run inside itself. Those are separate scheduled jobs, not briefing dependencies.
+- Intelligence scans run once daily at 6AM — never on demand inside other agents
+
+### What Costs Tokens (avoid unnecessarily)
+- POST /briefing/run — compiles + delivers full briefing
+- POST /briefing/preview — compiles without sending
+- POST /intelligence/run — scans 6 external sources
+- POST /test/run?tier=full — runs all Claude-invoking tests
+- POST /agents/{name} with natural language request
+- POST /memory/run — analyzes all logs with Claude
+
+### What Costs Zero Tokens (use freely)
+- GET /agents/{name}/health
+- GET /registry
+- GET /test/suites
+- GET /integrity/reports/latest
+- GET /intelligence/findings
+- GET /briefing/latest
+- GET /travel/profile
+- GET /memory/facts
+- POST /test/run (fast tier, default)
+- POST /integrity/run
+
+### Emergency Brake
+If you suspect runaway token usage:
+1. Go to Replit Shell
+2. Run: curl -s http://localhost:5000/connectors/status (zero tokens — just a DB read)
+3. Check Anthropic console for usage spike
+4. If a cron job is misfiring: kill 1 to restart server
+5. Review node-cron schedule in src/index.js for runaway jobs
+
+---
+
 ## How to Use This Document
 
 At the start of any new session in this Claude Project, reference this document.
