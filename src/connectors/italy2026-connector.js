@@ -9,15 +9,29 @@ import * as db from "../db.js";
 const CACHE_KEY = "italy2026-cache";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-function getConfig() {
-  return {
-    url: process.env.ITALY2026_URL || "",
-    key: process.env.ITALY2026_API_KEY || "",
-  };
+// Config can come from env vars OR Replit Database (key: italy2026-config)
+let _configCache = null;
+
+async function getConfig() {
+  // Try env vars first
+  if (process.env.ITALY2026_URL && process.env.ITALY2026_API_KEY) {
+    return {
+      url: process.env.ITALY2026_URL,
+      key: process.env.ITALY2026_API_KEY,
+    };
+  }
+  // Fall back to Replit Database
+  if (!_configCache) {
+    _configCache = await db.get("italy2026-config");
+  }
+  if (_configCache) {
+    return { url: _configCache.url || "", key: _configCache.key || "" };
+  }
+  return { url: "", key: "" };
 }
 
 export async function getItaly2026Health() {
-  const { url } = getConfig();
+  const { url } = await getConfig();
   if (!url) return { reachable: false, latency_ms: 0, error: "ITALY2026_URL not set" };
 
   const start = Date.now();
@@ -45,7 +59,7 @@ export async function getItaly2026Data() {
   }
 
   // Fetch fresh
-  const { url, key } = getConfig();
+  const { url, key } = await getConfig();
   if (!url || !key) {
     return { available: false, error: "ITALY2026_URL or ITALY2026_API_KEY not set" };
   }

@@ -673,6 +673,16 @@ app.get("/connectors/italy2026/data", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/connectors/italy2026/config", async (req, res) => {
+  try {
+    const { url, key } = req.body || {};
+    if (!url || !key) return res.status(400).json({ error: "url and key required" });
+    const { set } = await import("./db.js");
+    await set("italy2026-config", { url, key });
+    res.json({ success: true, message: "Italy 2026 config saved to database" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Dynamic health endpoint — handles ALL agents via registry lookup
 app.get("/agents/:name/health", async (req, res) => {
   try {
