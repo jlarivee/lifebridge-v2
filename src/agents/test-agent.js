@@ -75,7 +75,7 @@ const DEFAULT_CASES = {
   ],
   "agent-lifecycle": [
     { input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
-    { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/life-sciences-account-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# test update" } },
+    { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/test-deletion-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# lifecycle test skill — safe to overwrite" }, pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary" } } },
     { input: "Lifecycle: POST pause agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/pause", expect_status: 200, expect_fields: ["success", "agent", "status"] },
     { input: "Lifecycle: POST resume agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/resume", expect_status: 200, expect_fields: ["success", "agent", "status"] },
     { input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"], pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary agent for deletion test" } } },
