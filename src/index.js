@@ -33,6 +33,10 @@ import {
   runBriefing, previewBriefing, getLatestBriefing, getBriefingHistory
 } from "./agents/morning-briefing-agent.js";
 import {
+  runConsolidation, getProposals, getProposal, approveProposal,
+  rejectProposal, getHistory as getMemoryHistory, getFacts
+} from "./agents/memory-consolidation-agent.js";
+import {
   initTravelProfile, runTravelAgent, registerTravelAgent as registerTravelAgentInRegistry,
   getProfile as getTravelProfile, updateProfile as updateTravelProfile,
   getTrips, getTrip, createTrip, updateTrip, deleteTrip,
@@ -1046,6 +1050,48 @@ app.get("/briefing/history", async (req, res) => {
   try { res.json(await getBriefingHistory()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ── Memory Consolidation ────────────────────────────────────────────────────
+
+app.post("/memory/run", async (req, res) => {
+  try { res.json(await runConsolidation("manual")); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/memory/proposals", async (req, res) => {
+  try { res.json(await getProposals(req.query.status)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/memory/proposals/:id", async (req, res) => {
+  try { res.json(await getProposal(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/memory/proposals/:id/approve", async (req, res) => {
+  try { res.json(await approveProposal(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/memory/proposals/:id/reject", async (req, res) => {
+  try { res.json(await rejectProposal(req.params.id, req.body?.reason)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/memory/history", async (req, res) => {
+  try { res.json(await getMemoryHistory()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/memory/facts", async (req, res) => {
+  try { res.json(await getFacts()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/agents/memory-consolidation-agent", async (req, res) => {
+  try { res.json(await runConsolidation("manual")); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Travel CRUD ─────────────────────────────────────────────────────────────
 
 app.get("/travel/profile", async (req, res) => {
@@ -1401,7 +1447,7 @@ async function registerMemoryConsolidationAgent() {
       status: "Active",
       trigger_patterns: ["memory", "consolidate", "learn", "facts", "what do you know about me"],
       triggers: ["scheduled_weekly_sunday_3am", "manual"],
-      endpoints: ["/memory/run", "/memory/proposals", "/memory/facts", "/memory/history"],
+      endpoints: ["/memory/run", "/memory/proposals", "/memory/proposals/:id", "/memory/proposals/:id/approve", "/memory/proposals/:id/reject", "/memory/facts", "/memory/history"],
       requires_approval: ["all — nothing auto-applies"],
       created_at: new Date().toISOString(),
     });
@@ -1518,6 +1564,17 @@ async function start() {
     }
   }, { timezone: "UTC" });
   console.log("Test Agent registered — fast daily 7:00 AM UTC, full Sunday 7:00 AM UTC");
+
+  // Weekly memory consolidation Sunday 3:00 AM UTC
+  cron.schedule("0 3 * * 0", async () => {
+    try {
+      const result = await runConsolidation("scheduled");
+      console.log(`[MEMORY] Weekly consolidation: ${result.proposals_generated} proposals from ${result.log_entries_analyzed} logs`);
+    } catch (e) {
+      console.error(`[MEMORY] Weekly consolidation failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Memory Consolidation Agent registered — weekly Sunday 3:00 AM UTC");
 
   // Daily flight watch check at 8:00 AM UTC
   cron.schedule("0 8 * * *", async () => {
