@@ -232,6 +232,128 @@ body {
   text-align: center;
 }
 
+/* ─── SPOKE CARD GRID ─── */
+
+.spoke-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 48px;
+}
+
+.spoke-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  cursor: pointer;
+  transition: all var(--transition-medium);
+  position: relative;
+  overflow: hidden;
+}
+
+.spoke-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-teal), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.spoke-card-disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.spoke-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.spoke-card:hover::before { opacity: 1; }
+
+.spoke-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-teal-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.spoke-card-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--accent-teal);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.spoke-card-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.spoke-card-domain {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+.spoke-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-success);
+}
+
+.spoke-card-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.spoke-empty {
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spoke-empty-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ─── NESTED HUB SVG VISUALIZATION ─── */
 
 .nhub {
@@ -2075,9 +2197,7 @@ body {
 .dash-badge-rejected { background: var(--color-error-dim); color: var(--color-error); }
 
 @media (max-width: 768px) {
-  .nhub { display: none !important; }
-  .nhub-legend { display: none !important; }
-  .nhub-mobile { display: flex !important; }
+  .spoke-grid { grid-template-columns: 1fr; }
   .hub { padding: 32px 16px; }
   .hub-logo { font-size: 24px; }
   .workspace { padding: 16px; }
@@ -2115,30 +2235,8 @@ body {
         </div>
       </div>
 
-      <div class="hub-section-label">Agent Network</div>
-      <div class="nhub" id="nhubDesktop">
-        <div class="nhub-svg-wrap" id="nhubWrap">
-          <svg id="nhubSvg" viewBox="0 0 960 680" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <filter id="masterGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
-                <feColorMatrix in="blur" type="matrix" values="0.42 0 0 0 0  0 0.36 0 0 0  0 0 0.91 0 0  0 0 0 0.5 0"/>
-                <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-              <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
-              </filter>
-            </defs>
-          </svg>
-        </div>
-      </div>
-      <div class="nhub-legend" id="nhubLegend">
-        <div class="nhub-legend-item"><div class="nhub-legend-dot master"></div>Master Hub</div>
-        <div class="nhub-legend-item"><div class="nhub-legend-dot active"></div>Active Agent</div>
-        <div class="nhub-legend-item"><div class="nhub-legend-dot coming"></div>Coming Soon</div>
-      </div>
-      <div class="nhub-mobile" id="nhubMobile"></div>
-      <div class="nhub-tooltip" id="nhubTooltip"></div>
+      <div class="hub-section-label">Registered Agents</div>
+      <div class="spoke-grid" id="spokeGrid"></div>
 
       <div class="hub-footer">
         <button class="hub-footer-btn" onclick="navigateTo('landscape')">
@@ -2508,8 +2606,43 @@ var expandedDomains = {};
 var SVG_NS = 'http://www.w3.org/2000/svg';
 
 function loadSpokeAgents() {
-  renderNestedHub();
-  renderMobileHub();
+  apiFetch('/registry').then(function(registry) {
+    var grid = document.getElementById('spokeGrid');
+    if (!grid) return;
+    var agents = registry.agents || [];
+    grid.innerHTML = '';
+
+    for (var i = 0; i < agents.length; i++) {
+      var a = agents[i];
+      var hasEndpoint = !!agentEndpoints[a.name];
+      var card = document.createElement('div');
+      card.className = 'spoke-card' + (hasEndpoint ? '' : ' spoke-card-disabled');
+      card.dataset.agent = a.name;
+      card.innerHTML =
+        '<div class="spoke-card-icon"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>' +
+        '<div class="spoke-card-name">' + escapeHtml(agentLabels[a.name] || a.name) + '</div>' +
+        '<div class="spoke-card-domain">' + escapeHtml(a.domain || 'General') + '</div>' +
+        '<div class="spoke-card-status"><span class="dot"></span> ' + escapeHtml(hasEndpoint ? (a.status || 'Active') : 'Coming soon') + '</div>';
+      if (hasEndpoint) {
+        card.addEventListener('click', function() {
+          var name = this.dataset.agent;
+          if (dashboardAgents[name]) {
+            openDashboard(name);
+          } else {
+            openAgentWorkspace(name);
+          }
+        });
+      }
+      grid.appendChild(card);
+    }
+
+    var empty = document.createElement('div');
+    empty.className = 'spoke-empty';
+    empty.innerHTML = '<div class="spoke-empty-label">+ More agents coming</div>';
+    grid.appendChild(empty);
+  }).catch(function(e) {
+    console.error('Failed to load registry:', e);
+  });
 }
 
 function renderNestedHub() {
