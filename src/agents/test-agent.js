@@ -33,7 +33,7 @@ const DEFAULT_CASES = {
   ],
   "registry-integrity-agent": [
     { tier: "fast", input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
-    { tier: "fast", input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
+    { tier: "full", input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
   ],
   "test-agent": [
     { tier: "fast", input: "GET /test/suites", type: "endpoint", method: "GET", path: "/test/suites", expect_status: 200 },
@@ -78,8 +78,8 @@ const DEFAULT_CASES = {
     { tier: "fast", input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
     { tier: "fast", input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
     { tier: "fast", input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
-    { tier: "fast", input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
-    { tier: "fast", input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
+    { tier: "full", input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
+    { tier: "full", input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
     { tier: "fast", input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
   ],
   "agent-lifecycle": [
