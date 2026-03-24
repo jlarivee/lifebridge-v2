@@ -44,7 +44,7 @@ const DEFAULT_CASES = {
     { tier: "fast", input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
     { tier: "fast", input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
     { tier: "fast", input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
-    { tier: "fast", input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
+    { tier: "full", input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
   "memory-consolidation-agent": [
     { tier: "fast", input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
@@ -434,6 +434,7 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
 
   return {
     run_batch_id: batchId,
+    tier,
     agents_tested: new Set(allResults.map(r => r.agent_name)).size,
     total_cases: allResults.length,
     passed,
