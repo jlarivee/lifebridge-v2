@@ -2606,9 +2606,12 @@ var expandedDomains = {};
 var SVG_NS = 'http://www.w3.org/2000/svg';
 
 function loadSpokeAgents() {
+  console.log('[LifeBridge] loadSpokeAgents called');
+  var grid = document.getElementById('spokeGrid');
+  if (!grid) { console.error('[LifeBridge] spokeGrid element not found'); return; }
+  grid.innerHTML = '<div class="dash-loading" style="padding:20px;text-align:center;color:#666">Loading agents...</div>';
   apiFetch('/registry').then(function(registry) {
-    var grid = document.getElementById('spokeGrid');
-    if (!grid) return;
+    console.log('[LifeBridge] Registry loaded:', (registry.agents || []).length, 'agents');
     var agents = registry.agents || [];
     grid.innerHTML = '';
 
@@ -2641,7 +2644,8 @@ function loadSpokeAgents() {
     empty.innerHTML = '<div class="spoke-empty-label">+ More agents coming</div>';
     grid.appendChild(empty);
   }).catch(function(e) {
-    console.error('Failed to load registry:', e);
+    console.error('[LifeBridge] Failed to load registry:', e);
+    grid.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-family:JetBrains Mono,monospace;font-size:12px">Failed to load agents: ' + e.message + '</div>';
   });
 }
 
