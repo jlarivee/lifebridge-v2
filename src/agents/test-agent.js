@@ -10,7 +10,8 @@ import { readRegistry } from "../tools/registry-tools.js";
 import { sendSystemAlert } from "./connectors.js";
 
 const STATIC_AGENTS = new Set(["test-agent"]);
-const TEST_TIMEOUT_MS = 30000;
+const FAST_TIMEOUT_MS = 5000;   // Fast tier: local endpoints only, 5s is generous
+const FULL_TIMEOUT_MS = 30000;  // Full tier: Claude API + external services
 const PORT = process.env.PORT || 5000;
 
 // ── Test Suite Management ───────────────────────────────────────────────────
@@ -75,9 +76,9 @@ const DEFAULT_CASES = {
     { tier: "fast", input: "Briefing: GET history", type: "endpoint", method: "GET", path: "/briefing/history", expect_status: 200 },
   ],
   "connectors": [
-    { tier: "fast", input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
-    { tier: "fast", input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
-    { tier: "fast", input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
+    { tier: "full", input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
+    { tier: "full", input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
+    { tier: "full", input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
     { tier: "full", input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
     { tier: "full", input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
     { tier: "fast", input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
@@ -224,10 +225,10 @@ export async function backfillTestSuites() {
 
 // ── Test Execution ──────────────────────────────────────────────────────────
 
-async function callEndpoint(method, path, requestBody) {
+async function callEndpoint(method, path, requestBody, timeoutMs = FULL_TIMEOUT_MS) {
   const start = Date.now();
   try {
-    const opts = { method, signal: AbortSignal.timeout(TEST_TIMEOUT_MS) };
+    const opts = { method, signal: AbortSignal.timeout(timeoutMs) };
     if (method === "POST" || method === "PUT" || method === "DELETE") {
       opts.headers = { "Content-Type": "application/json" };
       if (requestBody) opts.body = JSON.stringify(requestBody);
@@ -251,7 +252,7 @@ async function callAgentViaRoute(input) {
   const start = Date.now();
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), FULL_TIMEOUT_MS);
 
   try {
     const result = await route(input);
@@ -347,7 +348,8 @@ export async function runTestCase(agentName, testCase, trigger, tier = "full") {
     }
 
     // Endpoint test — hit HTTP directly
-    const resp = await callEndpoint(testCase.method || "GET", testCase.path, testCase.body);
+    const timeoutMs = tier === "fast" ? FAST_TIMEOUT_MS : FULL_TIMEOUT_MS;
+    const resp = await callEndpoint(testCase.method || "GET", testCase.path, testCase.body, timeoutMs);
     duration_ms = resp.duration_ms;
     error = resp.error;
 
@@ -499,7 +501,8 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
   // Dead-agent check scans all test-run keys per agent — skip in fast tier
   if (tier === "full") await checkDeadAgents();
 
-  if (failed > 0 || errors > 0) {
+  // Alert via Slack on failures — skip in fast tier (hits external webhook)
+  if ((failed > 0 || errors > 0) && tier === "full") {
     try { await sendSystemAlert({ message: `Test run: ${failed} failed, ${errors} errors out of ${allResults.length} cases`, severity: "WARNING", source: "test-agent" }); }
     catch {}
   }
