@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.5 (live)  
+**Current version:** v2.6 (in progress)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -351,7 +351,11 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 |---|---|---|
 | 5:00 AM Sunday | Registry Integrity Agent | Weekly |
 | 6:00 AM | Intelligence Update Agent | Daily |
-| 7:00 AM | Test Agent (full suite) | Daily |
+| 7:00 AM Mon-Sat | Test Agent (fast tier) | Daily |
+| 7:00 AM Sunday | Test Agent (full tier) | Weekly |
+| 7:30 AM | Morning Briefing Agent | Daily |
+| 8:00 AM | Travel Agent — flight watch check | Daily |
+| 3:00 AM Sunday | Memory Consolidation Agent | Weekly |
 | Midnight | Improvement Agent | Daily |
 | On every deploy | Test Agent (targeted) + Registry Integrity Agent | Event |
 
@@ -369,14 +373,38 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ### Completed — connectors live (Gmail + Slack, 20/20 tests) ✅
 
-### Next priority
-- Morning Briefing Agent — NEXT (tests first)
-  Delivers daily briefing via Gmail and Slack at 7:30 AM UTC
-  Sections: system health, test results, intel findings, proposals pending, ideas queued
-- Three Rivers Slab workflows — pricing, aging alerts, inventory reports
+### Completed — Morning Briefing Agent (v2.5) ✅
+
+### Next priority (in order)
+
+1. **Fix fast tier test suite** — connector sends and integrity scan moved to full tier. Fast suite must complete under 5 seconds with zero external calls.
+
+2. **Memory Consolidation Agent** — test cases already added (7 cases, all expected to FAIL until built)
+   - Weekly Sunday 3AM UTC
+   - Extracts durable facts from request logs
+   - 6 categories: work patterns, communication preferences, personal preferences, business context, system behavior, corrections
+   - All proposals require human approval
+   - Replit DB keys: `consolidation-run:{uuid}`, `context-proposal:{uuid}`
+
+3. **Travel Agent** — test cases added, needs full build
+   - Delta Diamond, Hilton Diamond, Marriott Platinum, National Executive baked in
+   - BDL/JFK/LGA home airports
+   - Endpoints: /travel/profile, /travel/trips, /travel/flights/watch, /travel/loyalty, /travel/docs
+   - Daily 8AM UTC flight watch check
+
+4. **Investment Research Agent (paper trading)**
+   - NOT real financial advice — paper money only
+   - $1K hypothetical per thesis, 90-day tracking
+   - 3 theses per week
+   - Learns from its own predictions over time
+   - Stores all historical data to build bigger trends
+   - IMPORTANT: Always clearly labeled as paper trading, never real investment advice
+
+5. **Morning Briefing fix** — dashboard URL hardcoded to localhost:5000, should use process.env.REPLIT_URL
+
+6. **Slab cut dates fix** — both walnut slabs incorrectly entered as 2024-03-01, should be 2026-03-01
 
 ### Future capabilities
-- Connectors (Gmail, Calendar, Todoist, Google Drive) — spoke agents will need these
 - Multi-turn conversation memory within a session
 - Agent-to-agent delegation (spoke agent calls another spoke agent)
 - Approval workflow with email notification
@@ -475,6 +503,17 @@ If you suspect runaway token usage:
 3. Check Anthropic console for usage spike
 4. If a cron job is misfiring: kill 1 to restart server
 5. Review node-cron schedule in src/index.js for runaway jobs
+
+---
+
+## Session Notes — March 24, 2026
+
+- Token economy rules added to build log (v2.5)
+- Fast/full tier split implemented in test suite — 35 fast, 13 full
+- Connector sends (gmail, slack) and POST /integrity/run moved from fast to full tier
+- Intelligence-update-agent "list pending proposals" POST moved from fast to full tier
+- Session ended at 90% context limit on March 24, 2026
+- Resume with: `bash scripts/sync.sh`, then fix fast tier, then build Memory Consolidation Agent
 
 ---
 
