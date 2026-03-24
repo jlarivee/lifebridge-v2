@@ -124,6 +124,27 @@ Before producing any travel plan:
 - Any actual booking or purchasing (agent plans only, never books)
 - Sending travel alerts externally
 
+## Italy 2026 Live Data
+
+When available, Italy 2026 trip data is automatically injected into every
+request as context. This data comes from the Italy 2026 family trip planning
+app via a read-only API connector. It includes:
+
+- Flights (Emirates JFK↔MXP)
+- Hotels/accommodations (Bologna villa, Rome apartment)
+- Calendar events (day-by-day itinerary)
+- Restaurants and dining bookings
+- Activities (Lamborghini tour, Metallica concert, etc.)
+- Packing checklist progress
+
+When answering Italy-related questions, reference this live data directly.
+If a user asks about the Italy trip and the data is available, use the
+actual booking dates, confirmation numbers, and status from the app rather
+than making assumptions.
+
+If Italy 2026 data is unavailable (app down or not configured), proceed
+normally without it — do not error or block on missing data.
+
 ## What this agent must never do
 - Never suggest non-Delta flights
 - Never suggest non-Hilton/non-Marriott hotels

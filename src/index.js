@@ -30,6 +30,9 @@ import {
   updateConfig as updateConnectorConfig
 } from "./agents/connectors.js";
 import {
+  getItaly2026Health, getItaly2026Data
+} from "./connectors/italy2026-connector.js";
+import {
   runBriefing, previewBriefing, getLatestBriefing, getBriefingHistory
 } from "./agents/morning-briefing-agent.js";
 import {
@@ -655,6 +658,18 @@ app.get("/connectors/config", async (req, res) => {
 
 app.put("/connectors/config", async (req, res) => {
   try { res.json(await updateConnectorConfig(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Italy 2026 Connector ────────────────────────────────────────────────────
+
+app.get("/connectors/italy2026/health", async (req, res) => {
+  try { res.json(await getItaly2026Health()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/connectors/italy2026/data", async (req, res) => {
+  try { res.json(await getItaly2026Data()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1488,6 +1503,29 @@ async function start() {
   await registerTravelAgent();
   await initTravelProfile();
   await registerMemoryConsolidationAgent();
+
+  // Register Italy 2026 external app
+  const reg = await readRegistry();
+  const italy2026Exists = (reg.agents || []).some(a => a.name === "italy2026") ||
+    (reg.external_apps || []).some(a => a.name === "italy2026");
+  if (!italy2026Exists) {
+    reg.external_apps = reg.external_apps || [];
+    reg.external_apps.push({
+      name: "italy2026",
+      type: "external_app",
+      url: process.env.ITALY2026_URL || "",
+      domain: "Personal Life",
+      description: "Italy 2026 family trip planning app",
+      hub_position: "sub_node",
+      parent_domain: "Personal Life",
+      has_connector: true,
+      connector: "italy2026-connector",
+      status: "active",
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(reg);
+    console.log("Registered: italy2026 external app");
+  }
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);

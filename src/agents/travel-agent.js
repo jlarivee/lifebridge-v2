@@ -5,6 +5,7 @@ import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 import { readRegistry, writeRegistry } from "../tools/registry-tools.js";
+import { getItaly2026Data } from "../connectors/italy2026-connector.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const skill = readFileSync(
@@ -128,6 +129,34 @@ export async function runTravelAgent(request, context = {}) {
     if (w && w.status === "active") activeWatches.push(w);
   }
 
+  // Fetch Italy 2026 data (graceful degradation)
+  let italyContext = "";
+  try {
+    const italy = await getItaly2026Data();
+    if (italy.available) {
+      const flightsSummary = (italy.flights || []).map(f => `${f.name} (${f.date_start || 'TBD'}) — ${f.status}`).join("\n  ");
+      const hotelsSummary = (italy.hotels || []).map(h => `${h.name} (${h.date_start || 'TBD'} to ${h.date_end || 'TBD'}) — ${h.status}`).join("\n  ");
+      const calSummary = (italy.calendar || []).slice(0, 30).map(c => `${c.date} ${c.time || ''} ${c.title}${c.location ? ' @ ' + c.location : ''}`).join("\n  ");
+      const restSummary = (italy.restaurants || []).map(r => `${r.name} — ${r.status}`).join("\n  ");
+      const actSummary = (italy.activities || []).map(a => `${a.name} (${a.date_start || 'TBD'}) — ${a.status}`).join("\n  ");
+      const packing = italy.packing || {};
+      italyContext = `
+
+ITALY 2026 TRIP DATA (live from app):
+  Flights:
+  ${flightsSummary || "None"}
+  Hotels:
+  ${hotelsSummary || "None"}
+  Calendar:
+  ${calSummary || "None"}
+  Restaurants:
+  ${restSummary || "None"}
+  Activities:
+  ${actSummary || "None"}
+  Packing: ${packing.checked || 0}/${packing.total || 0} items checked`;
+    }
+  } catch { /* Italy 2026 unavailable — proceed without */ }
+
   const systemPrompt = `${skill}
 
 Current Travel Profile:
@@ -138,7 +167,7 @@ ${JSON.stringify(trips.slice(0, 10), null, 2)}
 
 Active Flight Watches (${activeWatches.length}):
 ${JSON.stringify(activeWatches.slice(0, 10), null, 2)}
-
+${italyContext}
 Context:
 ${JSON.stringify(context, null, 2)}
 

@@ -223,6 +223,33 @@ Test results: 26/26 passing, 0 failures, ~11 seconds
 
 ---
 
+### v2.2 — Italy 2026 Connector
+**What was built:**
+- Read-only /api/lifebridge endpoint added to Italy 2026 app (github.com/jlarivee/italy2026)
+  - Authenticated via x-lifebridge-key header (32-char hex)
+  - Returns: trip summary, bookings, calendar, packing, ideas, filtered views
+  - Health check at /api/lifebridge/health (no auth required)
+- italy2026-connector.js with 1-hour cache (src/connectors/italy2026-connector.js)
+  - Graceful degradation: serves stale cache if live fetch fails
+  - Health check with latency measurement
+- Travel Agent auto-injects Italy trip data into every request
+  - Flights, hotels, calendar, restaurants, activities, packing progress
+  - Skill file updated with Italy 2026 data section
+- Italy 2026 hub node under Personal Life domain (#2A6496 travel blue)
+  - Registered as external_app in registry
+  - Click opens Italy 2026 dashboard
+- /dashboard/italy2026 with 4 tabs:
+  - Itinerary: calendar events grouped by day
+  - Bookings: flights, hotels, restaurants, activities in sections
+  - Packing: progress bar + unchecked items grouped by category
+  - Ideas: voted list with vote counts
+- LifeBridge routes: GET /connectors/italy2026/health, GET /connectors/italy2026/data
+
+**External app pattern established:** First cross-app connector in LifeBridge.
+Apps expose read-only APIs, LifeBridge consumes via connectors with caching.
+
+---
+
 ### v2.1 — Administration Agent Suite + Persistence Fixes
 **What was built:**
 - Agent Builder Agent fixed — now actually deploys real files to disk, registers agents in Replit Database, creates live Express routes
