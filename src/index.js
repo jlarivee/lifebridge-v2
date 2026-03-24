@@ -1156,17 +1156,10 @@ async function cleanRegistry() {
 }
 
 async function resetTestSuites() {
-  // Delete existing test suites so they get re-seeded with new endpoint-based cases
+  // Delete ALL test suites so they re-seed fresh with current DEFAULT_CASES
   const keys = await db.list("test-suite:");
   for (const key of keys) {
-    const suite = await db.get(key);
-    if (suite) {
-      const hasRouteTests = (suite.test_cases || []).some(tc => tc.type === "route");
-      if (hasRouteTests) {
-        // Re-create from scratch with endpoint-based cases
-        await db.set(key, null);
-      }
-    }
+    await db.set(key, null);
   }
 }
 
