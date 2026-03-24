@@ -254,7 +254,9 @@ app.post("/system/agent-loaded", async (req, res) => {
 
 app.post("/test/run", async (req, res) => {
   try {
-    const result = await runFullTestSuite("manual");
+    const tier = req.query.tier || "fast";
+    const result = await runFullTestSuite("manual", tier);
+    result.tier = tier;
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -263,11 +265,12 @@ app.post("/test/run", async (req, res) => {
 
 app.post("/test/run/:agent", async (req, res) => {
   try {
-    const results = await runAgentTestSuite(req.params.agent, "manual");
+    const tier = req.query.tier || "fast";
+    const results = await runAgentTestSuite(req.params.agent, "manual", tier);
     const passed = results.filter(r => r.status === "pass").length;
     const failed = results.filter(r => r.status === "fail").length;
     const errors = results.filter(r => r.status === "error").length;
-    res.json({ agent: req.params.agent, total: results.length, passed, failed, errors, results });
+    res.json({ agent: req.params.agent, tier, total: results.length, passed, failed, errors, results });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -358,6 +361,18 @@ app.get("/test/verify", async (req, res) => {
       endpointChecks.get_runs === "pass" &&
       endpointChecks.get_warnings === "pass";
 
+    // Count fast vs full cases across all suites
+    let fastCases = 0, fullCases = 0;
+    for (const key of suiteKeys) {
+      const suite = await db.get(key);
+      if (suite?.test_cases) {
+        for (const tc of suite.test_cases) {
+          if ((tc.tier || "fast") === "fast") fastCases++;
+          else fullCases++;
+        }
+      }
+    }
+
     res.json({
       registry_entry: registryPass ? "pass" : "fail",
       scheduler_registered: "pass",
@@ -367,6 +382,9 @@ app.get("/test/verify", async (req, res) => {
         test_runs_found: runKeys.length,
         warnings_found: warnKeys.length,
       },
+      fast_cases: fastCases,
+      full_cases: fullCases,
+      total_cases: fastCases + fullCases,
       overall: overall ? "pass" : "fail",
       issues,
     });
@@ -1480,16 +1498,26 @@ async function start() {
   }, { timezone: "UTC" });
   console.log("Registry Integrity Agent registered — weekly scan Sunday 5:00 AM UTC");
 
-  // Daily test suite at 7:00 AM UTC
-  cron.schedule("0 7 * * *", async () => {
+  // Daily fast test suite at 7:00 AM UTC (Mon-Sat)
+  cron.schedule("0 7 * * 1-6", async () => {
     try {
-      const result = await runFullTestSuite("scheduled");
-      console.log(`[TEST] Daily run: ${result.passed}/${result.total_cases} passed, ${result.failed} failed, ${result.errors} errors`);
+      const result = await runFullTestSuite("scheduled", "fast");
+      console.log(`[TEST] Daily fast run: ${result.passed}/${result.total_cases} passed, ${result.failed} failed`);
     } catch (e) {
-      console.error(`[TEST] Daily run failed: ${e.message}`);
+      console.error(`[TEST] Daily fast run failed: ${e.message}`);
     }
   }, { timezone: "UTC" });
-  console.log("Test Agent registered — daily run at 7:00 AM UTC");
+
+  // Weekly full test suite at 7:00 AM UTC (Sunday only)
+  cron.schedule("0 7 * * 0", async () => {
+    try {
+      const result = await runFullTestSuite("scheduled", "full");
+      console.log(`[TEST] Weekly full run: ${result.passed}/${result.total_cases} passed, ${result.failed} failed`);
+    } catch (e) {
+      console.error(`[TEST] Weekly full run failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Test Agent registered — fast daily 7:00 AM UTC, full Sunday 7:00 AM UTC");
 
   // Daily flight watch check at 8:00 AM UTC
   cron.schedule("0 8 * * *", async () => {

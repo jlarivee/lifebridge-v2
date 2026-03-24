@@ -19,76 +19,76 @@ export async function getTestSuite(agentName) {
   return await db.get(`test-suite:${agentName}`);
 }
 
-// Default test cases per agent type — all endpoint-based, no natural language routing
+// Default test cases — tier: "fast" (no Claude calls) or "full" (invokes Claude API)
 const DEFAULT_CASES = {
   "life-sciences-account-agent": [
-    { input: "Health: life-sciences-account-agent", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Health: life-sciences-account-agent", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
   ],
   "agent-builder-agent": [
-    { input: "Health: agent-builder-agent", type: "endpoint", method: "GET", path: "/agents/agent-builder-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Health: agent-builder-agent", type: "endpoint", method: "GET", path: "/agents/agent-builder-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
   ],
   "slab-inventory-tracker-agent": [
-    { input: "Health: slab-inventory-tracker-agent", type: "endpoint", method: "GET", path: "/agents/slab-inventory-tracker-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "Action: show inventory status", type: "endpoint", method: "POST", path: "/agents/slab-inventory-tracker-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "show me current inventory status" } },
+    { tier: "fast", input: "Health: slab-inventory-tracker-agent", type: "endpoint", method: "GET", path: "/agents/slab-inventory-tracker-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "full", input: "Action: show inventory status", type: "endpoint", method: "POST", path: "/agents/slab-inventory-tracker-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "show me current inventory status" } },
   ],
   "registry-integrity-agent": [
-    { input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
-    { input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
+    { tier: "fast", input: "GET /integrity/reports/latest", type: "endpoint", method: "GET", path: "/integrity/reports/latest", expect_status: 200 },
+    { tier: "fast", input: "POST /integrity/run", type: "endpoint", method: "POST", path: "/integrity/run", expect_status: 200, expect_fields: ["report_id", "status", "agents_checked"] },
   ],
   "test-agent": [
-    { input: "GET /test/suites", type: "endpoint", method: "GET", path: "/test/suites", expect_status: 200 },
-    { input: "GET /test/warnings", type: "endpoint", method: "GET", path: "/test/warnings", expect_status: 200 },
-    { input: "GET /test/verify", type: "endpoint", method: "GET", path: "/test/verify", expect_status: 200, expect_fields: ["overall"] },
+    { tier: "fast", input: "GET /test/suites", type: "endpoint", method: "GET", path: "/test/suites", expect_status: 200 },
+    { tier: "fast", input: "GET /test/warnings", type: "endpoint", method: "GET", path: "/test/warnings", expect_status: 200 },
+    { tier: "fast", input: "GET /test/verify", type: "endpoint", method: "GET", path: "/test/verify", expect_status: 200, expect_fields: ["overall"] },
   ],
   "intelligence-update-agent": [
-    { input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
-    { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
-    { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
+    { tier: "fast", input: "GET /intelligence/status", type: "endpoint", method: "GET", path: "/intelligence/status", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "GET /intelligence/findings", type: "endpoint", method: "GET", path: "/intelligence/findings", expect_status: 200 },
+    { tier: "fast", input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
+    { tier: "fast", input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
   "memory-consolidation-agent": [
-    { input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "Memory: GET proposals", type: "endpoint", method: "GET", path: "/memory/proposals", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Memory: GET facts", type: "endpoint", method: "GET", path: "/memory/facts", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Memory: GET history", type: "endpoint", method: "GET", path: "/memory/history", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Memory: POST run consolidation", type: "endpoint", method: "POST", path: "/memory/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Memory: POST approve proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/approve", expect_status: 200, expect_fields: ["success", "agent", "output"] },
-    { input: "Memory: POST reject proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/reject", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { reason: "test rejection" } },
+    { tier: "fast", input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Memory: GET proposals", type: "endpoint", method: "GET", path: "/memory/proposals", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Memory: GET facts", type: "endpoint", method: "GET", path: "/memory/facts", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Memory: GET history", type: "endpoint", method: "GET", path: "/memory/history", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "full", input: "Memory: POST run consolidation", type: "endpoint", method: "POST", path: "/memory/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Memory: POST approve proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/approve", expect_status: 200, expect_fields: ["success", "agent", "output"] },
+    { tier: "fast", input: "Memory: POST reject proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/reject", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { reason: "test rejection" } },
   ],
   "travel-agent": [
-    { input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "Travel: GET profile", type: "endpoint", method: "GET", path: "/travel/profile", expect_status: 200, expect_fields: ["home_airports", "airline_preference", "hotel_programs", "car_rental"] },
-    { input: "Travel: plan Indianapolis work trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "plan a trip to Indianapolis next week for an AWS meeting, 2 nights" } },
-    { input: "Travel: loyalty point balances", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "what are my current loyalty point balances" } },
-    { input: "Travel: set flight watch BDL-ZRH", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "set up a flight watch for BDL to ZRH under $2000 business class" } },
-    { input: "Travel: GET flight watches", type: "endpoint", method: "GET", path: "/travel/flights/watch", expect_status: 200 },
-    { input: "Travel: plan Italy trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "help me plan my Italy trip" } },
-    { input: "Travel: GET docs", type: "endpoint", method: "GET", path: "/travel/docs", expect_status: 200 },
-    { input: "Travel: GET trips", type: "endpoint", method: "GET", path: "/travel/trips", expect_status: 200 },
-    { input: "Travel: NYC concert hotel", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "I have a concert in NYC this weekend, find me a hotel near Madison Square Garden" } },
+    { tier: "fast", input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Travel: GET profile", type: "endpoint", method: "GET", path: "/travel/profile", expect_status: 200, expect_fields: ["home_airports", "airline_preference", "hotel_programs", "car_rental"] },
+    { tier: "full", input: "Travel: plan Indianapolis work trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "plan a trip to Indianapolis next week for an AWS meeting, 2 nights" } },
+    { tier: "full", input: "Travel: loyalty point balances", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "what are my current loyalty point balances" } },
+    { tier: "full", input: "Travel: set flight watch BDL-ZRH", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "set up a flight watch for BDL to ZRH under $2000 business class" } },
+    { tier: "fast", input: "Travel: GET flight watches", type: "endpoint", method: "GET", path: "/travel/flights/watch", expect_status: 200 },
+    { tier: "full", input: "Travel: plan Italy trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "help me plan my Italy trip" } },
+    { tier: "fast", input: "Travel: GET docs", type: "endpoint", method: "GET", path: "/travel/docs", expect_status: 200 },
+    { tier: "fast", input: "Travel: GET trips", type: "endpoint", method: "GET", path: "/travel/trips", expect_status: 200 },
+    { tier: "full", input: "Travel: NYC concert hotel", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "I have a concert in NYC this weekend, find me a hotel near Madison Square Garden" } },
   ],
   "morning-briefing-agent": [
-    { input: "Briefing: health check", type: "endpoint", method: "GET", path: "/agents/morning-briefing-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { input: "Briefing: GET latest", type: "endpoint", method: "GET", path: "/briefing/latest", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Briefing: POST preview", type: "endpoint", method: "POST", path: "/briefing/preview", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Briefing: POST run", type: "endpoint", method: "POST", path: "/briefing/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { input: "Briefing: GET history", type: "endpoint", method: "GET", path: "/briefing/history", expect_status: 200 },
+    { tier: "fast", input: "Briefing: health check", type: "endpoint", method: "GET", path: "/agents/morning-briefing-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Briefing: GET latest", type: "endpoint", method: "GET", path: "/briefing/latest", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "full", input: "Briefing: POST preview", type: "endpoint", method: "POST", path: "/briefing/preview", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "full", input: "Briefing: POST run", type: "endpoint", method: "POST", path: "/briefing/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Briefing: GET history", type: "endpoint", method: "GET", path: "/briefing/history", expect_status: 200 },
   ],
   "connectors": [
-    { input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
-    { input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
-    { input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
-    { input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
-    { input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
-    { input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
+    { tier: "fast", input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
+    { tier: "fast", input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
+    { tier: "fast", input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
+    { tier: "fast", input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
+    { tier: "fast", input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
   ],
   "agent-lifecycle": [
-    { input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
-    { input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/test-deletion-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# lifecycle test skill — safe to overwrite" }, pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary" } } },
-    { input: "Lifecycle: POST pause agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/pause", expect_status: 200, expect_fields: ["success", "agent", "status"] },
-    { input: "Lifecycle: POST resume agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/resume", expect_status: 200, expect_fields: ["success", "agent", "status"] },
-    { input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"], pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary agent for deletion test" } } },
-    { input: "Lifecycle: GET version history", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/versions", expect_status: 200 },
+    { tier: "fast", input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
+    { tier: "fast", input: "Lifecycle: PUT skill update", type: "endpoint", method: "PUT", path: "/agents/test-deletion-agent/skill", expect_status: 200, expect_fields: ["success", "agent", "updated_at", "version_saved"], body: { content: "# lifecycle test skill — safe to overwrite" }, pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary" } } },
+    { tier: "fast", input: "Lifecycle: POST pause agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/pause", expect_status: 200, expect_fields: ["success", "agent", "status"] },
+    { tier: "fast", input: "Lifecycle: POST resume agent", type: "endpoint", method: "POST", path: "/agents/life-sciences-account-agent/resume", expect_status: 200, expect_fields: ["success", "agent", "status"] },
+    { tier: "fast", input: "Lifecycle: DELETE test agent", type: "endpoint", method: "DELETE", path: "/agents/test-deletion-agent", expect_status: 200, expect_fields: ["success", "deleted"], pre_db_setup: { key: "test-deletion-agent", agent: { name: "test-deletion-agent", domain: "System", status: "Active", trigger_patterns: ["test"], purpose: "Temporary agent for deletion test" } } },
+    { tier: "fast", input: "Lifecycle: GET version history", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/versions", expect_status: 200 },
   ],
 };
 
@@ -99,6 +99,7 @@ export async function initTestSuite(agentName) {
   const agentDefaults = DEFAULT_CASES[agentName] || [];
   const cases = agentDefaults.map(d => ({
     id: uuidv4(),
+    tier: d.tier || "fast",
     input: d.input,
     type: d.type || "route",
     method: d.method || "POST",
@@ -107,6 +108,7 @@ export async function initTestSuite(agentName) {
     expect_status: d.expect_status || 200,
     expect_fields: d.expect_fields || null,
     expected_output_shape: { required_fields: d.expect_fields || ["agent", "output"] },
+    pre_db_setup: d.pre_db_setup || null,
     last_run_at: null,
     last_status: null,
     last_output: null,
@@ -361,12 +363,16 @@ export async function runTestCase(agentName, testCase, trigger) {
 
 // ── Suite Runners ───────────────────────────────────────────────────────────
 
-export async function runAgentTestSuite(agentName, trigger = "manual") {
+export async function runAgentTestSuite(agentName, trigger = "manual", tier = "fast") {
   let suite = await getTestSuite(agentName);
   if (!suite) suite = await initTestSuite(agentName);
 
+  const cases = tier === "full"
+    ? suite.test_cases
+    : suite.test_cases.filter(tc => (tc.tier || "fast") === "fast");
+
   const results = [];
-  for (const tc of suite.test_cases) {
+  for (const tc of cases) {
     try {
       const run = await runTestCase(agentName, tc, trigger);
       results.push(run);
@@ -385,7 +391,7 @@ export async function runAgentTestSuite(agentName, trigger = "manual") {
   return results;
 }
 
-export async function runFullTestSuite(trigger = "scheduled") {
+export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
   const registry = await readRegistry();
   const agents = (registry.agents || []).filter(a =>
     (a.status === "Active" || a.status === "active") && !STATIC_AGENTS.has(a.name)
@@ -397,7 +403,7 @@ export async function runFullTestSuite(trigger = "scheduled") {
 
   // Run tests for all registered agents
   for (const agent of agents) {
-    const results = await runAgentTestSuite(agent.name, trigger);
+    const results = await runAgentTestSuite(agent.name, trigger, tier);
     allResults.push(...results);
   }
 
@@ -409,7 +415,7 @@ export async function runFullTestSuite(trigger = "scheduled") {
     if (!agentNames.has(suiteName) && !STATIC_AGENTS.has(suiteName)) {
       const suite = await db.get(key);
       if (suite && suite.test_cases?.length > 0) {
-        const results = await runAgentTestSuite(suiteName, trigger);
+        const results = await runAgentTestSuite(suiteName, trigger, tier);
         allResults.push(...results);
       }
     }
