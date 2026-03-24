@@ -1556,17 +1556,6 @@ body {
 
 /* ─── HUB VISUAL POLISH ─── */
 
-.hub-bg-glow {
-  position: absolute;
-  top: -200px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(ellipse at center, var(--accent-hub-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
 
 .hub {
   position: relative;
@@ -1602,7 +1591,6 @@ body {
 
   <!-- ═══ HUB VIEW ═══ -->
   <div class="view active" id="viewHub">
-    <div class="hub-bg-glow"></div>
     <div class="hub">
       <div class="hub-header">
         <div class="hub-logo">LIFEBRIDGE</div>
@@ -1833,12 +1821,26 @@ var currentAgent = null;
 // Static routes for core agents + dynamic fallback for deployed agents
 var agentEndpoints = {
   'life-sciences-account-agent': '/agents/account',
-  'agent-builder-agent': '/agents/builder'
+  'agent-builder-agent': '/agents/builder',
+  'slab-inventory-tracker-agent': '/agents/slab-inventory-tracker-agent',
+  'registry-integrity-agent': '/agents/registry-integrity-agent',
+  'intelligence-update-agent': '/agents/intelligence-update-agent',
+  'memory-consolidation-agent': '/agents/memory-consolidation-agent',
+  'morning-briefing-agent': '/agents/morning-briefing-agent',
+  'travel-agent': '/agents/travel-agent',
+  'connectors': '/agents/connectors'
 };
 
 var agentLabels = {
   'life-sciences-account-agent': 'Life Sciences Account Agent',
-  'agent-builder-agent': 'Agent Builder Agent'
+  'agent-builder-agent': 'Agent Builder Agent',
+  'slab-inventory-tracker-agent': 'Slab Inventory Tracker',
+  'registry-integrity-agent': 'Registry Integrity Agent',
+  'intelligence-update-agent': 'Intelligence Update Agent',
+  'memory-consolidation-agent': 'Memory Consolidation Agent',
+  'morning-briefing-agent': 'Morning Briefing Agent',
+  'travel-agent': 'Travel Agent',
+  'connectors': 'Connectors'
 };
 
 var quickActions = {
@@ -1911,6 +1913,10 @@ function loadSpokeAgents() {
 
     for (var i = 0; i < agents.length; i++) {
       var a = agents[i];
+      if (!agentEndpoints[a.name] && a.status === 'Active') {
+        agentEndpoints[a.name] = '/agents/' + a.name;
+        agentLabels[a.name] = agentLabels[a.name] || a.name;
+      }
       var hasEndpoint = !!agentEndpoints[a.name];
       var card = document.createElement('div');
       card.className = 'spoke-card' + (hasEndpoint ? '' : ' spoke-card-disabled');
@@ -2829,15 +2835,6 @@ function initLandscape() {
         var isHover = hoveredNode === node;
 
         if (node.type === 'hub') {
-          var glowR = 60 + 6 * Math.sin(time * 1.5);
-          var glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowR);
-          glow.addColorStop(0, 'rgba(139, 124, 247, 0.12)');
-          glow.addColorStop(1, 'rgba(139, 124, 247, 0)');
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, glowR, 0, Math.PI * 2);
-          ctx.fillStyle = glow;
-          ctx.fill();
-
           ctx.beginPath();
           ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
           ctx.fillStyle = isHover ? '#1c1a30' : '#13122a';

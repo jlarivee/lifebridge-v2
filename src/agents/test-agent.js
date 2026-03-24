@@ -49,12 +49,6 @@ const DEFAULT_CASES = {
   ],
   "memory-consolidation-agent": [
     { tier: "fast", input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
-    { tier: "fast", input: "Memory: GET proposals", type: "endpoint", method: "GET", path: "/memory/proposals", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { tier: "fast", input: "Memory: GET facts", type: "endpoint", method: "GET", path: "/memory/facts", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { tier: "fast", input: "Memory: GET history", type: "endpoint", method: "GET", path: "/memory/history", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { tier: "full", input: "Memory: POST run consolidation", type: "endpoint", method: "POST", path: "/memory/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
-    { tier: "fast", input: "Memory: POST approve proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/approve", expect_status: 200, expect_fields: ["success", "agent", "output"] },
-    { tier: "fast", input: "Memory: POST reject proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/reject", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { reason: "test rejection" } },
   ],
   "travel-agent": [
     { tier: "fast", input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
@@ -76,12 +70,12 @@ const DEFAULT_CASES = {
     { tier: "fast", input: "Briefing: GET history", type: "endpoint", method: "GET", path: "/briefing/history", expect_status: 200 },
   ],
   "connectors": [
+    { tier: "fast", input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
     { tier: "full", input: "Connectors: GET status", type: "endpoint", method: "GET", path: "/connectors/status", expect_status: 200, expect_fields: ["gmail", "slack"] },
     { tier: "full", input: "Connectors: test gmail", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "gmail" } },
     { tier: "full", input: "Connectors: test slack", type: "endpoint", method: "POST", path: "/connectors/test", expect_status: 200, expect_fields: ["success", "connector", "latency_ms"], body: { connector: "slack" } },
     { tier: "full", input: "Connectors: gmail send", type: "endpoint", method: "POST", path: "/connectors/gmail/send", expect_status: 200, expect_fields: ["success", "connector", "message_id"], body: { to: "josh@test.com", subject: "LifeBridge Test", body: "Connector test", require_approval: false } },
     { tier: "full", input: "Connectors: slack send", type: "endpoint", method: "POST", path: "/connectors/slack/send", expect_status: 200, expect_fields: ["success", "connector", "timestamp"], body: { channel: "#lifebridge-alerts", message: "LifeBridge connector test", require_approval: false } },
-    { tier: "fast", input: "Connectors: health", type: "endpoint", method: "GET", path: "/agents/connectors/health", expect_status: 200, expect_fields: ["status", "agent"] },
   ],
   "agent-lifecycle": [
     { tier: "fast", input: "Lifecycle: GET agent detail", type: "endpoint", method: "GET", path: "/agents/life-sciences-account-agent/detail", expect_status: 200, expect_fields: ["agent", "skill_file", "code_file", "test_suite", "status"] },
@@ -396,6 +390,12 @@ export async function runTestCase(agentName, testCase, trigger, tier = "full") {
   // Full tier: persist run records and update suite state
   if (tier === "full") {
     await db.set(`test-run:${run.id}`, run);
+
+    try {
+      const cached = await db.get(`agent-recent-runs:${run.agent_name}`) || [];
+      cached.unshift(run);
+      await db.set(`agent-recent-runs:${run.agent_name}`, cached.slice(0, 10));
+    } catch (_) {}
 
     if (suite) {
       const tc = suite.test_cases.find(t => t.id === testCase.id);

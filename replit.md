@@ -16,7 +16,7 @@ The frontend uses a four-state hub-spoke navigation model:
 3. **Agent Workspace**: Per-agent workspace with teal accent color, quick-action chips, structured output rendering, feedback flow
 4. **Landscape** (topology): Interactive canvas-based visualization showing the hub-spoke architecture with animated particle connections, hover tooltips showing agent details/patterns, click-to-navigate to agent workspaces
 
-Visual polish: gradient title, radial glow background on hub, animated particles on landscape connections, pulsing hub node, orbit particles.
+Visual polish: gradient title, animated particles on landscape connections, pulsing hub node, orbit particles.
 Smooth CSS transitions between states, dark theme throughout. No page reloads.
 
 ## API Endpoints
@@ -36,8 +36,22 @@ Smooth CSS transitions between states, dark theme throughout. No page reloads.
 - `src/agents/master-agent.js` — Master routing agent
 - `src/agents/life-sciences-account-agent.js` — Life Sciences spoke agent
 - `src/agents/improvement-agent.js` — Self-improvement agent
+- `src/agents/test-agent.js` — Test runner with per-agent suites and trend tracking
+- `src/agents/connectors.js` — Gmail/Slack connectors (SMTP + webhook fallback)
+- `src/agents/travel-agent.js` — Travel planning, flight watches, trip management
+- `src/agents/morning-briefing-agent.js` — Daily briefing agent
+- `src/agents/registry-integrity-agent.js` — Registry health checks
+- `src/agents/intelligence-update-agent.js` — Intelligence scanning and findings
 - `src/db.js` — Database layer
 - `src/tools/` — Tool modules (log, approval, registry, context)
+
+## DB Key Patterns
+- `test-run:{id}` — Individual test run records (grows large; avoid scanning all)
+- `agent-recent-runs:{name}` — Cached last 10 runs per agent (for fast detail lookups)
+- `test-suite:{name}` — Test suite definitions per agent
+- `intelligence:{id}` — Intelligence findings
+- `integrity-report:{id}` — Registry integrity reports
+- `trip:{id}` — Travel trips
 
 ## Design System
 - Background: `#050507` (primary), `#0c0c10` (secondary), `#111116` (cards)

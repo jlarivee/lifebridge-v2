@@ -282,14 +282,16 @@ export async function runIntelligenceScan(trigger = "manual", sourceFilter = nul
 
 export async function getFindings(filters = {}) {
   const keys = await db.list("intelligence:");
+  const sortedKeys = keys.sort().reverse().slice(0, 200);
   const findings = [];
-  for (const key of keys) {
+  for (const key of sortedKeys) {
     const f = await db.get(key);
     if (!f) continue;
     if (filters.status && f.status !== filters.status) continue;
     if (filters.score && f.relevance_score < parseInt(filters.score)) continue;
     if (filters.category && f.category !== filters.category) continue;
     findings.push(f);
+    if (findings.length >= 100) break;
   }
   findings.sort((a, b) => (b.found_at || "").localeCompare(a.found_at || ""));
   return findings.slice(0, 100);

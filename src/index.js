@@ -686,14 +686,11 @@ app.get("/agents/:name/detail", async (req, res) => {
 
     const suite = await db.get(`test-suite:${name}`);
 
-    // Gather recent test runs
-    const runKeys = await db.list("test-run:");
-    const runs = [];
-    for (const key of runKeys) {
-      const run = await db.get(key);
-      if (run?.agent_name === name) runs.push(run);
-    }
-    runs.sort((a, b) => (b.run_at || "").localeCompare(a.run_at || ""));
+    let runs = [];
+    try {
+      const cached = await db.get(`agent-recent-runs:${name}`);
+      if (Array.isArray(cached)) runs = cached.slice(0, 10);
+    } catch (_) {}
 
     // Gather version history
     const versions = await db.get(`agent-versions:${name}`) || [];

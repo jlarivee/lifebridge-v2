@@ -202,10 +202,12 @@ export async function runIntegrityCheck(trigger = "manual", agentName = null) {
  */
 export async function getIntegrityReports(limit = 20) {
   const keys = await db.list("integrity-report:");
+  const sortedKeys = keys.sort().reverse().slice(0, limit * 2);
   const reports = [];
-  for (const key of keys) {
+  for (const key of sortedKeys) {
     const r = await db.get(key);
     if (r) reports.push(r);
+    if (reports.length >= limit) break;
   }
   reports.sort((a, b) => (b.run_at || "").localeCompare(a.run_at || ""));
   return reports.slice(0, limit);
