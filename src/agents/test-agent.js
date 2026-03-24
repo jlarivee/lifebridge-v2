@@ -429,10 +429,14 @@ export async function runAgentTestSuite(agentName, trigger = "manual", tier = "f
 
   const results = [];
   for (const tc of cases) {
+    const caseStart = Date.now();
     try {
       const run = await runTestCase(agentName, tc, trigger, tier);
+      const elapsed = Date.now() - caseStart;
+      if (elapsed > 1000) console.log(`[TEST-TIMING] SLOW case="${tc.input}" agent=${agentName} ${elapsed}ms`);
       results.push(run);
     } catch (e) {
+      console.log(`[TEST-TIMING] ERROR case="${tc.input}" agent=${agentName} ${Date.now() - caseStart}ms: ${e.message}`);
       results.push({
         id: uuidv4(), run_at: new Date().toISOString(), trigger,
         agent_name: agentName, test_case_id: tc.id,
@@ -449,10 +453,14 @@ export async function runAgentTestSuite(agentName, trigger = "manual", tier = "f
 }
 
 export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
+  console.log(`[TEST-TIMING] runFullTestSuite START tier=${tier} t=0ms`);
+  const t0 = Date.now();
+
   const registry = await readRegistry();
   const agents = (registry.agents || []).filter(a =>
     (a.status === "Active" || a.status === "active") && !STATIC_AGENTS.has(a.name)
   );
+  console.log(`[TEST-TIMING] registry read, ${agents.length} agents, t=${Date.now() - t0}ms`);
 
   const batchId = uuidv4();
   const batchStart = Date.now();
@@ -460,19 +468,24 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
 
   // Run tests for all registered agents
   for (const agent of agents) {
+    const agentStart = Date.now();
     const results = await runAgentTestSuite(agent.name, trigger, tier);
+    console.log(`[TEST-TIMING] agent=${agent.name} cases=${results.length} t=${Date.now() - agentStart}ms (total=${Date.now() - t0}ms)`);
     allResults.push(...results);
   }
 
   // Also run any non-agent test suites (e.g., agent-lifecycle)
   const allSuiteKeys = await db.list("test-suite:");
+  console.log(`[TEST-TIMING] db.list returned ${allSuiteKeys.length} suite keys, t=${Date.now() - t0}ms`);
   const agentNames = new Set(agents.map(a => a.name));
   for (const key of allSuiteKeys) {
     const suiteName = key.replace("test-suite:", "");
     if (!agentNames.has(suiteName) && !STATIC_AGENTS.has(suiteName)) {
       const suite = await db.get(key);
       if (suite && suite.test_cases?.length > 0) {
+        const suiteStart = Date.now();
         const results = await runAgentTestSuite(suiteName, trigger, tier);
+        console.log(`[TEST-TIMING] suite=${suiteName} cases=${results.length} t=${Date.now() - suiteStart}ms (total=${Date.now() - t0}ms)`);
         allResults.push(...results);
       }
     }
@@ -490,6 +503,8 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
     try { await sendSystemAlert({ message: `Test run: ${failed} failed, ${errors} errors out of ${allResults.length} cases`, severity: "WARNING", source: "test-agent" }); }
     catch {}
   }
+
+  console.log(`[TEST-TIMING] runFullTestSuite DONE total=${Date.now() - t0}ms passed=${passed} failed=${failed} errors=${errors} skipped=${skipped}`);
 
   return {
     run_batch_id: batchId,
