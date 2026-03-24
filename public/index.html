@@ -229,103 +229,179 @@ body {
   text-align: center;
 }
 
-.spoke-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
+/* ─── NESTED HUB VISUALIZATION ─── */
+
+.nhub {
   width: 100%;
-  max-width: 900px;
+  max-width: 960px;
   margin-bottom: 48px;
-}
-
-.spoke-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  cursor: pointer;
-  transition: all var(--transition-medium);
   position: relative;
-  overflow: hidden;
 }
 
-.spoke-card::before {
-  content: '';
+.nhub-canvas {
+  position: relative;
+  width: 100%;
+  height: 620px;
+}
+
+.nhub-svg {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent-teal), transparent);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.spoke-card-disabled {
-  opacity: 0.5;
-  cursor: default;
+.nhub-svg line {
+  stroke-width: 1;
+  opacity: 0.3;
+}
+
+.nhub-center {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent-hub-dim);
+  border: 2px solid var(--accent-hub);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 0 40px var(--accent-hub-glow), 0 0 80px var(--accent-hub-glow);
+}
+
+.nhub-center-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 9px;
+  color: var(--accent-hub);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.nhub-domain {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all var(--transition-medium);
+  text-align: center;
+  padding: 8px;
+}
+
+.nhub-domain:hover {
+  transform: scale(1.08);
+}
+
+.nhub-domain-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+
+.nhub-domain-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+.nhub-domain-expand {
+  font-size: 10px;
+  margin-top: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.nhub-domain.expanded .nhub-domain-expand {
+  transform: rotate(180deg);
+}
+
+.nhub-sub {
+  position: absolute;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  text-align: center;
+  padding: 6px;
+  opacity: 0;
+  transform: scale(0);
+  transition: all var(--transition-medium);
   pointer-events: none;
 }
 
-.spoke-card:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-card-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+.nhub-sub.visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
 }
 
-.spoke-card:hover::before { opacity: 1; }
-
-.spoke-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--accent-teal-dim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
+.nhub-sub-active {
+  cursor: pointer;
 }
 
-.spoke-card-icon svg {
-  width: 20px;
-  height: 20px;
-  stroke: var(--accent-teal);
-  stroke-width: 1.5;
-  fill: none;
+.nhub-sub-active:hover {
+  transform: scale(1.1);
 }
 
-.spoke-card-name {
+.nhub-sub-coming {
+  cursor: default;
+}
+
+.nhub-sub-label {
   font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 500;
+  font-size: 8px;
   color: var(--text-primary);
-  margin-bottom: 6px;
+  line-height: 1.2;
+  margin-bottom: 2px;
 }
 
-.spoke-card-domain {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-bottom: 12px;
+.nhub-sub-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.spoke-card-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.nhub-sub-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-bottom: 3px;
+  animation: pulse-dot 2s infinite;
+}
+
+.nhub-tooltip {
+  position: fixed;
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-success);
-}
-
-.spoke-card-status .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success);
-  animation: pulse-dot 2s infinite;
+  color: var(--text-secondary);
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  white-space: nowrap;
 }
 
 @keyframes pulse-dot {
@@ -333,23 +409,124 @@ body {
   50% { opacity: 0.4; }
 }
 
-.spoke-empty {
-  background: var(--bg-secondary);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 140px;
-  cursor: default;
+/* ─── MOBILE NESTED HUB (linear list) ─── */
+
+.nhub-mobile {
+  display: none;
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 48px;
 }
 
-.spoke-empty-label {
+.nhub-mobile-master {
+  text-align: center;
+  padding: 16px 0 20px;
+}
+
+.nhub-mobile-master-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent-hub);
+  letter-spacing: 0.1em;
+}
+
+.nhub-mobile-domain {
+  margin-bottom: 12px;
+}
+
+.nhub-mobile-domain-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nhub-mobile-domain-header:hover {
+  opacity: 0.85;
+}
+
+.nhub-mobile-domain-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nhub-mobile-domain-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.nhub-mobile-domain-arrow {
+  font-size: 12px;
   color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.nhub-mobile-domain.expanded .nhub-mobile-domain-arrow {
+  transform: rotate(180deg);
+}
+
+.nhub-mobile-subs {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-medium);
+  padding-left: 36px;
+}
+
+.nhub-mobile-domain.expanded .nhub-mobile-subs {
+  max-height: 500px;
+}
+
+.nhub-mobile-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-left: 2px solid var(--border-subtle);
+  margin-bottom: 2px;
+  transition: all var(--transition-fast);
+}
+
+.nhub-mobile-sub-active {
+  cursor: pointer;
+}
+
+.nhub-mobile-sub-active:hover {
+  background: var(--bg-card-hover);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.nhub-mobile-sub-coming {
+  opacity: 0.4;
+}
+
+.nhub-mobile-sub-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nhub-mobile-sub-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.nhub-mobile-sub-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .hub-footer {
@@ -1978,10 +2155,12 @@ body {
 .dash-badge-approved { background: var(--color-success-dim); color: var(--color-success); }
 .dash-badge-rejected { background: var(--color-error-dim); color: var(--color-error); }
 
+@media (max-width: 768px) {
+  .nhub { display: none; }
+  .nhub-mobile { display: block; }
+}
+
 @media (max-width: 640px) {
-  .spoke-grid {
-    grid-template-columns: 1fr;
-  }
   .hub { padding: 40px 16px; }
   .workspace { padding: 16px; }
   .workspace-container { padding-top: 48px; }
@@ -2019,8 +2198,14 @@ body {
         </div>
       </div>
 
-      <div class="hub-section-label">Registered Agents</div>
-      <div class="spoke-grid" id="spokeGrid"></div>
+      <div class="hub-section-label">Agent Network</div>
+      <div class="nhub" id="nhubDesktop">
+        <div class="nhub-canvas" id="nhubCanvas">
+          <svg class="nhub-svg" id="nhubSvg"></svg>
+        </div>
+      </div>
+      <div class="nhub-mobile" id="nhubMobile"></div>
+      <div class="nhub-tooltip" id="nhubTooltip"></div>
 
       <div class="hub-footer">
         <button class="hub-footer-btn" onclick="navigateTo('landscape')">
@@ -2326,43 +2511,251 @@ function navigateTo(viewName, skipPush) {
   }
 }
 
-function loadSpokeAgents() {
-  apiFetch('/registry').then(function(registry) {
-    var grid = document.getElementById('spokeGrid');
-    var agents = registry.agents || [];
-    grid.innerHTML = '';
+// ═══════════════════════════════════════════════════════════════════════════════
+// NESTED HUB VISUALIZATION
+// ═══════════════════════════════════════════════════════════════════════════════
 
-    for (var i = 0; i < agents.length; i++) {
-      var a = agents[i];
-      var hasEndpoint = !!agentEndpoints[a.name];
-      var card = document.createElement('div');
-      card.className = 'spoke-card' + (hasEndpoint ? '' : ' spoke-card-disabled');
-      card.dataset.agent = a.name;
-      card.innerHTML =
-        '<div class="spoke-card-icon"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>' +
-        '<div class="spoke-card-name">' + escapeHtml(agentLabels[a.name] || a.name) + '</div>' +
-        '<div class="spoke-card-domain">' + escapeHtml(a.domain || 'General') + '</div>' +
-        '<div class="spoke-card-status"><span class="dot"></span> ' + escapeHtml(hasEndpoint ? (a.status || 'Active') : 'Coming soon') + '</div>';
-      if (hasEndpoint) {
-        card.addEventListener('click', function() {
-          var name = this.dataset.agent;
-          if (dashboardAgents[name]) {
-            openDashboard(name);
-          } else {
-            openAgentWorkspace(name);
-          }
+var domainMasters = [
+  {
+    id: 'aws-life-sciences', label: 'AWS Life\nSciences', domain: 'Work',
+    color: '#FF9900', dimColor: 'rgba(255,153,0,0.12)',
+    subs: [
+      { name: 'life-sciences-account-agent', label: 'Account\nAgent', active: true },
+      { name: 'morning-briefing-agent', label: 'Morning\nBriefing', active: true },
+      { name: 'intelligence-update-agent', label: 'Intel\nUpdate', active: true },
+      { name: 'sca-deal-architect', label: 'SCA Deal\nArchitect', active: false }
+    ]
+  },
+  {
+    id: 'three-rivers-slab', label: 'Three Rivers\nSlab', domain: 'Personal Business',
+    color: '#1D9E75', dimColor: 'rgba(29,158,117,0.12)',
+    subs: [
+      { name: 'slab-inventory-tracker-agent', label: 'Inventory\nTracker', active: true },
+      { name: 'pricing-agent', label: 'Pricing\nAgent', active: false },
+      { name: 'customer-agent', label: 'Customer\nAgent', active: false }
+    ]
+  },
+  {
+    id: 'madsprings', label: 'MadSprings', domain: 'Personal Business',
+    color: '#D85A30', dimColor: 'rgba(216,90,48,0.12)',
+    subs: [
+      { name: 'content-agent', label: 'Content\nAgent', active: false },
+      { name: 'orders-agent', label: 'Orders\nAgent', active: false }
+    ]
+  },
+  {
+    id: 'personal-life', label: 'Personal\nLife', domain: 'Personal Life',
+    color: '#534AB7', dimColor: 'rgba(83,74,183,0.12)',
+    subs: [
+      { name: 'travel-agent', label: 'Travel\nAgent', active: true },
+      { name: 'memory-consolidation-agent', label: 'Memory\nConsolidate', active: true },
+      { name: 'family-scheduler', label: 'Family\nScheduler', active: false }
+    ]
+  },
+  {
+    id: 'system', label: 'System', domain: 'System',
+    color: '#888780', dimColor: 'rgba(136,135,128,0.12)',
+    subs: [
+      { name: 'registry-integrity-agent', label: 'Registry\nIntegrity', active: true },
+      { name: 'test-agent', label: 'Test\nAgent', active: true },
+      { name: 'agent-builder-agent', label: 'Agent\nBuilder', active: false }
+    ]
+  }
+];
+
+var expandedDomains = {};
+
+function loadSpokeAgents() {
+  renderNestedHub();
+  renderMobileHub();
+}
+
+function renderNestedHub() {
+  var canvas = document.getElementById('nhubCanvas');
+  var svg = document.getElementById('nhubSvg');
+  if (!canvas) return;
+
+  // Clear existing nodes (keep svg)
+  var existing = canvas.querySelectorAll('.nhub-center, .nhub-domain, .nhub-sub');
+  existing.forEach(function(el) { el.remove(); });
+  svg.innerHTML = '';
+
+  var W = canvas.offsetWidth || 960;
+  var H = 620;
+  var cx = W / 2;
+  var cy = H / 2;
+  var domainRadius = Math.min(W, H) * 0.28;
+  var subRadius = Math.min(W, H) * 0.18;
+
+  // Center node
+  var center = document.createElement('div');
+  center.className = 'nhub-center';
+  center.style.left = (cx - 40) + 'px';
+  center.style.top = (cy - 40) + 'px';
+  center.innerHTML = '<div class="nhub-center-label">Master</div>';
+  canvas.appendChild(center);
+
+  // Domain master nodes
+  var domainCount = domainMasters.length;
+  for (var d = 0; d < domainCount; d++) {
+    var dm = domainMasters[d];
+    var angle = (2 * Math.PI * d / domainCount) - Math.PI / 2;
+    var dx = cx + domainRadius * Math.cos(angle);
+    var dy = cy + domainRadius * Math.sin(angle);
+
+    // Spoke line: center → domain
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', cx);
+    line.setAttribute('y1', cy);
+    line.setAttribute('x2', dx);
+    line.setAttribute('y2', dy);
+    line.setAttribute('stroke', dm.color);
+    svg.appendChild(line);
+
+    // Domain node
+    var node = document.createElement('div');
+    node.className = 'nhub-domain' + (expandedDomains[dm.id] ? ' expanded' : '');
+    node.style.left = (dx - 50) + 'px';
+    node.style.top = (dy - 50) + 'px';
+    node.style.background = dm.dimColor;
+    node.style.border = '2px solid ' + dm.color;
+    node.style.boxShadow = '0 0 20px ' + dm.dimColor;
+    node.dataset.domainId = dm.id;
+
+    var activeCount = dm.subs.filter(function(s) { return s.active; }).length;
+    node.innerHTML =
+      '<div class="nhub-domain-label" style="color:' + dm.color + '">' + escapeHtml(dm.label).replace(/\n/g, '<br>') + '</div>' +
+      '<div class="nhub-domain-count" style="color:' + dm.color + '">' + activeCount + '/' + dm.subs.length + ' active</div>' +
+      '<div class="nhub-domain-expand" style="color:' + dm.color + '">▼</div>';
+
+    node.addEventListener('click', (function(domId) {
+      return function() { toggleDomain(domId); };
+    })(dm.id));
+
+    canvas.appendChild(node);
+
+    // Sub-agent nodes
+    var subCount = dm.subs.length;
+    var spreadAngle = Math.PI * 0.6;
+    var startAngle = angle - spreadAngle / 2;
+
+    for (var s = 0; s < subCount; s++) {
+      var sub = dm.subs[s];
+      var subAngle = subCount === 1 ? angle : startAngle + (spreadAngle * s / (subCount - 1));
+      var sx = dx + subRadius * Math.cos(subAngle);
+      var sy = dy + subRadius * Math.sin(subAngle);
+
+      // Spoke line: domain → sub
+      var subLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      subLine.setAttribute('x1', dx);
+      subLine.setAttribute('y1', dy);
+      subLine.setAttribute('x2', sx);
+      subLine.setAttribute('y2', sy);
+      subLine.setAttribute('stroke', dm.color);
+      subLine.style.opacity = expandedDomains[dm.id] ? '0.3' : '0';
+      subLine.style.transition = 'opacity 0.35s';
+      subLine.dataset.domainLine = dm.id;
+      svg.appendChild(subLine);
+
+      // Sub node
+      var subNode = document.createElement('div');
+      subNode.className = 'nhub-sub' + (expandedDomains[dm.id] ? ' visible' : '') +
+        (sub.active ? ' nhub-sub-active' : ' nhub-sub-coming');
+      subNode.style.left = (sx - 38) + 'px';
+      subNode.style.top = (sy - 38) + 'px';
+      subNode.style.border = sub.active ? ('2px solid ' + dm.color) : ('1px dashed ' + dm.color);
+      subNode.style.background = sub.active ? dm.dimColor : 'transparent';
+      subNode.dataset.domainId = dm.id;
+      subNode.dataset.agent = sub.name;
+
+      var statusColor = sub.active ? dm.color : 'var(--text-muted)';
+      var statusText = sub.active ? 'Active' : 'Soon';
+      subNode.innerHTML =
+        (sub.active ? '<div class="nhub-sub-dot" style="background:' + dm.color + '"></div>' : '') +
+        '<div class="nhub-sub-label">' + escapeHtml(sub.label).replace(/\n/g, '<br>') + '</div>' +
+        '<div class="nhub-sub-status" style="color:' + statusColor + '">' + statusText + '</div>';
+
+      if (sub.active) {
+        subNode.addEventListener('click', (function(agentName) {
+          return function(e) {
+            e.stopPropagation();
+            if (dashboardAgents[agentName]) {
+              openDashboard(agentName);
+            } else {
+              openAgentWorkspace(agentName);
+            }
+          };
+        })(sub.name));
+      } else {
+        subNode.addEventListener('mouseenter', function(e) {
+          var tip = document.getElementById('nhubTooltip');
+          tip.textContent = 'Coming Soon';
+          tip.style.display = 'block';
+          tip.style.left = (e.clientX + 12) + 'px';
+          tip.style.top = (e.clientY - 30) + 'px';
+        });
+        subNode.addEventListener('mouseleave', function() {
+          document.getElementById('nhubTooltip').style.display = 'none';
         });
       }
-      grid.appendChild(card);
+
+      canvas.appendChild(subNode);
+    }
+  }
+}
+
+function toggleDomain(domainId) {
+  expandedDomains[domainId] = !expandedDomains[domainId];
+  renderNestedHub();
+}
+
+function renderMobileHub() {
+  var container = document.getElementById('nhubMobile');
+  if (!container) return;
+
+  var html = '<div class="nhub-mobile-master"><div class="nhub-mobile-master-label">LIFEBRIDGE MASTER</div></div>';
+
+  for (var d = 0; d < domainMasters.length; d++) {
+    var dm = domainMasters[d];
+    var isExpanded = expandedDomains[dm.id];
+    html += '<div class="nhub-mobile-domain' + (isExpanded ? ' expanded' : '') + '" data-domain-id="' + dm.id + '">' +
+      '<div class="nhub-mobile-domain-header" style="background:' + dm.dimColor + '" onclick="toggleMobileDomain(\'' + dm.id + '\')">' +
+        '<div class="nhub-mobile-domain-dot" style="background:' + dm.color + '"></div>' +
+        '<div class="nhub-mobile-domain-name">' + escapeHtml(dm.label).replace(/\n/g, ' ') + '</div>' +
+        '<div class="nhub-mobile-domain-arrow">▼</div>' +
+      '</div>' +
+      '<div class="nhub-mobile-subs">';
+
+    for (var s = 0; s < dm.subs.length; s++) {
+      var sub = dm.subs[s];
+      var subClass = sub.active ? 'nhub-mobile-sub-active' : 'nhub-mobile-sub-coming';
+      var onclick = sub.active ? ' onclick="mobileSubClick(\'' + escapeHtml(sub.name) + '\')"' : '';
+      html += '<div class="nhub-mobile-sub ' + subClass + '"' + onclick + '>' +
+        '<div class="nhub-mobile-sub-dot" style="background:' + (sub.active ? dm.color : 'var(--text-muted)') + '"></div>' +
+        '<div class="nhub-mobile-sub-name">' + escapeHtml(sub.label).replace(/\n/g, ' ') + '</div>' +
+        '<div class="nhub-mobile-sub-badge" style="color:' + (sub.active ? dm.color : 'var(--text-muted)') + '">' +
+          (sub.active ? 'Active' : 'Coming Soon') +
+        '</div>' +
+      '</div>';
     }
 
-    var empty = document.createElement('div');
-    empty.className = 'spoke-empty';
-    empty.innerHTML = '<div class="spoke-empty-label">+ More agents coming</div>';
-    grid.appendChild(empty);
-  }).catch(function(e) {
-    console.error('Failed to load registry:', e);
-  });
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function toggleMobileDomain(domainId) {
+  expandedDomains[domainId] = !expandedDomains[domainId];
+  renderMobileHub();
+}
+
+function mobileSubClick(agentName) {
+  if (dashboardAgents[agentName]) {
+    openDashboard(agentName);
+  } else {
+    openAgentWorkspace(agentName);
+  }
 }
 
 function openAgentWorkspace(agentName) {
