@@ -29,6 +29,9 @@ import {
   sendSlack, approveSend, getSendLog, getConfig as getConnectorConfig,
   updateConfig as updateConnectorConfig
 } from "./agents/connectors.js";
+import {
+  runBriefing, previewBriefing, getLatestBriefing, getBriefingHistory
+} from "./agents/morning-briefing-agent.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -976,8 +979,26 @@ app.all("/test/*", (req, res) => {
 app.all("/improve/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
-app.all("/briefing/*", (req, res) => {
-  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+// ── Morning Briefing ─────────────────────────────────────────────────────────
+
+app.post("/briefing/run", async (req, res) => {
+  try { res.json(await runBriefing()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/briefing/preview", async (req, res) => {
+  try { res.json(await previewBriefing()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/briefing/latest", async (req, res) => {
+  try { res.json(await getLatestBriefing()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/briefing/history", async (req, res) => {
+  try { res.json(await getBriefingHistory()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.all("/connectors/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
@@ -1209,6 +1230,17 @@ async function start() {
   await resetTestSuites();
   const seeded = await seedAllSuites();
   if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
+
+  // Morning briefing at 7:30 AM UTC
+  cron.schedule("30 7 * * *", async () => {
+    try {
+      const result = await runBriefing();
+      console.log(`[BRIEFING] Daily briefing delivered via ${result.delivered_via.join(", ")} — ${result.sections_compiled} sections`);
+    } catch (e) {
+      console.error(`[BRIEFING] Daily briefing failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+  console.log("Morning Briefing Agent registered — daily delivery at 7:30 AM UTC");
 
   // Daily intelligence scan at 6:00 AM UTC
   cron.schedule("0 6 * * *", async () => {
