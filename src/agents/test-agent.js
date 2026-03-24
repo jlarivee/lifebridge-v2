@@ -184,7 +184,42 @@ export async function seedAllSuites() {
       }
     }
   }
+  // Backfill type: "endpoint" and tier on any stored cases missing them
+  const patched = await backfillTestSuites();
+  if (patched > 0) console.log(`[TEST] Backfilled ${patched} test cases with type: "endpoint"`);
   return seeded;
+}
+
+// ── DB Backfill ─────────────────────────────────────────────────────────────
+
+export async function backfillTestSuites() {
+  const keys = await db.list("test-suite:");
+  let patched = 0;
+  for (const key of keys) {
+    const suite = await db.get(key);
+    if (!suite?.test_cases) continue;
+    let dirty = false;
+    for (const tc of suite.test_cases) {
+      // Any case with a path should be type: "endpoint", not "route"
+      if (tc.path && tc.type !== "endpoint") {
+        tc.type = "endpoint";
+        dirty = true;
+        patched++;
+      }
+      // Backfill missing tier from STATIC defaults
+      if (!tc.tier) {
+        const defaults = DEFAULT_CASES[suite.agent_name] || [];
+        const match = defaults.find(d => d.input === tc.input);
+        tc.tier = match?.tier || "fast";
+        dirty = true;
+      }
+    }
+    if (dirty) {
+      suite.updated_at = new Date().toISOString();
+      await db.set(key, suite);
+    }
+  }
+  return patched;
 }
 
 // ── Test Execution ──────────────────────────────────────────────────────────
@@ -268,7 +303,25 @@ function classifyFailure(testCase, result, baseline, error, duration) {
   return null; // pass
 }
 
-export async function runTestCase(agentName, testCase, trigger) {
+export async function runTestCase(agentName, testCase, trigger, tier = "full") {
+  // Safety guard: fast tier ONLY runs endpoint tests — never route through master agent
+  if (tier === "fast" && testCase.type !== "endpoint") {
+    return {
+      id: uuidv4(),
+      run_at: new Date().toISOString(),
+      trigger: trigger || "manual",
+      agent_name: agentName,
+      test_case_id: testCase.id,
+      status: "skip",
+      failure_type: null,
+      actual_output: null,
+      baseline_output: null,
+      confidence_score: null,
+      duration_ms: 0,
+      notes: "route tests excluded from fast tier",
+    };
+  }
+
   const suite = await getTestSuite(agentName);
   const baseline = suite?.baseline_output;
 
@@ -374,7 +427,7 @@ export async function runAgentTestSuite(agentName, trigger = "manual", tier = "f
   const results = [];
   for (const tc of cases) {
     try {
-      const run = await runTestCase(agentName, tc, trigger);
+      const run = await runTestCase(agentName, tc, trigger, tier);
       results.push(run);
     } catch (e) {
       results.push({
@@ -424,6 +477,7 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
   const passed = allResults.filter(r => r.status === "pass").length;
   const failed = allResults.filter(r => r.status === "fail").length;
   const errors = allResults.filter(r => r.status === "error").length;
+  const skipped = allResults.filter(r => r.status === "skip").length;
 
   await checkDeadAgents();
 
@@ -440,6 +494,7 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
     passed,
     failed,
     errors,
+    skipped,
     duration_ms: Date.now() - batchStart,
     results: allResults,
   };
