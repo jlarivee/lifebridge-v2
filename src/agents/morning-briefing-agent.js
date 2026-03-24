@@ -10,6 +10,7 @@ import { sendGmail, sendSlack } from "./connectors.js";
 
 const PORT = process.env.PORT || 5000;
 const BASE = `http://localhost:${PORT}`;
+const DASHBOARD_URL = process.env.REPLIT_URL || "https://lifebridge-v2.replit.app";
 const client = new Anthropic();
 
 // ── Data Fetchers ───────────────────────────────────────────────────────────
@@ -35,9 +36,11 @@ async function fetchHealth() {
 
 async function fetchTests() {
   try {
-    const runs = await fetchJSON("/test/runs");
+    const resp = await fetch(`${BASE}/test/runs`, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const runs = await resp.json();
     const cutoff = new Date(Date.now() - 86400000).toISOString();
-    const recent = runs.filter(r => r.run_at >= cutoff);
+    const recent = (Array.isArray(runs) ? runs : []).filter(r => r.run_at >= cutoff).slice(0, 50);
     if (recent.length === 0) return "No test runs in the last 24 hours.";
     const passed = recent.filter(r => r.status === "pass").length;
     const failed = recent.filter(r => r.status === "fail").length;
@@ -50,7 +53,10 @@ async function fetchTests() {
       text += `\n   Failures: ${Object.entries(byAgent).map(([a, c]) => `${a} (${c})`).join(", ")}`;
     }
     return text;
-  } catch (e) { return `Data unavailable — test runs returned error: ${e.message}`; }
+  } catch (e) {
+    if (e.name === "AbortError" || e.name === "TimeoutError") return "Test data unavailable — run manually at /test/runs";
+    return `Data unavailable — test runs returned error: ${e.message}`;
+  }
 }
 
 async function fetchIntelligence() {
@@ -78,7 +84,7 @@ async function fetchProposals() {
     for (const f of top3) {
       text += `\n   • [${f.relevance_score}/10] ${f.title}`;
     }
-    text += `\n   Review at: ${BASE}`;
+    text += `\n   Review at: ${DASHBOARD_URL}`;
     return text;
   } catch (e) { return `Data unavailable — proposals returned error: ${e.message}`; }
 }
@@ -176,7 +182,7 @@ ${sections.slab}
 ${sections.focus}
 
 ─────────────────────────────────────
-View full dashboard: ${BASE}
+View full dashboard: ${DASHBOARD_URL}
 ═══════════════════════════════════════`;
 }
 
