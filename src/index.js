@@ -1190,6 +1190,9 @@ app.all("/connectors/*", (req, res) => {
 app.all("/intelligence/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
+app.all("/memory/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
 app.all("/integrity/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
@@ -1368,6 +1371,27 @@ async function registerTravelAgent() {
   await registerTravelAgentInRegistry();
 }
 
+async function registerMemoryConsolidationAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "memory-consolidation-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "memory-consolidation-agent",
+      domain: "System",
+      purpose: "Weekly review of all request logs, briefings, and agent activity to extract durable facts about Josh and propose context additions.",
+      status: "Active",
+      trigger_patterns: ["memory", "consolidate", "learn", "facts", "what do you know about me"],
+      triggers: ["scheduled_weekly_sunday_3am", "manual"],
+      endpoints: ["/memory/run", "/memory/proposals", "/memory/facts", "/memory/history"],
+      requires_approval: ["all — nothing auto-applies"],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: memory-consolidation-agent");
+  }
+}
+
 async function registerMorningBriefingAgent() {
   const registry = await readRegistry();
   const exists = (registry.agents || []).some(a => a.name === "morning-briefing-agent");
@@ -1402,6 +1426,7 @@ async function start() {
   await registerMorningBriefingAgent();
   await registerTravelAgent();
   await initTravelProfile();
+  await registerMemoryConsolidationAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);

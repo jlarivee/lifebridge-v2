@@ -46,6 +46,15 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
     { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
+  "memory-consolidation-agent": [
+    { input: "Memory: health check", type: "endpoint", method: "GET", path: "/agents/memory-consolidation-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { input: "Memory: GET proposals", type: "endpoint", method: "GET", path: "/memory/proposals", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Memory: GET facts", type: "endpoint", method: "GET", path: "/memory/facts", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Memory: GET history", type: "endpoint", method: "GET", path: "/memory/history", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Memory: POST run consolidation", type: "endpoint", method: "POST", path: "/memory/run", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { input: "Memory: POST approve proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/approve", expect_status: 200, expect_fields: ["success", "agent", "output"] },
+    { input: "Memory: POST reject proposal", type: "endpoint", method: "POST", path: "/memory/proposals/test-proposal-id/reject", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { reason: "test rejection" } },
+  ],
   "travel-agent": [
     { input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
     { input: "Travel: GET profile", type: "endpoint", method: "GET", path: "/travel/profile", expect_status: 200, expect_fields: ["home_airports", "airline_preference", "hotel_programs", "car_rental"] },
