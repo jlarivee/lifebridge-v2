@@ -390,25 +390,28 @@ export async function runTestCase(agentName, testCase, trigger, tier = "full") {
     notes: error || null,
   };
 
-  await db.set(`test-run:${run.id}`, run);
+  // Fast tier: skip DB writes entirely — no run history, no suite updates
+  // Full tier: persist run records and update suite state
+  if (tier === "full") {
+    await db.set(`test-run:${run.id}`, run);
 
-  // Update test case in suite
-  if (suite) {
-    const tc = suite.test_cases.find(t => t.id === testCase.id);
-    if (tc) {
-      tc.last_run_at = run.run_at;
-      tc.last_status = run.status;
-      tc.last_output = run.actual_output?.slice(0, 500);
+    if (suite) {
+      const tc = suite.test_cases.find(t => t.id === testCase.id);
+      if (tc) {
+        tc.last_run_at = run.run_at;
+        tc.last_status = run.status;
+        tc.last_output = run.actual_output?.slice(0, 500);
+      }
+      suite.updated_at = new Date().toISOString();
+
+      // Capture baseline on first pass
+      if (run.status === "pass" && !suite.baseline_output) {
+        suite.baseline_output = run.actual_output;
+        suite.baseline_captured_at = run.run_at;
+      }
+
+      await db.set(`test-suite:${agentName}`, suite);
     }
-    suite.updated_at = new Date().toISOString();
-
-    // Capture baseline on first pass
-    if (run.status === "pass" && !suite.baseline_output) {
-      suite.baseline_output = run.actual_output;
-      suite.baseline_captured_at = run.run_at;
-    }
-
-    await db.set(`test-suite:${agentName}`, suite);
   }
 
   return run;
@@ -440,7 +443,8 @@ export async function runAgentTestSuite(agentName, trigger = "manual", tier = "f
     }
   }
 
-  await checkTrends(agentName);
+  // Trend and dead-agent checks are expensive DB scans — skip in fast tier
+  if (tier === "full") await checkTrends(agentName);
   return results;
 }
 
@@ -479,7 +483,8 @@ export async function runFullTestSuite(trigger = "scheduled", tier = "fast") {
   const errors = allResults.filter(r => r.status === "error").length;
   const skipped = allResults.filter(r => r.status === "skip").length;
 
-  await checkDeadAgents();
+  // Dead-agent check scans all test-run keys per agent — skip in fast tier
+  if (tier === "full") await checkDeadAgents();
 
   if (failed > 0 || errors > 0) {
     try { await sendSystemAlert({ message: `Test run: ${failed} failed, ${errors} errors out of ${allResults.length} cases`, severity: "WARNING", source: "test-agent" }); }
