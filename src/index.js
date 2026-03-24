@@ -1000,6 +1000,9 @@ app.get("/briefing/history", async (req, res) => {
   try { res.json(await getBriefingHistory()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+app.all("/travel/*", (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
+});
 app.all("/connectors/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
@@ -1187,6 +1190,26 @@ async function registerConnectors() {
   }
 }
 
+async function registerTravelAgent() {
+  const registry = await readRegistry();
+  const exists = (registry.agents || []).some(a => a.name === "travel-agent");
+  if (!exists) {
+    registry.agents = registry.agents || [];
+    registry.agents.push({
+      name: "travel-agent",
+      domain: "Personal Life",
+      purpose: "Trip planning with Josh's preferences — Delta Diamond, Hilton Diamond, Marriott Platinum, National Executive. Handles work travel, family trips, weekend getaways, international trips, concert travel. Monitors flight prices, tracks loyalty points, manages travel docs.",
+      status: "Active",
+      trigger_patterns: ["travel", "trip", "flight", "hotel", "car rental", "Delta", "Hilton", "Marriott", "airport", "Italy", "Bologna", "vacation", "getaway"],
+      endpoints: ["/agents/travel-agent/health", "/agents/travel-agent", "/travel/profile", "/travel/trips", "/travel/trips/:id", "/travel/flights/watch", "/travel/loyalty", "/travel/docs"],
+      requires_approval: ["booking", "purchasing", "external_alerts"],
+      created_at: new Date().toISOString(),
+    });
+    await writeRegistry(registry);
+    console.log("Registered: travel-agent");
+  }
+}
+
 async function registerMorningBriefingAgent() {
   const registry = await readRegistry();
   const exists = (registry.agents || []).some(a => a.name === "morning-briefing-agent");
@@ -1219,6 +1242,7 @@ async function start() {
   await registerConnectors();
   console.log("Connectors Agent registered — Gmail and Slack connected");
   await registerMorningBriefingAgent();
+  await registerTravelAgent();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);

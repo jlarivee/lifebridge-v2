@@ -46,6 +46,18 @@ const DEFAULT_CASES = {
     { input: "GET /intelligence/sources", type: "endpoint", method: "GET", path: "/intelligence/sources", expect_status: 200 },
     { input: "Action: list pending proposals", type: "endpoint", method: "POST", path: "/agents/intelligence-update-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "list pending proposals" } },
   ],
+  "travel-agent": [
+    { input: "Travel: health check", type: "endpoint", method: "GET", path: "/agents/travel-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { input: "Travel: GET profile", type: "endpoint", method: "GET", path: "/travel/profile", expect_status: 200, expect_fields: ["home_airports", "airline_preference", "hotel_programs", "car_rental"] },
+    { input: "Travel: plan Indianapolis work trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "plan a trip to Indianapolis next week for an AWS meeting, 2 nights" } },
+    { input: "Travel: loyalty point balances", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "what are my current loyalty point balances" } },
+    { input: "Travel: set flight watch BDL-ZRH", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "set up a flight watch for BDL to ZRH under $2000 business class" } },
+    { input: "Travel: GET flight watches", type: "endpoint", method: "GET", path: "/travel/flights/watch", expect_status: 200 },
+    { input: "Travel: plan Italy trip", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "help me plan my Italy trip" } },
+    { input: "Travel: GET docs", type: "endpoint", method: "GET", path: "/travel/docs", expect_status: 200 },
+    { input: "Travel: GET trips", type: "endpoint", method: "GET", path: "/travel/trips", expect_status: 200 },
+    { input: "Travel: NYC concert hotel", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "I have a concert in NYC this weekend, find me a hotel near Madison Square Garden" } },
+  ],
   "morning-briefing-agent": [
     { input: "Briefing: health check", type: "endpoint", method: "GET", path: "/agents/morning-briefing-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
     { input: "Briefing: GET latest", type: "endpoint", method: "GET", path: "/briefing/latest", expect_status: 200, expect_fields: ["agent", "output", "success"] },
