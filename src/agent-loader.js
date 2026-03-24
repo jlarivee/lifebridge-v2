@@ -19,6 +19,7 @@ const AGENTS_DIR = join(__dirname, "agents");
 const STATIC_AGENTS = new Set([
   "life-sciences-account-agent",
   "agent-builder-agent",
+  "travel-agent",
 ]);
 
 /**

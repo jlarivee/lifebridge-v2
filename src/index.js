@@ -32,6 +32,16 @@ import {
 import {
   runBriefing, previewBriefing, getLatestBriefing, getBriefingHistory
 } from "./agents/morning-briefing-agent.js";
+import {
+  initTravelProfile, runTravelAgent, registerTravelAgent as registerTravelAgentInRegistry,
+  getProfile as getTravelProfile, updateProfile as updateTravelProfile,
+  getTrips, getTrip, createTrip, updateTrip, deleteTrip,
+  getFlightWatches, getFlightWatch, createFlightWatch, updateFlightWatch, deleteFlightWatch,
+  getLoyaltySnapshots, getLatestLoyaltySnapshot, getLoyaltySnapshot,
+  createLoyaltySnapshot, updateLoyaltySnapshot, deleteLoyaltySnapshot,
+  getTravelDocs, getTravelDoc, createTravelDoc, updateTravelDoc, deleteTravelDoc,
+  checkFlightWatches, checkDocExpiry, sendLoyaltyReminder
+} from "./agents/travel-agent.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -936,6 +946,24 @@ app.post("/agents/intelligence-update-agent", async (req, res) => {
   }
 });
 
+// ── Travel Agent ────────────────────────────────────────────────────────────
+
+app.get("/agents/travel-agent/health", async (req, res) => {
+  res.json({ status: "ok", agent: "travel-agent", checked_at: new Date().toISOString() });
+});
+
+app.post("/agents/travel-agent", async (req, res) => {
+  try {
+    const { request: reqText, input, context } = req.body || {};
+    const userRequest = reqText || input || "";
+    if (!userRequest) return res.status(400).json({ error: "request or input required" });
+    const result = await runTravelAgent(userRequest, context || {});
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Dynamic Agent Action Endpoint (catch-all for registered agents) ─────────
 
 app.post("/agents/:name", async (req, res) => {
@@ -1000,6 +1028,159 @@ app.get("/briefing/history", async (req, res) => {
   try { res.json(await getBriefingHistory()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+// ── Travel CRUD ─────────────────────────────────────────────────────────────
+
+app.get("/travel/profile", async (req, res) => {
+  try { res.json(await getTravelProfile()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/travel/profile", async (req, res) => {
+  try { res.json(await updateTravelProfile(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/trips", async (req, res) => {
+  try { res.json(await getTrips()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/travel/trips", async (req, res) => {
+  try { res.json(await createTrip(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/trips/:id", async (req, res) => {
+  try {
+    const trip = await getTrip(req.params.id);
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+    res.json(trip);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/travel/trips/:id", async (req, res) => {
+  try {
+    const trip = await updateTrip(req.params.id, req.body || {});
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+    res.json(trip);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/travel/trips/:id", async (req, res) => {
+  try {
+    const trip = await deleteTrip(req.params.id);
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+    res.json(trip);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/flights/watch", async (req, res) => {
+  try { res.json(await getFlightWatches()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/travel/flights/watch", async (req, res) => {
+  try { res.json(await createFlightWatch(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/flights/watch/:id", async (req, res) => {
+  try {
+    const watch = await getFlightWatch(req.params.id);
+    if (!watch) return res.status(404).json({ error: "Flight watch not found" });
+    res.json(watch);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/travel/flights/watch/:id", async (req, res) => {
+  try {
+    const watch = await updateFlightWatch(req.params.id, req.body || {});
+    if (!watch) return res.status(404).json({ error: "Flight watch not found" });
+    res.json(watch);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/travel/flights/watch/:id", async (req, res) => {
+  try {
+    const watch = await deleteFlightWatch(req.params.id);
+    if (!watch) return res.status(404).json({ error: "Flight watch not found" });
+    res.json(watch);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/loyalty", async (req, res) => {
+  try { res.json(await getLatestLoyaltySnapshot()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/loyalty/history", async (req, res) => {
+  try { res.json(await getLoyaltySnapshots()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/travel/loyalty", async (req, res) => {
+  try { res.json(await createLoyaltySnapshot(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/loyalty/:id", async (req, res) => {
+  try {
+    const snapshot = await getLoyaltySnapshot(req.params.id);
+    if (!snapshot) return res.status(404).json({ error: "Loyalty snapshot not found" });
+    res.json(snapshot);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/travel/loyalty/:id", async (req, res) => {
+  try {
+    const snapshot = await updateLoyaltySnapshot(req.params.id, req.body || {});
+    if (!snapshot) return res.status(404).json({ error: "Loyalty snapshot not found" });
+    res.json(snapshot);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/travel/loyalty/:id", async (req, res) => {
+  try {
+    const snapshot = await deleteLoyaltySnapshot(req.params.id);
+    if (!snapshot) return res.status(404).json({ error: "Loyalty snapshot not found" });
+    res.json(snapshot);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/docs", async (req, res) => {
+  try { res.json(await getTravelDocs()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/travel/docs", async (req, res) => {
+  try { res.json(await createTravelDoc(req.body || {})); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/travel/docs/:name", async (req, res) => {
+  try {
+    const doc = await getTravelDoc(req.params.name);
+    if (!doc) return res.status(404).json({ error: "Travel document not found" });
+    res.json(doc);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/travel/docs/:name", async (req, res) => {
+  try {
+    const doc = await updateTravelDoc(req.params.name, req.body || {});
+    if (!doc) return res.status(404).json({ error: "Travel document not found" });
+    res.json(doc);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/travel/docs/:name", async (req, res) => {
+  try {
+    const doc = await deleteTravelDoc(req.params.name);
+    if (!doc) return res.status(404).json({ error: "Travel document not found" });
+    res.json(doc);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.all("/travel/*", (req, res) => {
   res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` });
 });
@@ -1184,23 +1365,7 @@ async function registerConnectors() {
 }
 
 async function registerTravelAgent() {
-  const registry = await readRegistry();
-  const exists = (registry.agents || []).some(a => a.name === "travel-agent");
-  if (!exists) {
-    registry.agents = registry.agents || [];
-    registry.agents.push({
-      name: "travel-agent",
-      domain: "Personal Life",
-      purpose: "Trip planning with Josh's preferences — Delta Diamond, Hilton Diamond, Marriott Platinum, National Executive. Handles work travel, family trips, weekend getaways, international trips, concert travel. Monitors flight prices, tracks loyalty points, manages travel docs.",
-      status: "Active",
-      trigger_patterns: ["travel", "trip", "flight", "hotel", "car rental", "Delta", "Hilton", "Marriott", "airport", "Italy", "Bologna", "vacation", "getaway"],
-      endpoints: ["/agents/travel-agent/health", "/agents/travel-agent", "/travel/profile", "/travel/trips", "/travel/trips/:id", "/travel/flights/watch", "/travel/loyalty", "/travel/docs"],
-      requires_approval: ["booking", "purchasing", "external_alerts"],
-      created_at: new Date().toISOString(),
-    });
-    await writeRegistry(registry);
-    console.log("Registered: travel-agent");
-  }
+  await registerTravelAgentInRegistry();
 }
 
 async function registerMorningBriefingAgent() {
@@ -1236,6 +1401,7 @@ async function start() {
   console.log("Connectors Agent registered — Gmail and Slack connected");
   await registerMorningBriefingAgent();
   await registerTravelAgent();
+  await initTravelProfile();
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
   const dynamicCount = await loadDynamicAgents(app);
@@ -1299,6 +1465,33 @@ async function start() {
     }
   }, { timezone: "UTC" });
   console.log("Test Agent registered — daily run at 7:00 AM UTC");
+
+  // Daily flight watch check at 8:00 AM UTC
+  cron.schedule("0 8 * * *", async () => {
+    try {
+      await checkFlightWatches();
+    } catch (e) {
+      console.error(`[TRAVEL] Flight watch check failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+
+  // Monthly document expiry check on the 1st at 9:00 AM UTC
+  cron.schedule("0 9 1 * *", async () => {
+    try {
+      await checkDocExpiry();
+    } catch (e) {
+      console.error(`[TRAVEL] Doc expiry check failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
+
+  // Weekly loyalty reminder on Sunday at 10:00 AM UTC
+  cron.schedule("0 10 * * 0", async () => {
+    try {
+      await sendLoyaltyReminder();
+    } catch (e) {
+      console.error(`[TRAVEL] Loyalty reminder failed: ${e.message}`);
+    }
+  }, { timezone: "UTC" });
 
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {
