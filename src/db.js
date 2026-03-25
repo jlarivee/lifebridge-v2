@@ -59,4 +59,14 @@ export async function initDefaults() {
       last_updated: null
     });
   }
+
+  // Seed Italy 2026 connector config if not already set
+  const italy2026Config = await get("italy2026-config");
+  if (!italy2026Config) {
+    await set("italy2026-config", {
+      url: "https://italy-2026.replit.app",
+      key: "534fb8d02b8670c565179ce414255f31"
+    });
+    console.log("[DB] Seeded italy2026-config");
+  }
 }
