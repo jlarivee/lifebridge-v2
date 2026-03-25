@@ -9,66 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/variables.css">
 <link rel="stylesheet" href="/css/reset.css">
+<link rel="stylesheet" href="/css/components.css">
 <style>
-.app-shell {
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-.view {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-slow), transform var(--transition-slow);
-  overflow-y: auto;
-  transform: scale(0.98);
-}
-
-.view.active {
-  opacity: 1;
-  pointer-events: all;
-  transform: scale(1);
-  position: relative;
-}
-
-.back-btn {
-  position: fixed;
-  top: 24px;
-  left: 24px;
-  z-index: 100;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  backdrop-filter: blur(12px);
-}
-
-.back-btn:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-hover);
-  color: var(--text-primary);
-}
-
-.back-btn.visible { display: flex; }
-
-.back-btn svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  stroke-width: 2;
-  fill: none;
-}
-
 /* ─── HUB VIEW ─── */
 
 .hub {
@@ -1067,11 +1009,6 @@
   animation: card-enter 0.4s ease-out;
 }
 
-@keyframes card-enter {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .output-card-header {
   display: flex;
   align-items: center;
@@ -1462,22 +1399,6 @@
   opacity: 0.4;
 }
 
-.badge {
-  display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 4px;
-  margin-right: 6px;
-}
-
-.badge-type { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.badge-confidence-high { background: var(--color-success-dim); color: var(--color-success); }
-.badge-confidence-medium { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.badge-confidence-low { background: var(--color-error-dim); color: var(--color-error); }
-
 .change-field-label {
   font-size: 10px;
   font-weight: 600;
@@ -1625,19 +1546,6 @@
   align-items: center;
   gap: 8px;
 }
-
-.status-badge {
-  display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.status-pending { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.status-resolved { background: var(--color-success-dim); color: var(--color-success); }
 
 .sub-list-header {
   font-size: 11px;
