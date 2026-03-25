@@ -16,6 +16,7 @@
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/state.js"></script>
+<script src="/js/router.js"></script>
 </head>
 <body>
 
@@ -296,61 +297,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-
-function navigateTo(viewName, skipPush) {
-  var views = document.querySelectorAll('.view');
-  var backBtn = document.getElementById('backBtn');
-
-  views.forEach(function(v) { v.classList.remove('active'); });
-
-  var viewMap = {
-    hub: 'viewHub',
-    routing: 'viewRouting',
-    workspace: 'viewWorkspace',
-    landscape: 'viewLandscape',
-    ideas: 'viewIdeas',
-    tests: 'viewTests',
-    health: 'viewHealth',
-    intel: 'viewIntel',
-    dashboard: 'viewDashboard'
-  };
-
-  var target = document.getElementById(viewMap[viewName]);
-  if (target) {
-    setTimeout(function() { target.classList.add('active'); }, 20);
-  }
-
-  backBtn.classList.toggle('visible', viewName !== 'hub');
-  currentView = viewName;
-
-  if (viewName === 'landscape') {
-    setTimeout(initLandscape, 100);
-  }
-  if (viewName !== 'landscape') {
-    stopLandscape();
-  }
-}
-
-function switchHubView(mode) {
-  currentHubView = mode;
-  var topoContainer = document.getElementById('hubTopologyContainer');
-  var gridContainer = document.getElementById('hubGridContainer');
-  var topoBtn = document.getElementById('hubViewTopology');
-  var gridBtn = document.getElementById('hubViewGrid');
-
-  if (mode === 'topology') {
-    topoContainer.style.display = '';
-    gridContainer.style.display = 'none';
-    topoBtn.classList.add('active');
-    gridBtn.classList.remove('active');
-    renderNestedHub();
-  } else {
-    topoContainer.style.display = 'none';
-    gridContainer.style.display = '';
-    topoBtn.classList.remove('active');
-    gridBtn.classList.add('active');
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NESTED HUB VISUALIZATION
