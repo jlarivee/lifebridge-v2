@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/css/mobile.css">
 <script src="/js/config.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/state.js"></script>
 </head>
 <body>
 
@@ -289,11 +290,6 @@
 </div>
 
 <script>
-var currentView = 'hub';
-var currentRouteResult = null;
-var currentRouteInput = '';
-var currentAgent = null;
-
 function escapeHtml(str) {
   var div = document.createElement('div');
   div.textContent = str;
@@ -335,8 +331,6 @@ function navigateTo(viewName, skipPush) {
   }
 }
 
-var currentHubView = 'topology';
-
 function switchHubView(mode) {
   currentHubView = mode;
   var topoContainer = document.getElementById('hubTopologyContainer');
@@ -361,9 +355,6 @@ function switchHubView(mode) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // NESTED HUB VISUALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
-
-var expandedDomains = {};
-var SVG_NS = 'http://www.w3.org/2000/svg';
 
 function loadSpokeAgents() {
   console.log('[LifeBridge] loadSpokeAgents called');
@@ -1479,11 +1470,6 @@ async function loadHistory() {
   }
 }
 
-var landscapeAnim = null;
-var landscapeNodes = [];
-var landscapeParticles = [];
-var landscapeRegistryData = null;
-
 function stopLandscape() {
   if (landscapeAnim) {
     cancelAnimationFrame(landscapeAnim);
@@ -2179,8 +2165,6 @@ async function rejectIntel(id) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // AGENT DASHBOARDS
 // ═══════════════════════════════════════════════════════════════════════════════
-
-var currentDashboardAgent = null;
 
 function openDashboard(agentName) {
   currentDashboardAgent = agentName;
