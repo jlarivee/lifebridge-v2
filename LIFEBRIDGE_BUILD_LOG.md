@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.6 (in progress)
+**Current version:** v2.6 (shipped)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -396,7 +396,12 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
-**Connectors:** None registered yet
+**Connectors:**
+| Connector | Type | Status |
+|---|---|---|
+| Gmail | SMTP (jlarivee@gmail.com) | Connected |
+| Slack | Replit native API + webhook | Connected |
+| Italy 2026 | REST API (x-lifebridge-key auth) | Connected |
 
 ---
 
@@ -444,22 +449,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ### Next priority (in order)
 
-1. **Fix fast tier test suite** — connector sends and integrity scan moved to full tier. Fast suite must complete under 5 seconds with zero external calls.
-
-2. **Memory Consolidation Agent** — test cases already added (7 cases, all expected to FAIL until built)
-   - Weekly Sunday 3AM UTC
-   - Extracts durable facts from request logs
-   - 6 categories: work patterns, communication preferences, personal preferences, business context, system behavior, corrections
-   - All proposals require human approval
-   - Replit DB keys: `consolidation-run:{uuid}`, `context-proposal:{uuid}`
-
-3. **Travel Agent** — test cases added, needs full build
-   - Delta Diamond, Hilton Diamond, Marriott Platinum, National Executive baked in
-   - BDL/JFK/LGA home airports
-   - Endpoints: /travel/profile, /travel/trips, /travel/flights/watch, /travel/loyalty, /travel/docs
-   - Daily 8AM UTC flight watch check
-
-4. **Investment Research Agent (paper trading)**
+1. **Investment Research Agent (paper trading)**
    - NOT real financial advice — paper money only
    - $1K hypothetical per thesis, 90-day tracking
    - 3 theses per week
@@ -467,9 +457,9 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
    - Stores all historical data to build bigger trends
    - IMPORTANT: Always clearly labeled as paper trading, never real investment advice
 
-5. **Morning Briefing fix** — dashboard URL hardcoded to localhost:5000, should use process.env.REPLIT_URL
+2. **Morning Briefing fix** — dashboard URL hardcoded to localhost:5000, should use process.env.REPLIT_URL
 
-6. **Slab cut dates fix** — both walnut slabs incorrectly entered as 2024-03-01, should be 2026-03-01
+3. **Slab cut dates fix** — both walnut slabs incorrectly entered as 2024-03-01, should be 2026-03-01
 
 ### Future capabilities
 - Multi-turn conversation memory within a session
@@ -505,6 +495,12 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | Agent lifecycle | Full CRUD on agents from UI | Agents can be edited, paused, resumed, deleted without touching code directly |
 | Gmail connector | SMTP with app password | Replit OAuth integration explored, SMTP more reliable |
 | Slack connector | Replit native API | Personal LifeBridge workspace, separate from AWS Slack |
+| Hub UI | Card grid default, SVG viz in Landscape | Aerospace HUD looks great but card grid is more practical for daily use |
+| Italy 2026 connector | REST API with auth key + 1-hour cache | First cross-app connector — established the external app pattern |
+| Config fallback chain | env → DB → hardcoded | Replit workspace secrets don't inject into process.env reliably |
+| Claude Code workflow | Build locally → git push → Replit pulls | Claude Code on iMac for building/reviewing, Replit for running live |
+| Domain masters | 5 domains: AWS LS, Three Rivers, MadSprings, Personal Life, System | Hub redesign groups agents under domain masters — cleaner mental model |
+| Travel Agent size | 664 lines, largest spoke agent | Trip/flight/loyalty/docs CRUD justifies the size — it's a full travel OS |
 
 ---
 
@@ -573,14 +569,102 @@ If you suspect runaway token usage:
 
 ---
 
-## Session Notes — March 24, 2026
+## Session Notes — March 24, 2026 (Session 1 — Morning)
 
 - Token economy rules added to build log (v2.5)
 - Fast/full tier split implemented in test suite — 35 fast, 13 full
 - Connector sends (gmail, slack) and POST /integrity/run moved from fast to full tier
 - Intelligence-update-agent "list pending proposals" POST moved from fast to full tier
-- Session ended at 90% context limit on March 24, 2026
-- Resume with: `bash scripts/sync.sh`, then fix fast tier, then build Memory Consolidation Agent
+- Session ended at 90% context limit
+
+## Session Notes — March 24, 2026 (Session 2 — "Connect to lifebridge-v2 GitHub repository")
+
+This was a major build session. Everything below was built, committed, and pushed.
+
+### Memory Consolidation Agent — BUILT ✅
+- src/agents/memory-consolidation-agent.js (325 lines)
+- src/skills/memory-consolidation-agent.md (118 lines)
+- 8 routes: /memory/run, /memory/proposals, /memory/proposals/:id, approve, reject, /memory/facts, /memory/history
+- POST /agents/memory-consolidation-agent
+- Weekly Sunday 3:00 AM UTC cron job
+- 5 categories: preferences, constraints, learned_patterns, people, accounts
+- Confidence threshold: 70+ to propose, never writes context directly
+- All proposals require human approval gate
+- Staleness detection for outdated context facts
+- 7 test cases (5 fast, 2 full)
+- Git commits: ba61da2, f1d713b, a3c774d
+
+### Fast Tier Test Suite — FIXED ✅
+- Root cause: checkTrends() and checkDeadAgents() doing full DB scans on every agent in fast tier
+- Fix: skip all DB scans and writes in fast tier
+- Added tier guard in runTestCase: fast tier never calls callAgentViaRoute
+- Added DB backfill: patches stored test cases missing type: "endpoint"
+- Fixed /agents/:name/detail timeout: replaced unbounded DB scan with per-agent cache
+- Test results: 26/26 passing, ~11 seconds
+- Git commits: c32dcfb, 5450c1a, d761fcd, aed0988
+
+### Full-Page Agent Dashboards — BUILT ✅
+- 5 agent dashboards with two-zone layout (data panel + chat)
+- Morning Briefing: last 7 briefings, expand to read, Run/Preview buttons
+- Life Sciences Account: recent requests + 6 account cards (Pfizer, BMS, Novartis, Lilly, Cigna, Elevance)
+- Travel: upcoming trips, flight watches, profile summary, Plan a Trip
+- Three Rivers Slab: full inventory display, Add Slab / View All
+- Memory Consolidation: tabbed (Proposals/Facts/History), per-proposal Approve/Reject
+- Each dashboard includes chat input POSTing to the agent endpoint
+- Git commit: 155ae0b
+
+### Hub Redesign — Nested Domain Master Architecture ✅
+- Replaced flat spoke grid with two-ring radial SVG visualization
+- Center: Master Agent node with pulsing glow
+- Middle ring: 5 domain masters (AWS Life Sciences, Three Rivers Slab, MadSprings, Personal Life, System)
+- Outer ring: sub-agent nodes per domain, expand/collapse on click
+- Coming-soon nodes with dashed stroke and tooltip
+- Aerospace HUD aesthetic (JetBrains Mono, SVG filter glow, #00FF88 accent)
+- Mobile fallback: vertical accordion list
+- Card grid restored as default hub view; SVG viz in Landscape only
+- Git commits: 6e0263a, ca41606, 7841592, 53dd5d9, e4b9927
+
+### Italy 2026 Connector — BUILT ✅
+- **Italy 2026 app side:** GET /api/lifebridge (authenticated, x-lifebridge-key header, 32-char hex)
+  - Returns: trip summary, bookings, calendar, packing, ideas, filtered views
+  - GET /api/lifebridge/health (no auth required)
+- **LifeBridge side:** src/connectors/italy2026-connector.js (95 lines)
+  - 1-hour cache in Replit DB, graceful degradation with stale cache fallback
+  - Health check with latency measurement
+  - Config fallback chain: env vars → Replit DB → hardcoded defaults
+- Travel Agent auto-injects Italy data into Claude prompt context
+- Italy 2026 hub node under Personal Life domain (#2A6496 travel blue)
+- /dashboard/italy2026 with 4 tabs: Itinerary, Bookings, Packing, Ideas
+- Routes: GET /connectors/italy2026/health, GET /connectors/italy2026/data
+- External app pattern established: first cross-app connector in LifeBridge
+- Git commits: db7b0cc, 41c2e03, fc775e6, e8c1324, eccfd40, 84f6e07
+
+### Travel Agent — BUILT ✅
+- src/agents/travel-agent.js (664 lines) — the largest spoke agent
+- src/skills/travel-agent.md
+- Full CRUD endpoints for trips, flight watches, loyalty snapshots, travel docs
+- Profile: Delta Diamond, Hilton Diamond, Marriott Platinum, National Executive, BDL/JFK/LGA
+- Daily 8AM UTC flight watch check + daily doc expiry check
+- Quarterly loyalty snapshot reminder
+- Italy 2026 data auto-injected from connector
+- Registered in registry on startup
+
+### Cleanup
+- Removed orphaned test-deletion-agent skill file (registry integrity warning)
+- Git commit: 3c12e36
+
+### Codebase Stats After Session 2
+- public/index.html: 5,206 lines
+- src/index.js: 1,671 lines (all routes, startup, cron)
+- Total agent code: ~3,214 lines across 12 agent files
+- Total project: ~10,186 lines (agents + connectors + tools + server)
+
+### Claude Code MCP Server Connected
+- This session established Claude Code on the local Mac connecting directly to the lifebridge-v2 GitHub repo
+- Local clone at ~/Drews Trip/lifebridge-v2, syncs with Replit via git pull/push
+- Claude Code settings allow: npm, gh, curl to Replit, node --check, Claude Preview
+- launch.json configured for Italy 2026 local dev (api-server port 3001, vite-client port 5173)
+- This is the new workflow: Claude Code for building/reviewing → git push → Replit pulls and runs
 
 ---
 
