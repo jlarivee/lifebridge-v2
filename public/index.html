@@ -420,16 +420,16 @@ body::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
   50% { opacity: 0.5; }
 }
 
-/* Domain node hover glow */
-.nhub-domain-node { cursor: pointer; }
-.nhub-domain-node:hover .nhub-domain-ring { opacity: 0.4; }
-.nhub-domain-ring { transition: opacity 0.2s ease; opacity: 0; }
-.nhub-domain-node.expanded .nhub-domain-ring { opacity: 0.3; }
+@keyframes master-ring-pulse {
+  0%, 100% { r: 58; opacity: 0.15; }
+  50% { r: 64; opacity: 0.08; }
+}
 
-/* Sub-agent node hover */
-.nhub-sub-node { cursor: pointer; }
-.nhub-sub-node:hover .nhub-sub-glow { opacity: 0.4; }
-.nhub-sub-glow { opacity: 0; transition: opacity 0.2s ease; }
+/* Domain node hover glow */
+.nhub-domain:hover .nhub-hover-ring { opacity: 0.25 !important; transition: opacity 0.2s ease; }
+.nhub-domain:hover circle:nth-child(2) { fill-opacity: 0.15; }
+.nhub-domain-expanded circle:nth-child(2) { fill-opacity: 0.20; }
+.nhub-sub-node:hover circle:nth-child(2) { fill-opacity: 0.3; transition: fill-opacity 0.15s ease; }
 
 /* Tooltip */
 .nhub-tooltip {
@@ -2337,7 +2337,7 @@ body::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
         </div>
         <p style="text-align:center;color:#444;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.08em;margin-top:4px;">Click a domain to expand its agents</p>
       </div>
-<div id="nhubTooltip" style="position:fixed;display:none;background:#1a1a2e;border:0.5px solid #444;color:#aaa;font:10px 'JetBrains Mono',monospace;padding:4px 10px;border-radius:4px;pointer-events:none;z-index:1000;opacity:0;transition:opacity 150ms;"></div>
+<div id="nhubTooltip" style="position:fixed;display:none;background:rgba(15,15,25,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:0.5px solid rgba(255,255,255,0.08);color:#b0b0c0;font:10px 'JetBrains Mono',monospace;padding:5px 12px;border-radius:6px;pointer-events:none;z-index:1000;opacity:0;transition:opacity 150ms;box-shadow:0 4px 20px rgba(0,0,0,0.4);"></div>
 
       <!-- Mobile Fallback (visible on small screens) -->
       <div id="hubMobileList" style="display:none;width:100%;padding:0 4px;"></div>
@@ -2782,256 +2782,289 @@ function renderNestedHub() {
   var svg = document.getElementById('nhubSvg');
   if (!svg) return;
 
-  // Clear previous render but keep <defs>
-  var defs = svg.querySelector('defs');
   svg.innerHTML = '';
-  if (defs) svg.appendChild(defs);
-  else {
-    defs = createSvgEl('defs');
-    var filter = createSvgEl('filter', { id: 'master-glow' });
-    var blur = createSvgEl('feGaussianBlur', { stdDeviation: '4', result: 'blur' });
-    var flood = createSvgEl('feFlood', { 'flood-color': '#6B5CE7', 'flood-opacity': '0.4', result: 'color' });
-    var comp = createSvgEl('feComposite', { in: 'color', in2: 'blur', operator: 'in', result: 'shadow' });
-    var merge = createSvgEl('feMerge');
-    merge.appendChild(createSvgEl('feMergeNode', { in: 'shadow' }));
-    merge.appendChild(createSvgEl('feMergeNode', { in: 'SourceGraphic' }));
-    filter.appendChild(blur); filter.appendChild(flood); filter.appendChild(comp); filter.appendChild(merge);
-    defs.appendChild(filter);
-    svg.appendChild(defs);
-  }
 
   var W = 900, H = 900;
   var cx = W / 2, cy = H / 2;
-  var innerR = 200;
-  var subR = 150;
+  var innerR = 210;
+  var subR = 140;
   var startAngle = -90;
   var domainSpacing = 72;
 
+  // ─── DEFS: filters & gradients ───
+  var defs = createSvgEl('defs');
+
+  // Master glow filter
+  var mGlow = createSvgEl('filter', { id: 'masterGlow', x: '-50%', y: '-50%', width: '200%', height: '200%' });
+  mGlow.appendChild(createSvgEl('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: '8', result: 'blur' }));
+  mGlow.appendChild(createSvgEl('feFlood', { 'flood-color': '#6B5CE7', 'flood-opacity': '0.35', result: 'color' }));
+  var comp1 = createSvgEl('feComposite', { in: 'color', in2: 'blur', operator: 'in', result: 'glow' });
+  mGlow.appendChild(comp1);
+  var merge1 = createSvgEl('feMerge');
+  merge1.appendChild(createSvgEl('feMergeNode', { in: 'glow' }));
+  merge1.appendChild(createSvgEl('feMergeNode', { in: 'SourceGraphic' }));
+  mGlow.appendChild(merge1);
+  defs.appendChild(mGlow);
+
+  // Node glow filter per domain color
+  var domColors = ['#FF9900', '#1D9E75', '#D85A30', '#534AB7', '#888780'];
+  for (var ci = 0; ci < domColors.length; ci++) {
+    var nGlow = createSvgEl('filter', { id: 'glow-' + ci, x: '-50%', y: '-50%', width: '200%', height: '200%' });
+    nGlow.appendChild(createSvgEl('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: '6', result: 'blur' }));
+    nGlow.appendChild(createSvgEl('feFlood', { 'flood-color': domColors[ci], 'flood-opacity': '0.3', result: 'color' }));
+    nGlow.appendChild(createSvgEl('feComposite', { in: 'color', in2: 'blur', operator: 'in', result: 'glow' }));
+    var mergeN = createSvgEl('feMerge');
+    mergeN.appendChild(createSvgEl('feMergeNode', { in: 'glow' }));
+    mergeN.appendChild(createSvgEl('feMergeNode', { in: 'SourceGraphic' }));
+    nGlow.appendChild(mergeN);
+    defs.appendChild(nGlow);
+  }
+
+  // Gradient for each domain's pulse beam
+  for (var gi = 0; gi < domainMasters.length; gi++) {
+    var grad = createSvgEl('linearGradient', { id: 'beam-' + gi, gradientUnits: 'userSpaceOnUse' });
+    grad.appendChild(createSvgEl('stop', { offset: '0%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0' }));
+    grad.appendChild(createSvgEl('stop', { offset: '40%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0.8' }));
+    grad.appendChild(createSvgEl('stop', { offset: '60%', 'stop-color': '#fff', 'stop-opacity': '0.9' }));
+    grad.appendChild(createSvgEl('stop', { offset: '100%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0' }));
+    defs.appendChild(grad);
+  }
+
+  svg.appendChild(defs);
+
+  // ─── SUBTLE GRID RINGS (ambient) ───
+  for (var gr = 1; gr <= 3; gr++) {
+    svg.appendChild(createSvgEl('circle', {
+      cx: cx, cy: cy, r: gr * 150,
+      fill: 'none', stroke: '#ffffff', 'stroke-width': 0.3, opacity: 0.04
+    }));
+  }
+
   // ─── MASTER NODE ───
-  var masterGroup = createSvgEl('g');
+  var masterG = createSvgEl('g', { class: 'nhub-master' });
 
-  // Glow ring
-  var masterGlow = createSvgEl('circle', {
-    cx: cx, cy: cy, r: 62,
-    fill: 'none', stroke: '#6B5CE7', 'stroke-width': 1, opacity: 0.12
+  // Outer pulse ring
+  var pulseRing = createSvgEl('circle', {
+    cx: cx, cy: cy, r: 58,
+    fill: 'none', stroke: '#6B5CE7', 'stroke-width': 1.5, opacity: 0.15
   });
-  masterGlow.style.animation = 'master-glow-pulse 3s ease-in-out infinite';
-  masterGroup.appendChild(masterGlow);
+  pulseRing.style.animation = 'master-ring-pulse 3s ease-in-out infinite';
+  masterG.appendChild(pulseRing);
 
-  // Master circle
-  var masterCircle = createSvgEl('circle', {
-    cx: cx, cy: cy, r: 52,
-    fill: 'rgba(107,92,231,0.20)', stroke: '#6B5CE7', 'stroke-width': 2,
-    filter: 'url(#master-glow)'
-  });
-  masterCircle.style.animation = 'master-pulse 3s ease-in-out infinite';
-  masterCircle.style.transformBox = 'fill-box';
-  masterCircle.style.transformOrigin = 'center';
-  masterGroup.appendChild(masterCircle);
+  // Main circle with gradient fill
+  masterG.appendChild(createSvgEl('circle', {
+    cx: cx, cy: cy, r: 48,
+    fill: 'rgba(107,92,231,0.12)', stroke: '#6B5CE7', 'stroke-width': 2,
+    filter: 'url(#masterGlow)'
+  }));
 
-  // Master label
-  var masterLabel = createSvgEl('text', {
-    x: cx, y: cy - 4, 'text-anchor': 'middle',
-    fill: '#6B5CE7', 'font-family': 'JetBrains Mono, monospace',
-    'font-size': '11', 'font-weight': '500', 'letter-spacing': '0.15em'
-  });
-  masterLabel.textContent = 'MASTER';
-  masterGroup.appendChild(masterLabel);
+  // Inner ring
+  masterG.appendChild(createSvgEl('circle', {
+    cx: cx, cy: cy, r: 30,
+    fill: 'none', stroke: '#6B5CE7', 'stroke-width': 0.5, opacity: 0.25
+  }));
 
-  var masterSub = createSvgEl('text', {
-    x: cx, y: cy + 12, 'text-anchor': 'middle',
-    fill: '#6B5CE7', 'font-family': 'JetBrains Mono, monospace',
-    'font-size': '9', 'letter-spacing': '0.12em', opacity: 0.6
-  });
-  masterSub.textContent = 'HUB';
-  masterGroup.appendChild(masterSub);
-  svg.appendChild(masterGroup);
+  // Labels
+  var ml = createSvgEl('text', { x: cx, y: cy - 3, 'text-anchor': 'middle', fill: '#e0dff8', 'font-family': "'JetBrains Mono',monospace", 'font-size': '13', 'font-weight': '600', 'letter-spacing': '0.18em' });
+  ml.textContent = 'MASTER';
+  masterG.appendChild(ml);
+  var msl = createSvgEl('text', { x: cx, y: cy + 14, 'text-anchor': 'middle', fill: '#6B5CE7', 'font-family': "'JetBrains Mono',monospace", 'font-size': '9', 'letter-spacing': '0.15em', opacity: '0.7' });
+  msl.textContent = 'HUB';
+  masterG.appendChild(msl);
+  svg.appendChild(masterG);
 
-  // ─── DOMAIN MASTERS + SUB-AGENTS ───
+  // ─── DOMAIN MASTERS + CONNECTIONS ───
   for (var d = 0; d < domainMasters.length; d++) {
     var dm = domainMasters[d];
     var angleDeg = startAngle + d * domainSpacing;
     var angleRad = angleDeg * Math.PI / 180;
     var dx = cx + innerR * Math.cos(angleRad);
     var dy = cy + innerR * Math.sin(angleRad);
+    var isExp = expandedDomains[dm.id];
 
-    // ── Connection line: center → domain master ──
-    svg.appendChild(createSvgEl('line', {
+    // ── Connection beam: center → domain ──
+    var baseLine = createSvgEl('line', {
       x1: cx, y1: cy, x2: dx, y2: dy,
-      stroke: dm.color, 'stroke-width': 1, opacity: 0.25
-    }));
-
-    // Animated dot on line
-    var lineDot = createSvgEl('circle', {
-      r: 2, fill: dm.color, opacity: 0.6
+      stroke: dm.color, 'stroke-width': 0.5, opacity: 0.15
     });
-    var anim = createSvgEl('animateMotion', {
-      dur: '3s', repeatCount: 'indefinite',
+    svg.appendChild(baseLine);
+
+    // Animated pulse dot along line
+    var pulseDot = createSvgEl('circle', { r: 2.5, fill: dm.color, opacity: 0.7 });
+    var motionPath = createSvgEl('animateMotion', {
+      dur: (2.5 + d * 0.3) + 's', repeatCount: 'indefinite',
       path: 'M' + cx + ',' + cy + ' L' + dx + ',' + dy
     });
-    lineDot.appendChild(anim);
-    svg.appendChild(lineDot);
+    pulseDot.appendChild(motionPath);
+    svg.appendChild(pulseDot);
 
     // ── Domain master node ──
-    var isExpanded = expandedDomains[dm.id];
-    var domGroup = createSvgEl('g', { class: 'nhub-domain-node' + (isExpanded ? ' expanded' : '') });
-    domGroup.dataset.domainId = dm.id;
-    domGroup.style.cursor = 'pointer';
+    var domG = createSvgEl('g', { class: 'nhub-domain' + (isExp ? ' nhub-domain-expanded' : '') });
+    domG.dataset.domainId = dm.id;
+    domG.style.cursor = 'pointer';
 
-    // Hover glow ring (hidden, shown on hover via CSS)
-    domGroup.appendChild(createSvgEl('circle', {
-      cx: dx, cy: dy, r: 48,
+    // Hover ring (invisible, shown on CSS hover)
+    domG.appendChild(createSvgEl('circle', {
+      cx: dx, cy: dy, r: 44,
       fill: 'none', stroke: dm.color, 'stroke-width': 1,
-      class: 'nhub-domain-ring', opacity: 0
+      opacity: 0, class: 'nhub-hover-ring'
     }));
 
-    // Domain circle
-    var domCircleFill = hexToRgba(dm.color, isExpanded ? 0.25 : 0.15);
-    var domCircle = createSvgEl('circle', {
-      cx: dx, cy: dy, r: 38,
-      fill: domCircleFill, stroke: dm.color,
-      'stroke-width': isExpanded ? 2.5 : 1.5
+    // Main circle
+    var domCirc = createSvgEl('circle', {
+      cx: dx, cy: dy, r: 34,
+      fill: hexToRgba(dm.color, isExp ? 0.20 : 0.08),
+      stroke: dm.color, 'stroke-width': isExp ? 2 : 1.2,
+      filter: isExp ? 'url(#glow-' + d + ')' : 'none'
     });
-    domGroup.appendChild(domCircle);
+    domG.appendChild(domCirc);
 
-    // Domain label
-    var domLabelText = createSvgEl('text', {
-      x: dx, y: dy - 2, 'text-anchor': 'middle',
-      fill: dm.color, 'font-family': 'JetBrains Mono, monospace',
-      'font-size': '10', 'font-weight': '500', 'letter-spacing': '0.08em'
+    // Domain initial letter inside circle (just 1-2 chars)
+    var initials = dm.label.charAt(0);
+    if (dm.label.indexOf(' ') > 0) initials = dm.label.split(' ').map(function(w){return w.charAt(0);}).join('');
+    var domInit = createSvgEl('text', {
+      x: dx, y: dy + 5, 'text-anchor': 'middle',
+      fill: dm.color, 'font-family': "'JetBrains Mono',monospace",
+      'font-size': '14', 'font-weight': '600', 'letter-spacing': '0.05em', opacity: '0.9'
     });
-    domLabelText.textContent = dm.label.toUpperCase();
-    domGroup.appendChild(domLabelText);
+    domInit.textContent = initials;
+    domG.appendChild(domInit);
 
-    // Active count sub-label
+    // Label BELOW the circle
+    var domLabel = createSvgEl('text', {
+      x: dx, y: dy + 50, 'text-anchor': 'middle',
+      fill: dm.color, 'font-family': "'JetBrains Mono',monospace",
+      'font-size': '9', 'font-weight': '500', 'letter-spacing': '0.1em', opacity: '0.85'
+    });
+    domLabel.textContent = dm.label.toUpperCase();
+    domG.appendChild(domLabel);
+
+    // Active count below label
     var activeCount = dm.subs.filter(function(s) { return s.active; }).length;
-    var countLabel = createSvgEl('text', {
-      x: dx, y: dy + 14, 'text-anchor': 'middle',
-      fill: dm.color, 'font-family': 'JetBrains Mono, monospace',
-      'font-size': '8', opacity: 0.7, 'letter-spacing': '0.06em'
+    var countL = createSvgEl('text', {
+      x: dx, y: dy + 62, 'text-anchor': 'middle',
+      fill: dm.color, 'font-family': "'JetBrains Mono',monospace",
+      'font-size': '7.5', opacity: '0.5', 'letter-spacing': '0.06em'
     });
-    countLabel.textContent = activeCount + '/' + dm.subs.length + ' active';
-    domGroup.appendChild(countLabel);
+    countL.textContent = activeCount + '/' + dm.subs.length + ' active';
+    domG.appendChild(countL);
 
     // Click handler
-    domGroup.addEventListener('click', (function(domId) {
+    domG.addEventListener('click', (function(domId) {
       return function(e) { e.stopPropagation(); toggleDomain(domId); };
     })(dm.id));
-    svg.appendChild(domGroup);
+    svg.appendChild(domG);
 
-    // ── Sub-agent nodes ──
-    var subCount = dm.subs.length;
-    var outAngleDeg = angleDeg; // direction from center to domain master
-    var fanAngles;
-    if (subCount === 1) fanAngles = [0];
-    else if (subCount === 2) fanAngles = [-30, 30];
-    else if (subCount === 3) fanAngles = [-40, 0, 40];
-    else fanAngles = [-45, -15, 15, 45];
+    // ── Sub-agent nodes (only if expanded) ──
+    if (isExp) {
+      var subCount = dm.subs.length;
+      var fanAngles;
+      if (subCount === 1) fanAngles = [0];
+      else if (subCount === 2) fanAngles = [-28, 28];
+      else if (subCount === 3) fanAngles = [-36, 0, 36];
+      else fanAngles = [-42, -14, 14, 42];
 
-    for (var s = 0; s < subCount; s++) {
-      var sub = dm.subs[s];
-      var subAngleDeg = outAngleDeg + fanAngles[s];
-      var subAngleRad = subAngleDeg * Math.PI / 180;
-      var sx = dx + subR * Math.cos(subAngleRad);
-      var sy = dy + subR * Math.sin(subAngleRad);
+      for (var s = 0; s < subCount; s++) {
+        var sub = dm.subs[s];
+        var subAngleDeg = angleDeg + fanAngles[s];
+        var subAngleRad = subAngleDeg * Math.PI / 180;
+        var sx = dx + subR * Math.cos(subAngleRad);
+        var sy = dy + subR * Math.sin(subAngleRad);
 
-      // Connection line: domain → sub
-      var lineLen = subR;
-      var subLine = createSvgEl('line', {
-        x1: dx, y1: dy, x2: sx, y2: sy,
-        stroke: dm.color, 'stroke-width': 0.75, opacity: 0,
-        'stroke-dasharray': lineLen, 'stroke-dashoffset': lineLen,
-        class: 'nhub-sub-line'
-      });
-      subLine.dataset.domainLine = dm.id;
-      if (isExpanded) {
-        subLine.style.opacity = '0.2';
-        subLine.style.strokeDashoffset = '0';
-        subLine.style.transition = 'stroke-dashoffset 0.3s ease-out, opacity 0.3s ease-out';
+        // Connection line with draw-in animation
+        var sLine = createSvgEl('line', {
+          x1: dx, y1: dy, x2: sx, y2: sy,
+          stroke: dm.color, 'stroke-width': 0.6, opacity: 0.18,
+          'stroke-dasharray': subR, 'stroke-dashoffset': subR
+        });
+        sLine.style.transition = 'stroke-dashoffset 0.4s ease-out';
+        sLine.dataset.subLine = '1';
+        svg.appendChild(sLine);
+        // Trigger draw animation
+        requestAnimationFrame(function(el) { return function() { el.style.strokeDashoffset = '0'; }; }(sLine));
+
+        // Sub-agent node group
+        var subG = createSvgEl('g', { class: 'nhub-sub-node' });
+        subG.style.opacity = '0';
+        subG.style.transform = 'scale(0.3)';
+        subG.style.transformBox = 'fill-box';
+        subG.style.transformOrigin = 'center';
+        subG.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        subG.style.transitionDelay = (s * 0.06) + 's';
+
+        var subColor = sub.external ? '#4A90D9' : dm.color;
+        var nodeR = sub.active ? 16 : 13;
+
+        if (sub.active) {
+          subG.style.cursor = 'pointer';
+
+          // Subtle glow circle behind
+          subG.appendChild(createSvgEl('circle', {
+            cx: sx, cy: sy, r: nodeR + 6,
+            fill: hexToRgba(subColor, 0.06), stroke: 'none'
+          }));
+
+          // Main circle
+          subG.appendChild(createSvgEl('circle', {
+            cx: sx, cy: sy, r: nodeR,
+            fill: hexToRgba(subColor, 0.15), stroke: subColor, 'stroke-width': 1
+          }));
+
+          // Tiny green status dot
+          subG.appendChild(createSvgEl('circle', {
+            cx: sx + nodeR - 2, cy: sy - nodeR + 2, r: 2.5,
+            fill: '#22c55e', stroke: '#0A0A0F', 'stroke-width': 0.5
+          }));
+
+          // Click handler
+          subG.addEventListener('click', (function(agentName, isExternal) {
+            return function(e) {
+              e.stopPropagation();
+              if (isExternal) { var u = getExternalUrl(agentName); if (u) window.open(u, '_blank'); return; }
+              if (dashboardAgents[agentName]) openDashboard(agentName);
+              else openAgentWorkspace(agentName);
+            };
+          })(sub.name, sub.external));
+        } else {
+          // Coming soon - dashed, dim
+          subG.style.cursor = 'default';
+          subG.appendChild(createSvgEl('circle', {
+            cx: sx, cy: sy, r: nodeR,
+            fill: 'transparent', stroke: subColor,
+            'stroke-width': 0.8, 'stroke-dasharray': '3 2', opacity: 0.35
+          }));
+
+          // Tooltip on hover
+          subG.addEventListener('mouseenter', function(e) {
+            var tip = document.getElementById('nhubTooltip');
+            if (!tip) return;
+            tip.textContent = 'Coming Soon';
+            tip.style.display = 'block';
+            tip.style.opacity = '1';
+            tip.style.left = (e.clientX + 14) + 'px';
+            tip.style.top = (e.clientY - 32) + 'px';
+          });
+          subG.addEventListener('mouseleave', function() {
+            var tip = document.getElementById('nhubTooltip');
+            if (tip) { tip.style.opacity = '0'; setTimeout(function() { tip.style.display = 'none'; }, 150); }
+          });
+        }
+
+        // Label BELOW sub-agent node
+        var sLabel = createSvgEl('text', {
+          x: sx, y: sy + nodeR + 13, 'text-anchor': 'middle',
+          fill: sub.active ? '#b0b0c0' : '#55556a',
+          'font-family': "'JetBrains Mono',monospace",
+          'font-size': '7.5', 'letter-spacing': '0.05em'
+        });
+        sLabel.textContent = sub.label.toUpperCase();
+        subG.appendChild(sLabel);
+
+        svg.appendChild(subG);
+
+        // Animate in
+        requestAnimationFrame(function(el) { return function() { el.style.opacity = '1'; el.style.transform = 'scale(1)'; }; }(subG));
       }
-      svg.appendChild(subLine);
-
-      // Sub-agent group
-      var subGroup = createSvgEl('g', {
-        class: 'nhub-sub-group ' + (isExpanded ? 'expanded' : 'collapsed')
-      });
-      subGroup.dataset.domainId = dm.id;
-      subGroup.style.transformBox = 'fill-box';
-      subGroup.style.transformOrigin = 'center';
-
-      var subColor = sub.external ? '#2A6496' : dm.color;
-      var nodeR = sub.active ? 22 : 18;
-
-      if (sub.active) {
-        subGroup.style.cursor = 'pointer';
-
-        // Sub circle
-        subGroup.appendChild(createSvgEl('circle', {
-          cx: sx, cy: sy, r: nodeR,
-          fill: hexToRgba(subColor, 0.20), stroke: subColor, 'stroke-width': 1
-        }));
-
-        // Green status dot
-        subGroup.appendChild(createSvgEl('circle', {
-          cx: sx + nodeR - 3, cy: sy - nodeR + 3, r: 3,
-          fill: '#22c55e'
-        }));
-
-        // Click handler
-        subGroup.addEventListener('click', (function(agentName, isExternal) {
-          return function(e) {
-            e.stopPropagation();
-            if (isExternal) {
-              var extUrl = getExternalUrl(agentName);
-              if (extUrl) window.open(extUrl, '_blank');
-              return;
-            }
-            if (dashboardAgents[agentName]) {
-              openDashboard(agentName);
-            } else {
-              openAgentWorkspace(agentName);
-            }
-          };
-        })(sub.name, sub.external));
-      } else {
-        // Coming soon node
-        subGroup.style.cursor = 'default';
-        var csCircle = createSvgEl('circle', {
-          cx: sx, cy: sy, r: nodeR,
-          fill: 'transparent', stroke: subColor,
-          'stroke-width': 1, 'stroke-dasharray': '4 3'
-        });
-        csCircle.style.animation = 'coming-pulse 4s ease-in-out infinite';
-        subGroup.appendChild(csCircle);
-        subGroup.style.opacity = '0.45';
-
-        // Tooltip on hover
-        subGroup.addEventListener('mouseenter', function(e) {
-          var tip = document.getElementById('nhubTooltip');
-          if (!tip) return;
-          tip.textContent = 'Coming Soon';
-          tip.style.display = 'block';
-          tip.style.opacity = '1';
-          tip.style.left = (e.clientX + 12) + 'px';
-          tip.style.top = (e.clientY - 30) + 'px';
-        });
-        subGroup.addEventListener('mouseleave', function() {
-          var tip = document.getElementById('nhubTooltip');
-          if (tip) { tip.style.display = 'none'; tip.style.opacity = '0'; }
-        });
-      }
-
-      // Sub label
-      var sLabel = createSvgEl('text', {
-        x: sx, y: sy + nodeR + 14, 'text-anchor': 'middle',
-        fill: sub.active ? '#a0a0b0' : hexToRgba(subColor, 0.4),
-        'font-family': 'JetBrains Mono, monospace',
-        'font-size': '8', 'letter-spacing': '0.06em'
-      });
-      sLabel.textContent = sub.label.toUpperCase();
-      subGroup.appendChild(sLabel);
-
-      svg.appendChild(subGroup);
     }
   }
 }
@@ -3067,40 +3100,11 @@ function getExternalUrl(name) {
 // ─── TOGGLE DOMAIN EXPAND/COLLAPSE ───
 
 function toggleDomain(domId) {
-  // Close all others first (only one domain expanded at a time)
   var wasExpanded = expandedDomains[domId];
   for (var key in expandedDomains) { expandedDomains[key] = false; }
-
-  if (!wasExpanded) {
-    expandedDomains[domId] = true;
-  }
-
-  // Re-render the entire hub
+  if (!wasExpanded) { expandedDomains[domId] = true; }
   renderNestedHub();
-
-  // Animate sub-lines and sub-groups for the expanded domain
-  if (expandedDomains[domId]) {
-    var lines = document.querySelectorAll('.nhub-sub-line[data-domain-line="' + domId + '"]');
-    var groups = document.querySelectorAll('.nhub-sub-group[data-domain-id="' + domId + '"]');
-
-    lines.forEach(function(line, i) {
-      setTimeout(function() {
-        line.style.transition = 'stroke-dashoffset 0.3s ease-out, opacity 0.3s ease-out';
-        line.style.opacity = '0.2';
-        line.style.strokeDashoffset = '0';
-      }, i * 60);
-    });
-
-    groups.forEach(function(g, i) {
-      g.style.opacity = '0';
-      g.style.transform = 'scale(0.2)';
-      setTimeout(function() {
-        g.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
-        g.style.opacity = g.querySelector('[stroke-dasharray]') && !g.style.cursor ? '0.45' : '1';
-        g.style.transform = 'scale(1)';
-      }, i * 60);
-    });
-  }
+  if (typeof renderMobileHub === 'function') renderMobileHub();
 }
 
 // ─── MOBILE HUB (vertical list) ───
