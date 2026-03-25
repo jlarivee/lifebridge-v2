@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/css/dashboard.css">
 <link rel="stylesheet" href="/css/mobile.css">
 <script src="/js/config.js"></script>
+<script src="/js/api.js"></script>
 </head>
 <body>
 
@@ -299,17 +300,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-async function apiFetch(url, opts) {
-  opts = opts || {};
-  var res = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
-  var contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    throw new Error('Server returned non-JSON response (HTTP ' + res.status + ') for ' + url);
-  }
-  var data = await res.json();
-  if (data.error) throw new Error(data.error);
-  return data;
-}
 
 function navigateTo(viewName, skipPush) {
   var views = document.querySelectorAll('.view');
@@ -380,7 +370,7 @@ function loadSpokeAgents() {
   var grid = document.getElementById('spokeGrid');
   if (!grid) { console.error('[LifeBridge] spokeGrid element not found'); return; }
   grid.innerHTML = '<div class="dash-loading" style="padding:20px;text-align:center;color:#666">Loading agents...</div>';
-  apiFetch('/registry').then(function(registry) {
+  getRegistry().then(function(registry) {
     console.log('[LifeBridge] Registry loaded:', (registry.agents || []).length, 'agents');
     var agents = registry.agents || [];
     grid.innerHTML = '';
@@ -848,10 +838,7 @@ async function handleHubRoute() {
     '<div class="routing-status-text" id="routingStatusText">Analyzing intent and selecting agent...</div>';
 
   try {
-    var result = await apiFetch('/route', {
-      method: 'POST',
-      body: JSON.stringify({ input: input })
-    });
+    var result = await postRoute(input);
 
     document.getElementById('hubInput').value = '';
     currentRouteResult = result;
@@ -1080,18 +1067,12 @@ async function callAgent(endpoint, agentName, userInput, contextStr, conf, cardI
     var controller = new AbortController();
     var timeout = setTimeout(function() { controller.abort(); }, 60000);
 
-    var res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    var agentResult = await postToAgentRaw(endpoint, {
         input: userInput,
         context: { routing_context: contextStr, routed_by: 'master-agent', confidence: conf }
-      }),
-      signal: controller.signal
-    });
+      }, controller.signal);
     clearTimeout(timeout);
-    var agentResult = await res.json();
-    if (agentResult.error) throw new Error(agentResult.error);
+
 
     renderAgentOutput(cardId, fbId, agentResult, requestId);
   } catch (err) {
@@ -1209,10 +1190,7 @@ function attachFeedbackListeners(parentEl, fallbackRequestId) {
 
 async function sendFeedback(requestId, outcome, feedback, fid) {
   try {
-    await apiFetch('/route/feedback', {
-      method: 'POST',
-      body: JSON.stringify({ request_id: requestId, outcome: outcome, feedback: feedback })
-    });
+    await postFeedback(requestId, outcome, feedback);
     var row = document.getElementById(fid);
     if (row) {
       row.innerHTML = '<div class="fb-recorded">&#10003; Feedback recorded</div>';
@@ -1256,25 +1234,15 @@ async function handleWorkspaceSubmit() {
   try {
     var requestId = 'ws-' + Date.now();
     try {
-      var routeResult = await apiFetch('/route', {
-        method: 'POST',
-        body: JSON.stringify({ input: input })
-      });
+      var routeResult = await postRoute(input);
       if (routeResult && routeResult.id) requestId = routeResult.id;
     } catch (routeErr) {}
 
     var controller = new AbortController();
     var timeout = setTimeout(function() { controller.abort(); }, 60000);
 
-    var res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: input, context: { routed_by: 'workspace-direct' } }),
-      signal: controller.signal
-    });
+    var result = await postToAgentRaw(endpoint, { input: input, context: { routed_by: 'workspace-direct' } }, controller.signal);
     clearTimeout(timeout);
-    var result = await res.json();
-    if (result.error) throw new Error(result.error);
 
     renderAgentOutput(cardId, fbId, result, requestId);
     if (requestId.indexOf('ws-') === 0) {
@@ -1330,7 +1298,7 @@ async function handleImprove() {
   errEl.classList.remove('visible');
 
   try {
-    var proposal = await apiFetch('/improve/run', { method: 'POST' });
+    var proposal = await runImprovement();
     renderProposal(proposal);
   } catch (e) {
     errEl.textContent = e.message;
@@ -1436,7 +1404,7 @@ function renderProposal(proposal) {
 
 async function handleApprove(proposalId, changeIndex, cid) {
   try {
-    await apiFetch('/improve/approve', { method: 'POST', body: JSON.stringify({ proposal_id: proposalId, change_index: changeIndex }) });
+    await approveImprovement(proposalId, changeIndex);
     var el = document.getElementById(cid);
     el.classList.add('approved');
     var actions = el.querySelector('.change-actions');
@@ -1446,7 +1414,7 @@ async function handleApprove(proposalId, changeIndex, cid) {
 
 async function handleReject(proposalId, changeIndex, cid) {
   try {
-    await apiFetch('/improve/reject', { method: 'POST', body: JSON.stringify({ proposal_id: proposalId, change_index: changeIndex }) });
+    await rejectImprovement(proposalId, changeIndex);
     var el = document.getElementById(cid);
     el.classList.add('rejected');
     var actions = el.querySelector('.change-actions');
@@ -1456,7 +1424,7 @@ async function handleReject(proposalId, changeIndex, cid) {
 
 async function loadContext() {
   try {
-    var ctx = await apiFetch('/context');
+    var ctx = await getContext();
     var el = document.getElementById('contextSection');
     var prefs = ctx.preferences || [];
     var constraints = ctx.constraints || [];
@@ -1488,7 +1456,7 @@ async function loadContext() {
 
 async function loadHistory() {
   try {
-    var history = await apiFetch('/improve/history');
+    var history = await getImprovementHistory();
     var el = document.getElementById('historySection');
     var html = '';
     if (!history.length) html = '<div style="color:var(--text-muted);font-family:JetBrains Mono,monospace;font-size:11px;">No improvement history yet.</div>';
@@ -1540,7 +1508,7 @@ function initLandscape() {
 
   var emptySlotNames = ['Research Agent', 'Comms Agent', 'Analytics Agent', 'Strategy Agent', 'Ops Agent', 'Finance Agent', 'Legal Agent'];
 
-  apiFetch('/registry').then(function(registry) {
+  getRegistry().then(function(registry) {
     landscapeRegistryData = registry;
     var agents = registry.agents || [];
     var totalSlots = Math.max(agents.length + 3, 6);
@@ -1797,7 +1765,7 @@ async function saveIdea() {
   if (!text) return;
   input.value = '';
   try {
-    await apiFetch('/ideas', { method: 'POST', body: JSON.stringify({ text: text }) });
+    await createIdea(text);
     loadIdeas();
   } catch (e) {
     alert('Error: ' + e.message);
@@ -1815,7 +1783,7 @@ async function loadIdeas() {
   if (!list) return;
   var showArchived = document.getElementById('showArchivedToggle')?.checked;
   try {
-    var ideas = await apiFetch('/ideas');
+    var ideas = await getIdeas();
     var filtered = showArchived ? ideas : ideas.filter(function(i) { return i.status !== 'archived'; });
 
     if (!filtered.length) {
@@ -1876,13 +1844,13 @@ async function loadIdeas() {
 async function updateIdea(id, newText) {
   if (!newText?.trim()) return;
   try {
-    await apiFetch('/ideas/' + id, { method: 'PUT', body: JSON.stringify({ text: newText.trim() }) });
+    await updateIdea(id, newText.trim());
   } catch {}
 }
 
 async function archiveIdea(id) {
   try {
-    await apiFetch('/ideas/' + id, { method: 'DELETE' });
+    await deleteIdea(id);
     loadIdeas();
   } catch {}
 }
@@ -1890,7 +1858,7 @@ async function archiveIdea(id) {
 async function sendIdea(id, btn) {
   if (btn) { btn.textContent = 'Routing...'; btn.disabled = true; }
   try {
-    var result = await apiFetch('/ideas/' + id + '/send', { method: 'POST' });
+    var result = await sendIdea(id);
     loadIdeas();
     // Navigate to routing view to show the result
     if (result.routing_result) {
@@ -1916,7 +1884,7 @@ async function loadTestWarnings() {
   var el = document.getElementById('testWarnings');
   if (!el) return;
   try {
-    var warnings = await apiFetch('/test/warnings');
+    var warnings = await getTestWarnings();
     if (!warnings.length) { el.innerHTML = ''; return; }
     var html = '';
     for (var i = 0; i < warnings.length; i++) {
@@ -1935,7 +1903,7 @@ async function loadTestSuites() {
   var el = document.getElementById('testSuitesList');
   if (!el) return;
   try {
-    var suites = await apiFetch('/test/suites');
+    var suites = await getTestSuites();
     if (!suites.length) { el.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:12px;padding:20px 0;text-align:center;">No test suites yet. Deploy an agent to create one.</div>'; return; }
     var html = '';
     for (var i = 0; i < suites.length; i++) {
@@ -1978,7 +1946,7 @@ async function loadTestHistory() {
   var el = document.getElementById('testRunHistory');
   if (!el) return;
   try {
-    var runs = await apiFetch('/test/runs');
+    var runs = await getTestRuns();
     if (!runs.length) { el.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:11px;">No test runs yet.</div>'; return; }
     var html = '';
     for (var i = 0; i < Math.min(runs.length, 20); i++) {
@@ -1999,7 +1967,7 @@ async function runAllTests() {
   var btn = document.getElementById('runAllTestsBtn');
   btn.textContent = 'Running...'; btn.disabled = true;
   try {
-    var result = await apiFetch('/test/run', { method: 'POST' });
+    var result = await apiRunAllTests();
     btn.textContent = result.passed + '/' + result.total_cases + ' passed';
     btn.style.color = result.failed === 0 ? '#22c55e' : '#ef4444';
     setTimeout(function() { btn.textContent = 'Run All Tests'; btn.style.color = '#000'; btn.disabled = false; }, 3000);
@@ -2012,7 +1980,7 @@ async function runAllTests() {
 async function runAgentTest(agentName, btn) {
   btn.textContent = '...'; btn.disabled = true;
   try {
-    var result = await apiFetch('/test/run/' + agentName, { method: 'POST' });
+    var result = await apiRunAgentTests(agentName);
     btn.textContent = result.passed + '/' + result.total + ' pass';
     btn.style.color = result.failed === 0 ? '#22c55e' : '#ef4444';
     setTimeout(function() { btn.textContent = 'Run'; btn.style.color = 'var(--amber)'; btn.disabled = false; }, 3000);
@@ -2034,7 +2002,7 @@ async function loadHealthAlerts() {
   var el = document.getElementById('healthAlerts');
   if (!el) return;
   try {
-    var alerts = await apiFetch('/integrity/alerts');
+    var alerts = await getIntegrityAlerts();
     if (!alerts.length) { el.innerHTML = ''; return; }
     var html = '';
     for (var i = 0; i < alerts.length; i++) {
@@ -2050,9 +2018,7 @@ async function loadHealthAlerts() {
 
 async function acknowledgeAlert(alertId) {
   try {
-    await apiFetch('/integrity/alerts/' + alertId + '/acknowledge', {
-      method: 'POST', body: JSON.stringify({ reason: 'Acknowledged via UI' })
-    });
+    await apiAcknowledgeAlert(alertId);
     loadHealth();
   } catch {}
 }
@@ -2062,7 +2028,7 @@ async function loadHealthLatest() {
   var agentsEl = document.getElementById('healthAgents');
   if (!statusEl) return;
   try {
-    var report = await apiFetch('/integrity/reports/latest');
+    var report = await getLatestReport();
     if (report.status === 'no reports yet') {
       statusEl.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:12px;padding:20px 0;text-align:center;">No scans yet. Run one above.</div>';
       agentsEl.innerHTML = '';
@@ -2104,7 +2070,7 @@ async function loadHealthHistory() {
   var el = document.getElementById('healthHistory');
   if (!el) return;
   try {
-    var reports = await apiFetch('/integrity/reports');
+    var reports = await getIntegrityReports();
     if (!reports.length) { el.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:11px;">No reports yet.</div>'; return; }
     var html = '';
     for (var i = 0; i < Math.min(reports.length, 10); i++) {
@@ -2125,7 +2091,7 @@ async function runIntegrityScan() {
   var btn = document.getElementById('runIntegrityBtn');
   btn.textContent = 'Scanning...'; btn.disabled = true;
   try {
-    await apiFetch('/integrity/run', { method: 'POST' });
+    await apiRunIntegrityScan();
     btn.textContent = 'Done'; btn.style.color = '#22c55e';
     setTimeout(function() { btn.textContent = 'Run Scan'; btn.style.color = '#000'; btn.disabled = false; }, 2000);
     loadHealth();
@@ -2142,7 +2108,7 @@ async function loadIntelSources() {
   var el = document.getElementById('intelSources');
   if (!el) return;
   try {
-    var sources = await apiFetch('/intelligence/sources');
+    var sources = await getIntelSources();
     var html = '';
     for (var i = 0; i < sources.length; i++) {
       var s = sources[i];
@@ -2161,9 +2127,7 @@ async function loadIntelFindings(statusFilter) {
   var el = document.getElementById('intelFindings');
   if (!el) return;
   try {
-    var url = '/intelligence/findings';
-    if (statusFilter) url += '?status=' + statusFilter;
-    var findings = await apiFetch(url);
+    var findings = await getIntelFindings(statusFilter);
     if (!findings.length) { el.innerHTML = '<div style="color:var(--text-tertiary);font-family:var(--font-mono);font-size:11px;padding:20px 0;text-align:center;">No findings yet. Run a scan.</div>'; return; }
     var html = '';
     for (var i = 0; i < findings.length; i++) {
@@ -2197,7 +2161,7 @@ async function runIntelScan() {
   var btn = document.getElementById('runIntelBtn');
   btn.textContent = 'Scanning...'; btn.disabled = true;
   try {
-    var result = await apiFetch('/intelligence/run', { method: 'POST' });
+    var result = await apiRunIntelScan();
     btn.textContent = result.findings_count + ' found';
     setTimeout(function() { btn.textContent = 'Run Scan'; btn.style.color = '#000'; btn.disabled = false; }, 3000);
     loadIntel();
@@ -2205,11 +2169,11 @@ async function runIntelScan() {
 }
 
 async function approveIntel(id) {
-  try { await apiFetch('/intelligence/approve/' + id, { method: 'POST' }); loadIntelFindings(); } catch {}
+  try { await approveIntelFinding(id); loadIntelFindings(); } catch {}
 }
 
 async function rejectIntel(id) {
-  try { await apiFetch('/intelligence/reject/' + id, { method: 'POST', body: JSON.stringify({ reason: 'Rejected via UI' }) }); loadIntelFindings(); } catch {}
+  try { await rejectIntelFinding(id); loadIntelFindings(); } catch {}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2267,10 +2231,7 @@ async function dashChatSend() {
 
   try {
     var endpoint = AGENT_ENDPOINTS[currentDashboardAgent] || ('/agents/' + currentDashboardAgent);
-    var data = await apiFetch(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({ request: text, context: {} })
-    });
+    var data = await postToAgent(endpoint, text);
     var responseText = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
     output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(responseText) + '</div>' + output.innerHTML.replace('<div class="dash-loading">Processing...</div>', '');
   } catch (e) {
@@ -2296,7 +2257,7 @@ async function renderBriefingDashboard(el) {
     dashChatHtml('morning-briefing-agent');
 
   try {
-    var history = await apiFetch('/briefing/history');
+    var history = await getBriefingHistory();
     var list = document.getElementById('dashBriefingList');
     var items = Array.isArray(history) ? history.slice(0, 7) : [];
     if (items.length === 0) {
@@ -2331,7 +2292,7 @@ async function dashExpandBriefing(id, card) {
   }
   toggle.textContent = 'Loading...';
   try {
-    var data = await apiFetch('/briefing/latest');
+    var data = await getLatestBriefing();
     var full = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
     body.dataset.preview = body.textContent;
     body.textContent = full;
@@ -2345,7 +2306,7 @@ async function dashExpandBriefing(id, card) {
 async function dashBriefingRun() {
   if (!confirm('Run the full morning briefing now? This will send to Gmail and Slack.')) return;
   try {
-    var data = await apiFetch('/briefing/run', { method: 'POST' });
+    var data = await apiRunBriefing();
     var output = document.getElementById('dashChatOutput');
     output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
   } catch (e) {
@@ -2355,7 +2316,7 @@ async function dashBriefingRun() {
 
 async function dashBriefingPreview() {
   try {
-    var data = await apiFetch('/briefing/preview', { method: 'POST' });
+    var data = await previewBriefing();
     var output = document.getElementById('dashChatOutput');
     output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
   } catch (e) {
@@ -2390,7 +2351,7 @@ async function renderAccountDashboard(el) {
     dashChatHtml('life-sciences-account-agent');
 
   try {
-    var logs = await apiFetch('/logs/recent?limit=10');
+    var logs = await getRecentLogs(10);
     var reqList = document.getElementById('dashAccountRequests');
     var filtered = (Array.isArray(logs) ? logs : []).filter(function(l) {
       return l.routed_to === 'life-sciences-account-agent' || (l.domain || '').toLowerCase() === 'work';
@@ -2458,9 +2419,9 @@ async function renderTravelDashboard(el) {
 
   // Fetch all three in parallel
   Promise.allSettled([
-    apiFetch('/travel/trips'),
-    apiFetch('/travel/flights/watch'),
-    apiFetch('/travel/profile')
+    getTrips(),
+    getFlightWatches(),
+    getTravelProfile()
   ]).then(function(results) {
     // Trips
     var tripsEl = document.getElementById('dashTravelTrips');
@@ -2521,7 +2482,7 @@ async function renderTravelDashboard(el) {
   });
 
   // Fetch Italy 2026 trip card data
-  apiFetch('/connectors/italy2026/data').then(function(data) {
+  getItaly2026Data().then(function(data) {
     var dot = document.getElementById('dashItalyStatusDot');
     var meta = document.getElementById('dashItalyTripMeta');
     if (!dot || !meta) return;
@@ -2594,10 +2555,7 @@ async function renderSlabDashboard(el) {
     dashChatHtml('slab-inventory-tracker-agent');
 
   try {
-    var data = await apiFetch('/agents/slab-inventory-tracker-agent', {
-      method: 'POST',
-      body: JSON.stringify({ request: 'show full inventory', context: {} })
-    });
+    var data = await postSlabRequest('show full inventory');
     var inv = document.getElementById('dashSlabInventory');
     var output = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
     inv.innerHTML = '<div class="dash-card"><div class="dash-card-body">' + escapeHtml(output) + '</div></div>';
@@ -2660,7 +2618,7 @@ async function loadMemProposals() {
   var container = document.getElementById('dashMemProposals');
   container.innerHTML = '<div class="dash-loading">Loading...</div>';
   try {
-    var data = await apiFetch('/memory/proposals');
+    var data = await getMemoryProposals();
     var proposals = Array.isArray(data.output) ? data.output : [];
     if (proposals.length === 0) {
       container.innerHTML = '<div class="dash-empty">No pending proposals.</div>';
@@ -2693,7 +2651,7 @@ async function loadMemFacts() {
   var container = document.getElementById('dashMemFacts');
   container.innerHTML = '<div class="dash-loading">Loading...</div>';
   try {
-    var data = await apiFetch('/memory/facts');
+    var data = await getMemoryFacts();
     var ctx = data.output || {};
     var html = '';
     var sections = ['preferences', 'constraints', 'learned_patterns'];
@@ -2721,7 +2679,7 @@ async function loadMemHistory() {
   var container = document.getElementById('dashMemHistory');
   container.innerHTML = '<div class="dash-loading">Loading...</div>';
   try {
-    var data = await apiFetch('/memory/history');
+    var data = await getMemoryHistory();
     var runs = Array.isArray(data.output) ? data.output : [];
     if (runs.length === 0) {
       container.innerHTML = '<div class="dash-empty">No consolidation runs yet.</div>';
@@ -2745,7 +2703,7 @@ async function loadMemHistory() {
 
 async function dashMemApprove(id) {
   try {
-    await apiFetch('/memory/proposals/' + id + '/approve', { method: 'POST' });
+    await approveMemoryProposal(id);
     loadMemProposals();
   } catch (e) {
     alert('Approve failed: ' + e.message);
@@ -2755,7 +2713,7 @@ async function dashMemApprove(id) {
 async function dashMemReject(id) {
   var reason = prompt('Rejection reason (optional):');
   try {
-    await apiFetch('/memory/proposals/' + id + '/reject', { method: 'POST', body: JSON.stringify({ reason: reason || '' }) });
+    await rejectMemoryProposal(id, reason);
     loadMemProposals();
   } catch (e) {
     alert('Reject failed: ' + e.message);
@@ -2767,7 +2725,7 @@ async function dashMemRun() {
   btn.disabled = true;
   btn.textContent = 'Running...';
   try {
-    var data = await apiFetch('/memory/run', { method: 'POST' });
+    var data = await apiRunMemoryConsolidation();
     var output = document.getElementById('dashChatOutput');
     output.innerHTML = '<div class="dash-chat-response">' + escapeHtml(typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2)) + '</div>';
     loadMemProposals();
@@ -2801,7 +2759,7 @@ async function renderItaly2026Dashboard(el) {
   dashChatHtml('travel-agent');
 
   try {
-    var data = await apiFetch('/connectors/italy2026/data');
+    var data = await getItaly2026Data();
     window._italyData = data;
     if (data.error || !data.available) {
       el.querySelector('#dashItalyItinerary').innerHTML = '<div class="dash-empty">Italy 2026 app is not reachable. Data unavailable.</div>';
