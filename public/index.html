@@ -2275,6 +2275,8 @@ body::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
   .dashboard { padding: 16px; padding-top: 64px; }
   .dash-cols { grid-template-columns: 1fr; }
   .dash-account-grid { grid-template-columns: 1fr 1fr; }
+  #hubTopologyContainer { display: none !important; }
+  #hubMobileList { display: block !important; }
 }
 </style>
 </head>
@@ -2317,15 +2319,28 @@ body::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
       </div>
 
       <!-- Topology View (default) -->
-      <div id="hubTopologyContainer" style="width:100%;max-width:960px;">
-        <svg id="nhubSvg" viewBox="0 0 960 680" style="width:100%;height:auto;"></svg>
-        <div class="nhub-legend" style="text-align:center;padding:12px 0;display:flex;align-items:center;justify-content:center;gap:24px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:0.1em;">
-          <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--accent-hub);display:inline-block;"></span> Master Hub</span>
-          <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid var(--accent-teal);display:inline-block;"></span> Active Agent</span>
-          <span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;border:1.5px dashed var(--text-muted);display:inline-block;"></span> Coming Soon</span>
+      <div id="hubTopologyContainer" style="width:100%;max-width:900px;">
+        <svg id="nhubSvg" viewBox="0 0 900 900" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;">
+          <defs>
+            <filter id="master-glow">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feFlood flood-color="#6B5CE7" flood-opacity="0.4" result="color"/>
+              <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+              <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+        </svg>
+        <div style="text-align:center;padding:12px 0;display:flex;align-items:center;justify-content:center;gap:24px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#666;letter-spacing:0.1em;">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#6B5CE7;display:inline-block;"></span> Master Hub</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#888;display:inline-block;"></span> Active Agent</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;border:1.5px dashed #666;display:inline-block;"></span> Coming Soon</span>
         </div>
-        <p style="text-align:center;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;margin-top:4px;">Click an agent to open its workspace</p>
+        <p style="text-align:center;color:#444;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.08em;margin-top:4px;">Click a domain to expand its agents</p>
       </div>
+<div id="nhubTooltip" style="position:fixed;display:none;background:#1a1a2e;border:0.5px solid #444;color:#aaa;font:10px 'JetBrains Mono',monospace;padding:4px 10px;border-radius:4px;pointer-events:none;z-index:1000;opacity:0;transition:opacity 150ms;"></div>
+
+      <!-- Mobile Fallback (visible on small screens) -->
+      <div id="hubMobileList" style="display:none;width:100%;padding:0 4px;"></div>
 
       <!-- Card Grid View (hidden by default) -->
       <div id="hubGridContainer" style="display:none;width:100%;max-width:900px;">
@@ -2669,49 +2684,49 @@ function switchHubView(mode) {
 
 var domainMasters = [
   {
-    id: 'aws-life-sciences', label: 'AWS Life\nSciences', domain: 'Work',
+    id: 'aws-life-sciences', label: 'Life Sciences', domain: 'Work',
     color: '#FF9900', dimColor: 'rgba(255,153,0,0.12)',
     subs: [
-      { name: 'life-sciences-account-agent', label: 'Account\nAgent', active: true },
-      { name: 'morning-briefing-agent', label: 'Morning\nBriefing', active: true },
-      { name: 'intelligence-update-agent', label: 'Intel\nUpdate', active: true },
-      { name: 'sca-deal-architect', label: 'SCA Deal\nArchitect', active: false }
+      { name: 'life-sciences-account-agent', label: 'Acct Intel', active: true },
+      { name: 'morning-briefing-agent', label: 'Briefing', active: true },
+      { name: 'intelligence-update-agent', label: 'Intel', active: true },
+      { name: 'sca-deal-architect', label: 'SCA', active: false }
     ]
   },
   {
-    id: 'three-rivers-slab', label: 'Three Rivers\nSlab', domain: 'Personal Business',
+    id: 'three-rivers-slab', label: 'Three Rivers', domain: 'Personal Business',
     color: '#1D9E75', dimColor: 'rgba(29,158,117,0.12)',
     subs: [
-      { name: 'slab-inventory-tracker-agent', label: 'Inventory\nTracker', active: true },
-      { name: 'pricing-agent', label: 'Pricing\nAgent', active: false },
-      { name: 'customer-agent', label: 'Customer\nAgent', active: false }
+      { name: 'slab-inventory-tracker-agent', label: 'Inventory', active: true },
+      { name: 'pricing-agent', label: 'Pricing', active: false },
+      { name: 'customer-agent', label: 'Customer', active: false }
     ]
   },
   {
     id: 'madsprings', label: 'MadSprings', domain: 'Personal Business',
     color: '#D85A30', dimColor: 'rgba(216,90,48,0.12)',
     subs: [
-      { name: 'content-agent', label: 'Content\nAgent', active: false },
-      { name: 'orders-agent', label: 'Orders\nAgent', active: false }
+      { name: 'content-agent', label: 'Content', active: false },
+      { name: 'orders-agent', label: 'Orders', active: false }
     ]
   },
   {
-    id: 'personal-life', label: 'Personal\nLife', domain: 'Personal Life',
+    id: 'personal-life', label: 'Personal Life', domain: 'Personal Life',
     color: '#534AB7', dimColor: 'rgba(83,74,183,0.12)',
     subs: [
-      { name: 'travel-agent', label: 'Travel\nAgent', active: true },
-      { name: 'memory-consolidation-agent', label: 'Memory\nConsolidate', active: true },
-      { name: 'italy2026', label: 'Italy\n2026', active: true, external: true, url: null },
-      { name: 'family-scheduler', label: 'Family\nScheduler', active: false }
+      { name: 'travel-agent', label: 'Travel', active: true },
+      { name: 'memory-consolidation-agent', label: 'Memory', active: true },
+      { name: 'italy2026', label: 'Italy 2026', active: true, external: true, url: null },
+      { name: 'family-scheduler', label: 'Family', active: false }
     ]
   },
   {
     id: 'system', label: 'System', domain: 'System',
     color: '#888780', dimColor: 'rgba(136,135,128,0.12)',
     subs: [
-      { name: 'registry-integrity-agent', label: 'Registry\nIntegrity', active: true },
-      { name: 'test-agent', label: 'Test\nAgent', active: true },
-      { name: 'agent-builder-agent', label: 'Agent\nBuilder', active: false }
+      { name: 'registry-integrity-agent', label: 'Integrity', active: true },
+      { name: 'test-agent', label: 'Testing', active: true },
+      { name: 'agent-builder-agent', label: 'Builder', active: false }
     ]
   }
 ];
@@ -2771,19 +2786,33 @@ function renderNestedHub() {
   var defs = svg.querySelector('defs');
   svg.innerHTML = '';
   if (defs) svg.appendChild(defs);
+  else {
+    defs = createSvgEl('defs');
+    var filter = createSvgEl('filter', { id: 'master-glow' });
+    var blur = createSvgEl('feGaussianBlur', { stdDeviation: '4', result: 'blur' });
+    var flood = createSvgEl('feFlood', { 'flood-color': '#6B5CE7', 'flood-opacity': '0.4', result: 'color' });
+    var comp = createSvgEl('feComposite', { in: 'color', in2: 'blur', operator: 'in', result: 'shadow' });
+    var merge = createSvgEl('feMerge');
+    merge.appendChild(createSvgEl('feMergeNode', { in: 'shadow' }));
+    merge.appendChild(createSvgEl('feMergeNode', { in: 'SourceGraphic' }));
+    filter.appendChild(blur); filter.appendChild(flood); filter.appendChild(comp); filter.appendChild(merge);
+    defs.appendChild(filter);
+    svg.appendChild(defs);
+  }
 
-  var W = 960, H = 680;
+  var W = 900, H = 900;
   var cx = W / 2, cy = H / 2;
-  var domainR = 220;  // middle ring radius
-  var subR = 130;     // outer ring radius from domain master
-  var angles = [90, 162, 234, 306, 18]; // degrees, start at top, clockwise
+  var innerR = 200;
+  var subR = 150;
+  var startAngle = -90;
+  var domainSpacing = 72;
 
   // ─── MASTER NODE ───
   var masterGroup = createSvgEl('g');
 
-  // Glow ring (animated)
+  // Glow ring
   var masterGlow = createSvgEl('circle', {
-    cx: cx, cy: cy, r: 68,
+    cx: cx, cy: cy, r: 62,
     fill: 'none', stroke: '#6B5CE7', 'stroke-width': 1, opacity: 0.12
   });
   masterGlow.style.animation = 'master-glow-pulse 3s ease-in-out infinite';
@@ -2791,24 +2820,20 @@ function renderNestedHub() {
 
   // Master circle
   var masterCircle = createSvgEl('circle', {
-    cx: cx, cy: cy, r: 55,
-    fill: 'rgba(107,92,231,0.10)', stroke: '#6B5CE7', 'stroke-width': 2,
-    filter: 'url(#masterGlow)'
+    cx: cx, cy: cy, r: 52,
+    fill: 'rgba(107,92,231,0.20)', stroke: '#6B5CE7', 'stroke-width': 2,
+    filter: 'url(#master-glow)'
   });
   masterCircle.style.animation = 'master-pulse 3s ease-in-out infinite';
+  masterCircle.style.transformBox = 'fill-box';
+  masterCircle.style.transformOrigin = 'center';
   masterGroup.appendChild(masterCircle);
-
-  // Master inner ring
-  masterGroup.appendChild(createSvgEl('circle', {
-    cx: cx, cy: cy, r: 35,
-    fill: 'none', stroke: '#6B5CE7', 'stroke-width': 0.5, opacity: 0.3
-  }));
 
   // Master label
   var masterLabel = createSvgEl('text', {
-    x: cx, y: cy - 6, 'text-anchor': 'middle',
-    fill: '#f0f0f5', 'font-family': 'JetBrains Mono, monospace',
-    'font-size': '13', 'font-weight': '700', 'letter-spacing': '0.15em'
+    x: cx, y: cy - 4, 'text-anchor': 'middle',
+    fill: '#6B5CE7', 'font-family': 'JetBrains Mono, monospace',
+    'font-size': '11', 'font-weight': '500', 'letter-spacing': '0.15em'
   });
   masterLabel.textContent = 'MASTER';
   masterGroup.appendChild(masterLabel);
@@ -2816,7 +2841,7 @@ function renderNestedHub() {
   var masterSub = createSvgEl('text', {
     x: cx, y: cy + 12, 'text-anchor': 'middle',
     fill: '#6B5CE7', 'font-family': 'JetBrains Mono, monospace',
-    'font-size': '8', 'letter-spacing': '0.12em', opacity: 0.7
+    'font-size': '9', 'letter-spacing': '0.12em', opacity: 0.6
   });
   masterSub.textContent = 'HUB';
   masterGroup.appendChild(masterSub);
@@ -2825,127 +2850,130 @@ function renderNestedHub() {
   // ─── DOMAIN MASTERS + SUB-AGENTS ───
   for (var d = 0; d < domainMasters.length; d++) {
     var dm = domainMasters[d];
-    var angleDeg = angles[d];
+    var angleDeg = startAngle + d * domainSpacing;
     var angleRad = angleDeg * Math.PI / 180;
-    var dx = cx + domainR * Math.cos(angleRad);
-    var dy = cy - domainR * Math.sin(angleRad); // SVG y is inverted
+    var dx = cx + innerR * Math.cos(angleRad);
+    var dy = cy + innerR * Math.sin(angleRad);
 
     // ── Connection line: center → domain master ──
     svg.appendChild(createSvgEl('line', {
       x1: cx, y1: cy, x2: dx, y2: dy,
-      stroke: dm.color, 'stroke-width': 1, opacity: 0.2
+      stroke: dm.color, 'stroke-width': 1, opacity: 0.25
     }));
 
-    // ── Domain master node ──
-    var domGroup = createSvgEl('g', { class: 'nhub-domain-node' + (expandedDomains[dm.id] ? ' expanded' : '') });
-    domGroup.dataset.domainId = dm.id;
+    // Animated dot on line
+    var lineDot = createSvgEl('circle', {
+      r: 2, fill: dm.color, opacity: 0.6
+    });
+    var anim = createSvgEl('animateMotion', {
+      dur: '3s', repeatCount: 'indefinite',
+      path: 'M' + cx + ',' + cy + ' L' + dx + ',' + dy
+    });
+    lineDot.appendChild(anim);
+    svg.appendChild(lineDot);
 
-    // Hover glow ring
+    // ── Domain master node ──
+    var isExpanded = expandedDomains[dm.id];
+    var domGroup = createSvgEl('g', { class: 'nhub-domain-node' + (isExpanded ? ' expanded' : '') });
+    domGroup.dataset.domainId = dm.id;
+    domGroup.style.cursor = 'pointer';
+
+    // Hover glow ring (hidden, shown on hover via CSS)
     domGroup.appendChild(createSvgEl('circle', {
-      cx: dx, cy: dy, r: 52,
+      cx: dx, cy: dy, r: 48,
       fill: 'none', stroke: dm.color, 'stroke-width': 1,
-      class: 'nhub-domain-ring'
+      class: 'nhub-domain-ring', opacity: 0
     }));
 
     // Domain circle
-    domGroup.appendChild(createSvgEl('circle', {
-      cx: dx, cy: dy, r: 40,
-      fill: dm.color.replace(')', ',0.10)').replace('rgb', 'rgba').replace('#', ''),
-      stroke: dm.color, 'stroke-width': 1.5
-    }));
-    // Fix fill for hex colors
-    var domCircle = domGroup.lastChild;
-    domCircle.setAttribute('fill', hexToRgba(dm.color, 0.10));
+    var domCircleFill = hexToRgba(dm.color, isExpanded ? 0.25 : 0.15);
+    var domCircle = createSvgEl('circle', {
+      cx: dx, cy: dy, r: 38,
+      fill: domCircleFill, stroke: dm.color,
+      'stroke-width': isExpanded ? 2.5 : 1.5
+    });
+    domGroup.appendChild(domCircle);
 
     // Domain label
-    var labelLines = dm.label.split('\n');
-    for (var li = 0; li < labelLines.length; li++) {
-      var dLabel = createSvgEl('text', {
-        x: dx, y: dy - 6 + (li * 13) - ((labelLines.length - 1) * 6),
-        'text-anchor': 'middle',
-        fill: dm.color, 'font-family': 'JetBrains Mono, monospace',
-        'font-size': '9', 'font-weight': '600', 'letter-spacing': '0.1em'
-      });
-      dLabel.textContent = labelLines[li].toUpperCase();
-      domGroup.appendChild(dLabel);
-    }
+    var domLabelText = createSvgEl('text', {
+      x: dx, y: dy - 2, 'text-anchor': 'middle',
+      fill: dm.color, 'font-family': 'JetBrains Mono, monospace',
+      'font-size': '10', 'font-weight': '500', 'letter-spacing': '0.08em'
+    });
+    domLabelText.textContent = dm.label.toUpperCase();
+    domGroup.appendChild(domLabelText);
 
-    // Active count
+    // Active count sub-label
     var activeCount = dm.subs.filter(function(s) { return s.active; }).length;
     var countLabel = createSvgEl('text', {
-      x: dx, y: dy + 18 + ((labelLines.length - 1) * 3),
-      'text-anchor': 'middle',
+      x: dx, y: dy + 14, 'text-anchor': 'middle',
       fill: dm.color, 'font-family': 'JetBrains Mono, monospace',
-      'font-size': '8', opacity: 0.6, 'letter-spacing': '0.08em'
+      'font-size': '8', opacity: 0.7, 'letter-spacing': '0.06em'
     });
-    countLabel.textContent = activeCount + '/' + dm.subs.length + ' ACTIVE';
+    countLabel.textContent = activeCount + '/' + dm.subs.length + ' active';
     domGroup.appendChild(countLabel);
 
-    // Click handler for expand/collapse
+    // Click handler
     domGroup.addEventListener('click', (function(domId) {
-      return function(e) {
-        e.stopPropagation();
-        toggleDomain(domId);
-      };
+      return function(e) { e.stopPropagation(); toggleDomain(domId); };
     })(dm.id));
     svg.appendChild(domGroup);
 
     // ── Sub-agent nodes ──
     var subCount = dm.subs.length;
-    // Direction from center to domain master (outward)
-    var outAngle = Math.atan2(dy - cy, dx - cx);
+    var outAngleDeg = angleDeg; // direction from center to domain master
+    var fanAngles;
+    if (subCount === 1) fanAngles = [0];
+    else if (subCount === 2) fanAngles = [-30, 30];
+    else if (subCount === 3) fanAngles = [-40, 0, 40];
+    else fanAngles = [-45, -15, 15, 45];
 
     for (var s = 0; s < subCount; s++) {
       var sub = dm.subs[s];
-      var fanAngle;
-      if (subCount === 1) { fanAngle = outAngle; }
-      else if (subCount === 2) { fanAngle = outAngle + (-25 + s * 50) * Math.PI / 180; }
-      else if (subCount === 3) { fanAngle = outAngle + (-35 + s * 35) * Math.PI / 180; }
-      else { fanAngle = outAngle + (-45 + s * 30) * Math.PI / 180; }
-
-      var sx = dx + subR * Math.cos(fanAngle);
-      var sy = dy + subR * Math.sin(fanAngle);
+      var subAngleDeg = outAngleDeg + fanAngles[s];
+      var subAngleRad = subAngleDeg * Math.PI / 180;
+      var sx = dx + subR * Math.cos(subAngleRad);
+      var sy = dy + subR * Math.sin(subAngleRad);
 
       // Connection line: domain → sub
+      var lineLen = subR;
       var subLine = createSvgEl('line', {
         x1: dx, y1: dy, x2: sx, y2: sy,
-        stroke: dm.color, 'stroke-width': 0.8, opacity: 0,
-        class: 'nhub-sub-line' + (expandedDomains[dm.id] ? ' visible' : '')
+        stroke: dm.color, 'stroke-width': 0.75, opacity: 0,
+        'stroke-dasharray': lineLen, 'stroke-dashoffset': lineLen,
+        class: 'nhub-sub-line'
       });
       subLine.dataset.domainLine = dm.id;
+      if (isExpanded) {
+        subLine.style.opacity = '0.2';
+        subLine.style.strokeDashoffset = '0';
+        subLine.style.transition = 'stroke-dashoffset 0.3s ease-out, opacity 0.3s ease-out';
+      }
       svg.appendChild(subLine);
 
       // Sub-agent group
       var subGroup = createSvgEl('g', {
-        class: 'nhub-sub-group ' + (expandedDomains[dm.id] ? 'expanded' : 'collapsed')
+        class: 'nhub-sub-group ' + (isExpanded ? 'expanded' : 'collapsed')
       });
       subGroup.dataset.domainId = dm.id;
-      subGroup.style.transformOrigin = sx + 'px ' + sy + 'px';
-      // Stagger animation
-      subGroup.style.transitionDelay = (s * 0.05) + 's';
+      subGroup.style.transformBox = 'fill-box';
+      subGroup.style.transformOrigin = 'center';
 
       var subColor = sub.external ? '#2A6496' : dm.color;
-      var nodeR = sub.active ? 24 : 20;
+      var nodeR = sub.active ? 22 : 18;
 
       if (sub.active) {
-        subGroup.setAttribute('class', subGroup.getAttribute('class') + ' nhub-sub-node');
+        subGroup.style.cursor = 'pointer';
 
-        // Hover glow
-        subGroup.appendChild(createSvgEl('circle', {
-          cx: sx, cy: sy, r: nodeR + 8,
-          fill: 'none', stroke: subColor, 'stroke-width': 1,
-          class: 'nhub-sub-glow'
-        }));
-
-        // Circle
+        // Sub circle
         subGroup.appendChild(createSvgEl('circle', {
           cx: sx, cy: sy, r: nodeR,
-          fill: hexToRgba(subColor, 0.15), stroke: subColor, 'stroke-width': 1
+          fill: hexToRgba(subColor, 0.20), stroke: subColor, 'stroke-width': 1
         }));
 
-        // Status dot
+        // Green status dot
         subGroup.appendChild(createSvgEl('circle', {
-          cx: sx + nodeR - 4, cy: sy - nodeR + 4, r: 3,
+          cx: sx + nodeR - 3, cy: sy - nodeR + 3, r: 3,
           fill: '#22c55e'
         }));
 
@@ -2954,7 +2982,6 @@ function renderNestedHub() {
           return function(e) {
             e.stopPropagation();
             if (isExternal) {
-              // External apps open in new tab
               var extUrl = getExternalUrl(agentName);
               if (extUrl) window.open(extUrl, '_blank');
               return;
@@ -2966,51 +2993,43 @@ function renderNestedHub() {
             }
           };
         })(sub.name, sub.external));
-        subGroup.style.cursor = 'pointer';
       } else {
         // Coming soon node
-        subGroup.appendChild(createSvgEl('circle', {
+        subGroup.style.cursor = 'default';
+        var csCircle = createSvgEl('circle', {
           cx: sx, cy: sy, r: nodeR,
           fill: 'transparent', stroke: subColor,
-          'stroke-width': 1, 'stroke-dasharray': '4 3', opacity: 0.4
-        }));
-        subGroup.lastChild.style.animation = 'coming-pulse 4s ease-in-out infinite';
-        subGroup.style.cursor = 'default';
+          'stroke-width': 1, 'stroke-dasharray': '4 3'
+        });
+        csCircle.style.animation = 'coming-pulse 4s ease-in-out infinite';
+        subGroup.appendChild(csCircle);
+        subGroup.style.opacity = '0.45';
 
         // Tooltip on hover
         subGroup.addEventListener('mouseenter', function(e) {
           var tip = document.getElementById('nhubTooltip');
-          tip.textContent = 'COMING SOON';
+          if (!tip) return;
+          tip.textContent = 'Coming Soon';
           tip.style.display = 'block';
+          tip.style.opacity = '1';
           tip.style.left = (e.clientX + 12) + 'px';
           tip.style.top = (e.clientY - 30) + 'px';
         });
         subGroup.addEventListener('mouseleave', function() {
-          document.getElementById('nhubTooltip').style.display = 'none';
+          var tip = document.getElementById('nhubTooltip');
+          if (tip) { tip.style.display = 'none'; tip.style.opacity = '0'; }
         });
       }
 
       // Sub label
-      var subLabelText = sub.label.replace('\n', ' ');
       var sLabel = createSvgEl('text', {
         x: sx, y: sy + nodeR + 14, 'text-anchor': 'middle',
-        fill: sub.active ? '#a0a0b0' : '#44445a',
+        fill: sub.active ? '#a0a0b0' : hexToRgba(subColor, 0.4),
         'font-family': 'JetBrains Mono, monospace',
-        'font-size': '8', 'letter-spacing': '0.08em'
+        'font-size': '8', 'letter-spacing': '0.06em'
       });
-      sLabel.textContent = subLabelText.toUpperCase();
+      sLabel.textContent = sub.label.toUpperCase();
       subGroup.appendChild(sLabel);
-
-      // Status text
-      var statusText = sub.active ? (sub.external ? 'LIVE' : 'ACTIVE') : 'SOON';
-      var sStatus = createSvgEl('text', {
-        x: sx, y: sy + nodeR + 24, 'text-anchor': 'middle',
-        fill: sub.active ? subColor : '#44445a',
-        'font-family': 'JetBrains Mono, monospace',
-        'font-size': '7', 'letter-spacing': '0.1em', opacity: 0.6
-      });
-      sStatus.textContent = statusText;
-      subGroup.appendChild(sStatus);
 
       svg.appendChild(subGroup);
     }
@@ -3048,92 +3067,95 @@ function getExternalUrl(name) {
 // ─── TOGGLE DOMAIN EXPAND/COLLAPSE ───
 
 function toggleDomain(domId) {
-  expandedDomains[domId] = !expandedDomains[domId];
+  // Close all others first (only one domain expanded at a time)
+  var wasExpanded = expandedDomains[domId];
+  for (var key in expandedDomains) { expandedDomains[key] = false; }
 
-  // Toggle domain node class
-  var domNode = document.querySelector('.nhub-domain-node[data-domain-id="' + domId + '"]');
-  if (domNode) domNode.classList.toggle('expanded', expandedDomains[domId]);
+  if (!wasExpanded) {
+    expandedDomains[domId] = true;
+  }
 
-  // Toggle sub-agent groups
-  var subGroups = document.querySelectorAll('.nhub-sub-group[data-domain-id="' + domId + '"]');
-  subGroups.forEach(function(g) {
-    g.classList.toggle('expanded', expandedDomains[domId]);
-    g.classList.toggle('collapsed', !expandedDomains[domId]);
-  });
+  // Re-render the entire hub
+  renderNestedHub();
 
-  // Toggle connection lines
-  var subLines = document.querySelectorAll('.nhub-sub-line[data-domain-line="' + domId + '"]');
-  subLines.forEach(function(l) {
-    l.classList.toggle('visible', expandedDomains[domId]);
-    if (!expandedDomains[domId]) l.style.opacity = '0';
-  });
+  // Animate sub-lines and sub-groups for the expanded domain
+  if (expandedDomains[domId]) {
+    var lines = document.querySelectorAll('.nhub-sub-line[data-domain-line="' + domId + '"]');
+    var groups = document.querySelectorAll('.nhub-sub-group[data-domain-id="' + domId + '"]');
+
+    lines.forEach(function(line, i) {
+      setTimeout(function() {
+        line.style.transition = 'stroke-dashoffset 0.3s ease-out, opacity 0.3s ease-out';
+        line.style.opacity = '0.2';
+        line.style.strokeDashoffset = '0';
+      }, i * 60);
+    });
+
+    groups.forEach(function(g, i) {
+      g.style.opacity = '0';
+      g.style.transform = 'scale(0.2)';
+      setTimeout(function() {
+        g.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
+        g.style.opacity = g.querySelector('[stroke-dasharray]') && !g.style.cursor ? '0.45' : '1';
+        g.style.transform = 'scale(1)';
+      }, i * 60);
+    });
+  }
 }
 
 // ─── MOBILE HUB (vertical list) ───
 
 function renderMobileHub() {
-  var container = document.getElementById('nhubMobile');
+  var container = document.getElementById('hubMobileList');
   if (!container) return;
   container.innerHTML = '';
 
   for (var d = 0; d < domainMasters.length; d++) {
     var dm = domainMasters[d];
     var activeCount = dm.subs.filter(function(s) { return s.active; }).length;
+    var isExpanded = expandedDomains[dm.id];
 
-    var domain = document.createElement('div');
-    domain.className = 'nhub-mobile-domain';
-
+    // Domain header
     var header = document.createElement('div');
-    header.className = 'nhub-mobile-domain-header';
-    header.style.borderLeftColor = dm.color;
-
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid #222;cursor:pointer;';
     header.innerHTML =
-      '<div class="nhub-mobile-domain-name" style="color:' + dm.color + '">' +
-        dm.label.replace('\n', ' ') +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + dm.color + ';display:inline-block;"></span>' +
+        '<span style="font:13px JetBrains Mono,monospace;color:' + dm.color + ';">' + dm.label.toUpperCase() + '</span>' +
+        '<span style="font:9px JetBrains Mono,monospace;color:#666;background:#1a1a22;padding:2px 6px;border-radius:4px;">' + activeCount + '/' + dm.subs.length + '</span>' +
       '</div>' +
-      '<div class="nhub-mobile-domain-badge" style="background:' + hexToRgba(dm.color, 0.15) + ';color:' + dm.color + '">' +
-        activeCount + '/' + dm.subs.length +
-      '</div>' +
-      '<div class="nhub-mobile-domain-arrow">▼</div>';
+      '<span style="color:#666;font-size:12px;">' + (isExpanded ? '▼' : '▶') + '</span>';
+    header.addEventListener('click', (function(domId) {
+      return function() { toggleDomain(domId); renderMobileHub(); };
+    })(dm.id));
+    container.appendChild(header);
 
-    header.addEventListener('click', (function(domEl) {
-      return function() { domEl.classList.toggle('expanded'); };
-    })(domain));
-
-    domain.appendChild(header);
-
-    var subsContainer = document.createElement('div');
-    subsContainer.className = 'nhub-mobile-subs';
-
-    for (var s = 0; s < dm.subs.length; s++) {
-      var sub = dm.subs[s];
-      var subEl = document.createElement('div');
-      subEl.className = 'nhub-mobile-sub' + (sub.active ? ' active-sub' : '');
-
-      var dotColor = sub.active ? dm.color : 'var(--text-muted)';
-      var dotStyle = sub.active ? 'background:' + dotColor : 'border:1px dashed ' + dotColor + ';background:transparent';
-      var statusColor = sub.active ? '#22c55e' : 'var(--text-muted)';
-      var statusText = sub.active ? (sub.external ? 'LIVE' : 'ACTIVE') : 'SOON';
-
-      subEl.innerHTML =
-        '<div class="nhub-mobile-sub-dot" style="' + dotStyle + '"></div>' +
-        '<div class="nhub-mobile-sub-name">' + sub.label.replace('\n', ' ') + '</div>' +
-        '<div class="nhub-mobile-sub-status" style="color:' + statusColor + '">' + statusText + '</div>';
-
-      if (sub.active && !sub.external) {
-        subEl.addEventListener('click', (function(agentName) {
-          return function() {
-            if (dashboardAgents[agentName]) openDashboard(agentName);
-            else openAgentWorkspace(agentName);
-          };
-        })(sub.name));
+    // Sub-agent list
+    if (isExpanded) {
+      for (var s = 0; s < dm.subs.length; s++) {
+        var sub = dm.subs[s];
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 0 10px 20px;' + (sub.active ? 'cursor:pointer;' : 'cursor:default;');
+        row.innerHTML =
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:' + dm.color + ';display:inline-block;opacity:' + (sub.active ? '1' : '0.4') + ';"></span>' +
+            '<span style="font:12px JetBrains Mono,monospace;color:' + (sub.active ? '#ccc' : '#555') + ';">' + sub.label.toUpperCase() + '</span>' +
+          '</div>' +
+          '<span style="font:8px JetBrains Mono,monospace;padding:2px 6px;border-radius:3px;' +
+            (sub.active ? 'color:#22c55e;background:rgba(34,197,94,0.1);' : 'color:#666;background:#1a1a22;') +
+          '">' + (sub.active ? 'ACTIVE' : 'SOON') + '</span>';
+        if (sub.active) {
+          row.addEventListener('click', (function(agentName, isExternal) {
+            return function() {
+              if (isExternal) { var u = getExternalUrl(agentName); if (u) window.open(u, '_blank'); return; }
+              if (dashboardAgents[agentName]) openDashboard(agentName);
+              else openAgentWorkspace(agentName);
+            };
+          })(sub.name, sub.external));
+        }
+        container.appendChild(row);
       }
-
-      subsContainer.appendChild(subEl);
     }
-
-    domain.appendChild(subsContainer);
-    container.appendChild(domain);
   }
 }
 
@@ -4118,6 +4140,7 @@ window.addEventListener('resize', function() {
 
 loadSpokeAgents();
 renderNestedHub();
+renderMobileHub();
 loadContext();
 loadHistory();
 
