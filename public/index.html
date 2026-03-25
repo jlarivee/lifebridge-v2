@@ -26,6 +26,7 @@
 <script src="/js/dashboards/italy2026.js"></script>
 <script src="/js/hub/hub-svg.js"></script>
 <script src="/js/hub/hub-interactions.js"></script>
+<script src="/js/hub/hub.js"></script>
 </head>
 <body>
 
@@ -1265,9 +1266,7 @@ window.addEventListener('resize', function() {
   }
 });
 
-loadSpokeAgents();
-renderNestedHub();
-renderMobileHub();
+initHub();
 loadContext();
 loadHistory();
 
