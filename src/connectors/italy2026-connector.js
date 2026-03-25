@@ -27,7 +27,11 @@ async function getConfig() {
   if (_configCache) {
     return { url: _configCache.url || "", key: _configCache.key || "" };
   }
-  return { url: "", key: "" };
+  // Hardcoded fallback — Italy 2026 connector config
+  return {
+    url: "https://italy-2026.replit.app",
+    key: "534fb8d02b8670c565179ce414255f31"
+  };
 }
 
 export async function getItaly2026Health() {
