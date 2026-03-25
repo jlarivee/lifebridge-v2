@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/css/hub.css">
 <link rel="stylesheet" href="/css/dashboard.css">
 <link rel="stylesheet" href="/css/mobile.css">
+<script src="/js/config.js"></script>
 </head>
 <body>
 
@@ -292,51 +293,6 @@ var currentRouteResult = null;
 var currentRouteInput = '';
 var currentAgent = null;
 
-// Static routes for core agents + dynamic fallback for deployed agents
-var agentEndpoints = {
-  'life-sciences-account-agent': '/agents/life-sciences-account-agent',
-  'agent-builder-agent': '/agents/builder',
-  'morning-briefing-agent': '/agents/morning-briefing-agent',
-  'travel-agent': '/agents/travel-agent',
-  'slab-inventory-tracker-agent': '/agents/slab-inventory-tracker-agent',
-  'memory-consolidation-agent': '/agents/memory-consolidation-agent',
-  'registry-integrity-agent': '/agents/registry-integrity-agent',
-  'intelligence-update-agent': '/agents/intelligence-update-agent',
-  'connectors': '/agents/connectors'
-};
-
-var agentLabels = {
-  'life-sciences-account-agent': 'Life Sciences Account Agent',
-  'agent-builder-agent': 'Agent Builder Agent',
-  'morning-briefing-agent': 'Morning Briefing',
-  'travel-agent': 'Travel Agent',
-  'slab-inventory-tracker-agent': 'Three Rivers Slab',
-  'memory-consolidation-agent': 'Memory Consolidation',
-  'registry-integrity-agent': 'Registry Integrity Agent',
-  'intelligence-update-agent': 'Intelligence Update Agent',
-  'connectors': 'Connectors'
-};
-
-var dashboardAgents = {
-  'morning-briefing-agent': true,
-  'life-sciences-account-agent': true,
-  'travel-agent': true,
-  'slab-inventory-tracker-agent': true,
-  'memory-consolidation-agent': true,
-  'italy2026': true
-};
-
-var quickActions = {
-  'life-sciences-account-agent': [
-    'Account brief',
-    'Meeting prep',
-    'Executive briefing',
-    'Competitive positioning',
-    'Stakeholder dossier',
-    'Outreach email'
-  ]
-};
-
 function escapeHtml(str) {
   var div = document.createElement('div');
   div.textContent = str;
@@ -416,55 +372,6 @@ function switchHubView(mode) {
 // NESTED HUB VISUALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-var domainMasters = [
-  {
-    id: 'aws-life-sciences', label: 'Life Sciences', domain: 'Work',
-    color: '#FF9900', dimColor: 'rgba(255,153,0,0.12)',
-    subs: [
-      { name: 'life-sciences-account-agent', label: 'Acct Intel', active: true },
-      { name: 'morning-briefing-agent', label: 'Briefing', active: true },
-      { name: 'intelligence-update-agent', label: 'Intel', active: true },
-      { name: 'sca-deal-architect', label: 'SCA', active: false }
-    ]
-  },
-  {
-    id: 'three-rivers-slab', label: 'Three Rivers', domain: 'Personal Business',
-    color: '#1D9E75', dimColor: 'rgba(29,158,117,0.12)',
-    subs: [
-      { name: 'slab-inventory-tracker-agent', label: 'Inventory', active: true },
-      { name: 'pricing-agent', label: 'Pricing', active: false },
-      { name: 'customer-agent', label: 'Customer', active: false }
-    ]
-  },
-  {
-    id: 'madsprings', label: 'MadSprings', domain: 'Personal Business',
-    color: '#D85A30', dimColor: 'rgba(216,90,48,0.12)',
-    subs: [
-      { name: 'content-agent', label: 'Content', active: false },
-      { name: 'orders-agent', label: 'Orders', active: false }
-    ]
-  },
-  {
-    id: 'personal-life', label: 'Personal Life', domain: 'Personal Life',
-    color: '#534AB7', dimColor: 'rgba(83,74,183,0.12)',
-    subs: [
-      { name: 'travel-agent', label: 'Travel', active: true },
-      { name: 'memory-consolidation-agent', label: 'Memory', active: true },
-      { name: 'italy2026', label: 'Italy 2026', active: true, external: true, url: null },
-      { name: 'family-scheduler', label: 'Family', active: false }
-    ]
-  },
-  {
-    id: 'system', label: 'System', domain: 'System',
-    color: '#888780', dimColor: 'rgba(136,135,128,0.12)',
-    subs: [
-      { name: 'registry-integrity-agent', label: 'Integrity', active: true },
-      { name: 'test-agent', label: 'Testing', active: true },
-      { name: 'agent-builder-agent', label: 'Builder', active: false }
-    ]
-  }
-];
-
 var expandedDomains = {};
 var SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -480,19 +387,19 @@ function loadSpokeAgents() {
 
     for (var i = 0; i < agents.length; i++) {
       var a = agents[i];
-      var hasEndpoint = !!agentEndpoints[a.name];
+      var hasEndpoint = !!AGENT_ENDPOINTS[a.name];
       var card = document.createElement('div');
       card.className = 'spoke-card' + (hasEndpoint ? '' : ' spoke-card-disabled');
       card.dataset.agent = a.name;
       card.innerHTML =
         '<div class="spoke-card-icon"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>' +
-        '<div class="spoke-card-name">' + escapeHtml(agentLabels[a.name] || a.name) + '</div>' +
+        '<div class="spoke-card-name">' + escapeHtml(AGENT_LABELS[a.name] || a.name) + '</div>' +
         '<div class="spoke-card-domain">' + escapeHtml(a.domain || 'General') + '</div>' +
         '<div class="spoke-card-status"><span class="dot"></span> ' + escapeHtml(hasEndpoint ? (a.status || 'Active') : 'Coming soon') + '</div>';
       if (hasEndpoint) {
         card.addEventListener('click', function() {
           var name = this.dataset.agent;
-          if (dashboardAgents[name]) {
+          if (DASHBOARD_AGENTS[name]) {
             openDashboard(name);
           } else {
             openAgentWorkspace(name);
@@ -555,12 +462,12 @@ function renderNestedHub() {
   }
 
   // Gradient for each domain's pulse beam
-  for (var gi = 0; gi < domainMasters.length; gi++) {
+  for (var gi = 0; gi < DOMAIN_MASTERS.length; gi++) {
     var grad = createSvgEl('linearGradient', { id: 'beam-' + gi, gradientUnits: 'userSpaceOnUse' });
-    grad.appendChild(createSvgEl('stop', { offset: '0%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0' }));
-    grad.appendChild(createSvgEl('stop', { offset: '40%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0.8' }));
+    grad.appendChild(createSvgEl('stop', { offset: '0%', 'stop-color': DOMAIN_MASTERS[gi].color, 'stop-opacity': '0' }));
+    grad.appendChild(createSvgEl('stop', { offset: '40%', 'stop-color': DOMAIN_MASTERS[gi].color, 'stop-opacity': '0.8' }));
     grad.appendChild(createSvgEl('stop', { offset: '60%', 'stop-color': '#fff', 'stop-opacity': '0.9' }));
-    grad.appendChild(createSvgEl('stop', { offset: '100%', 'stop-color': domainMasters[gi].color, 'stop-opacity': '0' }));
+    grad.appendChild(createSvgEl('stop', { offset: '100%', 'stop-color': DOMAIN_MASTERS[gi].color, 'stop-opacity': '0' }));
     defs.appendChild(grad);
   }
 
@@ -608,8 +515,8 @@ function renderNestedHub() {
   svg.appendChild(masterG);
 
   // ─── DOMAIN MASTERS + CONNECTIONS ───
-  for (var d = 0; d < domainMasters.length; d++) {
-    var dm = domainMasters[d];
+  for (var d = 0; d < DOMAIN_MASTERS.length; d++) {
+    var dm = DOMAIN_MASTERS[d];
     var angleDeg = startAngle + d * domainSpacing;
     var angleRad = angleDeg * Math.PI / 180;
     var dx = cx + innerR * Math.cos(angleRad);
@@ -755,7 +662,7 @@ function renderNestedHub() {
             return function(e) {
               e.stopPropagation();
               if (isExternal) { var u = getExternalUrl(agentName); if (u) window.open(u, '_blank'); return; }
-              if (dashboardAgents[agentName]) openDashboard(agentName);
+              if (DASHBOARD_AGENTS[agentName]) openDashboard(agentName);
               else openAgentWorkspace(agentName);
             };
           })(sub.name, sub.external));
@@ -848,8 +755,8 @@ function renderMobileHub() {
   if (!container) return;
   container.innerHTML = '';
 
-  for (var d = 0; d < domainMasters.length; d++) {
-    var dm = domainMasters[d];
+  for (var d = 0; d < DOMAIN_MASTERS.length; d++) {
+    var dm = DOMAIN_MASTERS[d];
     var activeCount = dm.subs.filter(function(s) { return s.active; }).length;
     var isExpanded = expandedDomains[dm.id];
 
@@ -886,7 +793,7 @@ function renderMobileHub() {
           row.addEventListener('click', (function(agentName, isExternal) {
             return function() {
               if (isExternal) { var u = getExternalUrl(agentName); if (u) window.open(u, '_blank'); return; }
-              if (dashboardAgents[agentName]) openDashboard(agentName);
+              if (DASHBOARD_AGENTS[agentName]) openDashboard(agentName);
               else openAgentWorkspace(agentName);
             };
           })(sub.name, sub.external));
@@ -899,13 +806,13 @@ function renderMobileHub() {
 
 function openAgentWorkspace(agentName) {
   currentAgent = agentName;
-  document.getElementById('workspaceTitle').textContent = agentLabels[agentName] || agentName;
+  document.getElementById('workspaceTitle').textContent = AGENT_LABELS[agentName] || agentName;
   document.getElementById('workspaceSubtitle').textContent = 'Spoke agent workspace';
   document.getElementById('workspaceOutput').innerHTML = '';
   document.getElementById('workspaceInput').value = '';
 
   var chipsEl = document.getElementById('workspaceChips');
-  var chips = quickActions[agentName] || [];
+  var chips = QUICK_ACTIONS[agentName] || [];
   var chipHtml = '';
   for (var i = 0; i < chips.length; i++) {
     chipHtml += '<button class="chip" onclick="fillChip(\'' + escapeHtml(chips[i]) + '\')">' + escapeHtml(chips[i]) + '</button>';
@@ -1006,7 +913,7 @@ function renderRoutingResult(result, userInput) {
   var routedAgent = routeMatch ? routeMatch[1].trim() : '';
   var routedContext = contextMatch ? contextMatch[1].trim() : '';
   // Check static map first, then fall back to convention: /agents/{agent-name}
-  var agentEndpoint = agentEndpoints[routedAgent] || (routedAgent && routedAgent !== 'Claude-native' && !routedAgent.includes('BUILD BRIEF') ? '/agents/' + routedAgent : null);
+  var agentEndpoint = AGENT_ENDPOINTS[routedAgent] || (routedAgent && routedAgent !== 'Claude-native' && !routedAgent.includes('BUILD BRIEF') ? '/agents/' + routedAgent : null);
 
   var confColor = '#666';
   var confLabel = 'Unknown';
@@ -1073,7 +980,7 @@ function renderRoutingResult(result, userInput) {
     html += '<div class="routing-destination">';
     html += '<div class="routing-dest-icon"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>';
     html += '<div>';
-    html += '<div class="routing-dest-name">' + escapeHtml(agentLabels[routedAgent] || routedAgent) + '</div>';
+    html += '<div class="routing-dest-name">' + escapeHtml(AGENT_LABELS[routedAgent] || routedAgent) + '</div>';
     html += '<div class="routing-dest-label">Destination agent</div>';
     html += '</div>';
     html += '</div>';
@@ -1135,10 +1042,10 @@ function renderRoutingError(msg, userInput) {
 
 function proceedToAgent(endpoint, agentName, userInput, contextStr, conf, requestId) {
   currentAgent = agentName;
-  document.getElementById('workspaceTitle').textContent = agentLabels[agentName] || agentName;
+  document.getElementById('workspaceTitle').textContent = AGENT_LABELS[agentName] || agentName;
   document.getElementById('workspaceSubtitle').textContent = 'Processing routed request';
 
-  var chips = quickActions[agentName] || [];
+  var chips = QUICK_ACTIONS[agentName] || [];
   var chipHtml = '';
   for (var i = 0; i < chips.length; i++) {
     chipHtml += '<button class="chip" onclick="fillChip(\'' + escapeHtml(chips[i]) + '\')">' + escapeHtml(chips[i]) + '</button>';
@@ -1321,7 +1228,7 @@ async function handleWorkspaceSubmit() {
   var input = document.getElementById('workspaceInput').value.trim();
   if (!input || !currentAgent) return;
 
-  var endpoint = agentEndpoints[currentAgent];
+  var endpoint = AGENT_ENDPOINTS[currentAgent];
   if (!endpoint) return;
 
   var btn = document.getElementById('workspaceSubmitBtn');
@@ -1660,7 +1567,7 @@ function initLandscape() {
       landscapeNodes.push({
         x: nx, y: ny,
         r: 28,
-        name: isAgent ? (agentLabels[a.name] || a.name) : emptySlotNames[i - agents.length] || 'Agent Slot',
+        name: isAgent ? (AGENT_LABELS[a.name] || a.name) : emptySlotNames[i - agents.length] || 'Agent Slot',
         domain: isAgent ? (a.domain || 'General') : '— available —',
         type: isAgent ? 'spoke' : 'empty',
         patterns: isAgent ? (a.trigger_patterns || []).slice(0, 5) : [],
@@ -2359,7 +2266,7 @@ async function dashChatSend() {
   output.innerHTML = '<div class="dash-loading">Processing...</div>' + output.innerHTML;
 
   try {
-    var endpoint = agentEndpoints[currentDashboardAgent] || ('/agents/' + currentDashboardAgent);
+    var endpoint = AGENT_ENDPOINTS[currentDashboardAgent] || ('/agents/' + currentDashboardAgent);
     var data = await apiFetch(endpoint, {
       method: 'POST',
       body: JSON.stringify({ request: text, context: {} })
