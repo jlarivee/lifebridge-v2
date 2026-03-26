@@ -373,32 +373,35 @@ Apps expose read-only APIs, LifeBridge consumes via connectors with caching.
 **Connectors status:** Gmail connected: true, Slack connected: true
 
 ### v2.6 — Frontend Architecture Refactor
-**Date:** March 25, 2026
-**What was built:**
-Refactored the LifeBridge frontend from a 5,349-line monolithic HTML file into a clean, scalable, multi-file architecture. 6 phases, each independently tested and committed:
+**Date:** March 24-25, 2026
+**Commit:** Phase 6.7 final
 
-- Phase 1 — CSS extraction (6 files, 2,275 lines of CSS)
-- Phase 2 — Config + API (config.js 98 lines, api.js 251 lines, 47 API calls centralized)
-- Phase 3 — State + Router (state.js, router.js)
-- Phase 4 — Dashboards (7 files: dashboard-shell, morning-briefing, life-sciences, travel, three-rivers, memory, italy2026)
-- Phase 5 — Hub (hub-svg.js, hub-interactions.js, hub.js)
-- Phase 6 — Final cleanup (utils, workspace, views for ideas/tests/health/intel/improvement/landscape)
+5,349-line monolithic index.html refactored into 28 files across 6 phases. 94% reduction. Zero regressions throughout.
 
-Final file structure:
+Structure:
 ```
 public/
-  index.html (317 lines — pure HTML shell, zero inline JS logic)
-  css/ (6 files)
+  index.html (317 lines — pure HTML shell)
+  css/ — variables, reset, components, hub, dashboard, mobile
   js/
-    config.js, api.js, state.js, router.js, utils.js
-    hub/ (3 files)
-    dashboards/ (7 files)
-    views/ (6 files)
+    config.js      — all agent routing maps
+    api.js         — all 47 API calls centralized
+    state.js       — global mutable state
+    router.js      — all navigation logic
+    utils.js       — shared utilities
+    hub/           — hub-svg.js, hub-interactions.js, hub.js
+    dashboards/    — shell + 6 agent dashboards
+    views/         — workspace, improvement, landscape,
+                     ideas, tests, health, intel
 ```
 
-Result: 5,349 lines → 317 lines (94% reduction in index.html). 22 external JS files, each with single responsibility. Zero fetch() calls outside api.js. Zero navigation logic outside router.js.
+Rules enforced:
+- Zero fetch() calls outside api.js
+- Zero navigation outside router.js
+- Zero CSS custom properties outside variables.css
+- One responsibility per file
 
-Safety tag: v2.4-pre-refactor (rollback point if needed)
+Safety rollback: `git checkout v2.4-pre-refactor`
 **Test results:** 26 passed, 0 failed
 
 ---
