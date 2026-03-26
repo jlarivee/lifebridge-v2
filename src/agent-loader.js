@@ -20,6 +20,7 @@ const STATIC_AGENTS = new Set([
   "life-sciences-account-agent",
   "agent-builder-agent",
   "travel-agent",
+  "investment-research-agent",
 ]);
 
 /**

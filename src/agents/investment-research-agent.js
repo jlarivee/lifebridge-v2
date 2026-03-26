@@ -19,6 +19,21 @@ const skill = readFileSync(
 
 const client = new Anthropic();
 
+// ── Auto-Registration Metadata ──────────────────────────────────────────────
+
+export const AGENT_META = {
+  name: "investment-research-agent",
+  domain: "Personal Life",
+  purpose: "Paper trading, watchlists, stock/ETF research, and virtual portfolio management — no real money",
+  status: "Active",
+  skill_file: "src/skills/investment-research-agent.md",
+  code_file: "src/agents/investment-research-agent.js",
+  trigger_patterns: ["invest", "stock", "trade", "portfolio", "watchlist", "market", "ticker", "buy shares", "sell shares", "research AAPL", "paper trade", "P&L", "holdings"],
+  triggers: ["manual"],
+  endpoints: ["/agents/investment-research-agent", "/investment/watchlist", "/investment/portfolio", "/investment/trades", "/investment/summary"],
+  requires_approval: [],
+};
+
 const DB_KEYS = {
   watchlist: "investment-watchlist",
   portfolio: "investment-portfolio",

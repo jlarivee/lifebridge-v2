@@ -53,6 +53,7 @@ import {
   runInvestmentResearchAgent, getInvestmentWatchlist, getInvestmentPortfolio,
   getInvestmentTrades, getInvestmentSummary
 } from "./agents/investment-research-agent.js";
+import { autoRegisterAllAgents } from "./auto-register.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -1624,6 +1625,12 @@ async function start() {
     });
     await writeRegistry(reg);
     console.log("Registered: italy2026 external app");
+  }
+
+  // Auto-register any agents that export AGENT_META and aren't in registry yet
+  const autoReg = await autoRegisterAllAgents();
+  if (autoReg.registered > 0) {
+    console.log(`[AUTO-REG] ${autoReg.registered} new agent(s) registered on startup`);
   }
 
   // Dynamic agent loader — mounts routes for any deployed spoke agents
