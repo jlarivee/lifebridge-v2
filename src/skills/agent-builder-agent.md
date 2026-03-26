@@ -241,16 +241,26 @@ adapted for modifications:
 
 Output VALIDATION PASSED or VALIDATION FAILED with details.
 
-### Enhance Phase 4 — Test-First Deployment
+### Enhance Phase 4 — Safe Deployment with Automatic Rollback
 
-Same as build mode Phase 4:
-1. If new test cases are needed for the enhancement, register them first
-2. Run existing tests — confirm they still pass (no regressions)
-3. Write all modified files to disk
-4. Commit to GitHub
-5. Trigger hot reload
-6. Run tests again — confirm all pass
-7. Output DEPLOYMENT COMPLETE with file list
+The enhancement deployment is wrapped in a safety net:
+
+1. BACKUP: All original files are copied to memory before any writes
+2. WRITE: Modified files are written to disk
+3. TEST: Full test suite runs automatically
+4. If tests PASS:
+   - Commit to GitHub
+   - Trigger hot reload
+   - Output DEPLOYMENT COMPLETE with file list and test results
+5. If tests FAIL:
+   - AUTOMATIC ROLLBACK: all original files are restored from backup
+   - New files created by the enhancement are deleted
+   - Output DEPLOYMENT ROLLED BACK with which tests failed and why
+   - No GitHub commit is made (nothing to revert remotely)
+   - The system is back to its pre-enhancement state — zero damage
+
+This means LifeBridge can never brick itself through self-modification.
+If any enhancement breaks anything, the originals are restored automatically.
 
 ---
 

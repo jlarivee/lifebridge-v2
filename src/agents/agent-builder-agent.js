@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
-import { deployAgent, deployEnhancement } from "../tools/deploy-tools.js";
+import { deployAgent, deployEnhancementSafe } from "../tools/deploy-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -287,12 +287,19 @@ export async function continueBuild(sessionId, userMessage) {
   if (session.phase === "deployed") {
     try {
       if (session.mode === "enhance") {
-        // Enhance mode: extract all modified/new files and deploy them
+        // Enhance mode: extract files, backup originals, deploy, test, rollback if broken
         const files = extractEnhancementFiles(session.messages);
         if (files.length > 0) {
-          const deployResult = await deployEnhancement(session.agent_name, files);
+          const deployResult = await deployEnhancementSafe(session.agent_name, files);
           session.deploy_result = deployResult;
-          console.log(`[BUILDER] ENHANCED: ${session.agent_name} — ${files.length} files written`);
+
+          if (deployResult.rolled_back) {
+            // Tests failed — files already restored, mark session as failed
+            session.phase = "rollback";
+            console.log(`[BUILDER] ROLLED BACK: ${session.agent_name} — tests failed, originals restored`);
+          } else {
+            console.log(`[BUILDER] ENHANCED: ${session.agent_name} — ${files.length} files written, tests passed`);
+          }
 
           // Log execution
           try {
@@ -389,7 +396,7 @@ export async function continueBuild(sessionId, userMessage) {
     phase: session.phase,
     output,
     deploy_result: session.deploy_result || null,
-    requires_approval: session.phase !== "deployed" && session.phase !== "validation-failed",
+    requires_approval: session.phase !== "deployed" && session.phase !== "validation-failed" && session.phase !== "rollback",
     approval_reason: approvalReason,
   };
 }
