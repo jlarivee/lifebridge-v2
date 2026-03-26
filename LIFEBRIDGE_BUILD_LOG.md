@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.6 (shipped — frontend refactored)
+**Current version:** v2.7 (shipped — action loops fixed)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -402,6 +402,27 @@ Rules enforced:
 - One responsibility per file
 
 Safety rollback: `git checkout v2.4-pre-refactor`
+**Test results:** 26 passed, 0 failed
+
+### v2.7 — Autonomous Action Loop Fix
+**Date:** March 26, 2026
+
+**Root causes fixed:**
+1. Improvement approval loop — fuzzy type matching
+   approveChange() used exact string matching. AI-generated proposal types like "skill modification" fell into "Unknown change type" and never executed.
+   Fix: fuzzy matching arrays with 6+ variations per type. Now handles edits to any agent skill file, not just master-agent.md.
+
+2. Intelligence approval loop — no execution
+   approveFinding() created snapshots but never wrote to context. Approvals were complete no-ops.
+   Fix: approved findings now write suggested_action to context.learned_patterns via writeContext().
+
+3. Memory loop — was working correctly. Added logging.
+
+**New capability:**
+- GET /execution/log — returns last 20 execution actions
+- Every approval now logs: action_type, description, success, timestamp
+- Josh can see exactly what LifeBridge did after any approval
+
 **Test results:** 26 passed, 0 failed
 
 ---
