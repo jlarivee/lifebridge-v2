@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
+import { deployAgent } from "../tools/deploy-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const skill = readFileSync(
@@ -127,6 +128,62 @@ export async function continueBuild(sessionId, userMessage) {
   session.phase = detectPhase(output);
   session.updated = new Date().toISOString();
 
+  // ── ACTUAL DEPLOYMENT: when builder says "DEPLOYMENT COMPLETE", write files ──
+  if (session.phase === "deployed") {
+    try {
+      const extracted = extractArtifacts(session.messages);
+      if (extracted.agentName && extracted.skillContent && extracted.codeContent) {
+        const registryEntry = {
+          name: extracted.agentName,
+          domain: extracted.domain || "General",
+          status: "Active",
+          purpose: `Auto-built agent: ${extracted.agentName}`,
+          endpoints: [`/agents/${extracted.agentName}`],
+          created_at: new Date().toISOString(),
+        };
+
+        const deployResult = await deployAgent(
+          extracted.agentName,
+          extracted.skillContent,
+          extracted.codeContent,
+          registryEntry
+        );
+
+        session.deploy_result = deployResult;
+        console.log(`[BUILDER] DEPLOYED: ${extracted.agentName} — files written, registered, GitHub synced`);
+
+        // Hot-reload: notify the system
+        try {
+          const PORT = process.env.PORT || 5000;
+          await fetch(`http://localhost:${PORT}/system/agent-loaded`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agent: extracted.agentName }),
+          });
+        } catch {}
+
+        // Log execution
+        try {
+          const { logExecution } = await import("../tools/approval-tools.js");
+          await logExecution({
+            source: "agent-builder",
+            proposal_id: sessionId,
+            action_type: "agent_deployed",
+            change_type: "new_agent",
+            description: `Deployed new agent: ${extracted.agentName} — skill + code written, registered, route live`,
+            success: true,
+          });
+        } catch {}
+      } else {
+        console.log(`[BUILDER] WARNING: Could not extract artifacts from session. Agent name: ${extracted.agentName}, skill: ${!!extracted.skillContent}, code: ${!!extracted.codeContent}`);
+        session.deploy_result = { deployed: false, reason: "Could not extract skill/code from conversation" };
+      }
+    } catch (e) {
+      console.log(`[BUILDER] DEPLOY ERROR: ${e.message}`);
+      session.deploy_result = { deployed: false, error: e.message };
+    }
+  }
+
   await db.set(`build-session:${sessionId}`, session);
 
   // Determine what approval is needed next
@@ -144,6 +201,7 @@ export async function continueBuild(sessionId, userMessage) {
     session_id: sessionId,
     phase: session.phase,
     output,
+    deploy_result: session.deploy_result || null,
     requires_approval: session.phase !== "deployed" && session.phase !== "validation-failed",
     approval_reason: approvalReason,
   };
@@ -155,6 +213,51 @@ export async function continueBuild(sessionId, userMessage) {
  */
 export async function runAgentBuilder(buildBrief, context = {}) {
   return startBuild(buildBrief, context);
+}
+
+/**
+ * Extract skill file content, code content, and agent name from the build conversation.
+ * Scans all assistant messages for markdown/code fenced blocks.
+ */
+function extractArtifacts(messages) {
+  let skillContent = null;
+  let codeContent = null;
+  let agentName = null;
+  let domain = null;
+
+  for (const msg of messages) {
+    if (msg.role !== "assistant") continue;
+    const text = typeof msg.content === "string" ? msg.content : "";
+
+    // Extract agent name from various patterns
+    if (!agentName) {
+      const nameMatch = text.match(/Agent:\s+([\w-]+)/i) ||
+        text.match(/agent_name.*?["']?([\w-]+(?:-agent)?)["']?/i) ||
+        text.match(/Code file:\s+src\/agents\/([\w-]+)\.js/i) ||
+        text.match(/Route:\s+POST \/agents\/([\w-]+)/i);
+      if (nameMatch) agentName = nameMatch[1];
+    }
+
+    // Extract domain
+    if (!domain) {
+      const domainMatch = text.match(/Domain[:\s]+(\w[\w\s]*\w)/i);
+      if (domainMatch) domain = domainMatch[1].trim();
+    }
+
+    // Extract skill content (markdown fenced block after SKILL FILE marker)
+    if (!skillContent && text.includes("SKILL FILE")) {
+      const mdMatch = text.match(/```(?:markdown)?\s*\n([\s\S]*?)```/);
+      if (mdMatch) skillContent = mdMatch[1].trim();
+    }
+
+    // Extract code content (js fenced block after AGENT CODE marker)
+    if (!codeContent && text.includes("AGENT CODE")) {
+      const jsMatch = text.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/);
+      if (jsMatch) codeContent = jsMatch[1].trim();
+    }
+  }
+
+  return { agentName, skillContent, codeContent, domain };
 }
 
 function detectPhase(output) {
