@@ -49,6 +49,10 @@ import {
   getTravelDocs, getTravelDoc, createTravelDoc, updateTravelDoc, deleteTravelDoc,
   checkFlightWatches, checkDocExpiry, sendLoyaltyReminder
 } from "./agents/travel-agent.js";
+import {
+  runInvestmentResearchAgent, getInvestmentWatchlist, getInvestmentPortfolio,
+  getInvestmentTrades, getInvestmentSummary
+} from "./agents/investment-research-agent.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
 import Database from "@replit/database";
@@ -1021,6 +1025,44 @@ app.post("/agents/intelligence-update-agent", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Investment Research Agent ────────────────────────────────────────────────
+
+app.get("/agents/investment-research-agent/health", async (req, res) => {
+  res.json({ status: "ok", agent: "investment-research-agent", checked_at: new Date().toISOString() });
+});
+
+app.post("/agents/investment-research-agent", async (req, res) => {
+  try {
+    const { request: reqText, input, context } = req.body || {};
+    const userRequest = reqText || input || "";
+    if (!userRequest) return res.status(400).json({ error: "request or input required" });
+    const result = await runInvestmentResearchAgent(userRequest, context || {});
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/investment/watchlist", async (req, res) => {
+  try { res.json(await getInvestmentWatchlist()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/investment/portfolio", async (req, res) => {
+  try { res.json(await getInvestmentPortfolio()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/investment/trades", async (req, res) => {
+  try { res.json(await getInvestmentTrades(req.query.status)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/investment/summary", async (req, res) => {
+  try { res.json(await getInvestmentSummary()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Travel Agent ────────────────────────────────────────────────────────────

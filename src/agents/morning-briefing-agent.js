@@ -9,7 +9,7 @@ import * as db from "../db.js";
 import { sendGmail, sendSlack } from "./connectors.js";
 
 const PORT = process.env.PORT || 5000;
-const BASE = `http://localhost:${PORT}`;
+const BASE = process.env.REPLIT_URL || `http://localhost:${PORT}`;
 const DASHBOARD_URL = process.env.REPLIT_URL || "https://lifebridge-v2.replit.app";
 const client = new Anthropic();
 

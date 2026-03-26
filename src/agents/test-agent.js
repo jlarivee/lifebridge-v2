@@ -66,6 +66,14 @@ const DEFAULT_CASES = {
     { tier: "fast", input: "Travel: GET trips", type: "endpoint", method: "GET", path: "/travel/trips", expect_status: 200 },
     { tier: "full", input: "Travel: NYC concert hotel", type: "endpoint", method: "POST", path: "/agents/travel-agent", expect_status: 200, expect_fields: ["success", "agent", "output"], body: { request: "I have a concert in NYC this weekend, find me a hotel near Madison Square Garden" } },
   ],
+  "investment-research-agent": [
+    { tier: "fast", input: "Investment: health check", type: "endpoint", method: "GET", path: "/agents/investment-research-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
+    { tier: "fast", input: "Investment: GET watchlist", type: "endpoint", method: "GET", path: "/investment/watchlist", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Investment: GET portfolio", type: "endpoint", method: "GET", path: "/investment/portfolio", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Investment: GET trades", type: "endpoint", method: "GET", path: "/investment/trades", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "fast", input: "Investment: GET summary", type: "endpoint", method: "GET", path: "/investment/summary", expect_status: 200, expect_fields: ["agent", "output", "success"] },
+    { tier: "full", input: "Investment: research AAPL", type: "endpoint", method: "POST", path: "/agents/investment-research-agent", expect_status: 200, expect_fields: ["success", "action_taken", "output", "agent"], body: { request: "research AAPL — give me a quick fundamental snapshot" } },
+  ],
   "morning-briefing-agent": [
     { tier: "fast", input: "Briefing: health check", type: "endpoint", method: "GET", path: "/agents/morning-briefing-agent/health", expect_status: 200, expect_fields: ["status", "agent"] },
     { tier: "fast", input: "Briefing: GET latest", type: "endpoint", method: "GET", path: "/briefing/latest", expect_status: 200, expect_fields: ["agent", "output", "success"] },

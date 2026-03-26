@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.8 (shipped — autonomous execution engine live)
+**Current version:** v2.9 (shipped — investment research agent + fixes)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -460,6 +460,37 @@ User request → Master agent (no capable agent) → BUILD BRIEF
 
 ---
 
+### v2.9 — Investment Research Agent + Fixes
+**Date:** March 26, 2026
+
+**What was built:**
+- **Investment Research Agent** (src/agents/investment-research-agent.js)
+  - Paper trading, watchlists, stock/ETF research, virtual portfolio management
+  - $100K virtual portfolio with position tracking, P&L, win rate
+  - Watchlist with price alerts and tags
+  - Trade journal with thesis and exit criteria
+  - Research workflow: fundamentals, technicals, catalysts, bull/bear thesis
+  - Web search enabled (5 searches per request)
+  - 6 test cases (5 fast, 1 full)
+  - Dashboard: public/js/dashboards/investment.js
+  - DB keys: investment-watchlist, investment-portfolio, investment-trades
+  - Endpoints: /investment/watchlist, /investment/portfolio, /investment/trades, /investment/summary
+  - Frontend config updated: AGENT_ENDPOINTS, AGENT_LABELS, DASHBOARD_AGENTS, DOMAIN_MASTERS (Personal Life)
+
+- **Morning Briefing fix** — `BASE` changed from hardcoded `http://localhost:${PORT}` to `process.env.REPLIT_URL || http://localhost:${PORT}` (src/agents/morning-briefing-agent.js line 12)
+
+- **Slab cut dates fix** — scripts/fix-slab-dates.sh created to correct walnut entries from 2024-03-01 to 2026-03-01 via slab agent API
+
+- **Registration script** — scripts/register-investment-agent.sh seeds registry + test suite + runs fast tests
+
+**Agents:** 11 active (added investment-research-agent)
+**Deploy steps on Replit:**
+1. `bash scripts/sync-and-start.sh`
+2. `bash scripts/register-investment-agent.sh`
+3. `bash scripts/fix-slab-dates.sh`
+
+---
+
 ## The Master Agent System Prompt (Current — v2.5)
 
 Stored as src/skills/master-agent.md. Includes reasoning protocol with confidence scoring, Claude-native capabilities reference, connectors registry section, and explicit routing instruction for the life-sciences-account-agent. Full content lives in the skill file — not duplicated here to avoid drift.
@@ -480,6 +511,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | travel-agent | Personal Life | Active |
 | slab-inventory-tracker-agent | Personal Business | Active |
 | agent-builder-agent | System | Active |
+| investment-research-agent | Personal Life | Active |
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
@@ -534,19 +566,16 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 
 ### Completed — Morning Briefing Agent (v2.5) ✅
 
+### Completed — Investment Research Agent ✅
+### Completed — Morning Briefing localhost fix ✅
+### Completed — Slab cut dates fix script ✅
+### Completed — Travel Agent full build (already complete as of v2.8) ✅
+
 ### Next priority (in order)
 
-1. **Investment Research Agent (paper trading)**
-   - NOT real financial advice — paper money only
-   - $1K hypothetical per thesis, 90-day tracking
-   - 3 theses per week
-   - Learns from its own predictions over time
-   - Stores all historical data to build bigger trends
-   - IMPORTANT: Always clearly labeled as paper trading, never real investment advice
-
-2. **Morning Briefing fix** — dashboard URL hardcoded to localhost:5000, should use process.env.REPLIT_URL
-
-3. **Slab cut dates fix** — both walnut slabs incorrectly entered as 2024-03-01, should be 2026-03-01
+1. **Investment Research Agent enhancements** — morning scan integration into briefing, automated trade idea generation
+2. **Multi-turn conversation memory** — context persistence within a session
+3. **Agent-to-agent delegation** — spoke agent calls another spoke agent
 
 ### Future capabilities
 - Multi-turn conversation memory within a session

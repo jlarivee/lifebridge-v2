@@ -13,6 +13,7 @@ function openDashboard(agentName) {
     'travel-agent': renderTravelDashboard,
     'slab-inventory-tracker-agent': renderSlabDashboard,
     'memory-consolidation-agent': renderMemoryDashboard,
+    'investment-research-agent': renderInvestmentDashboard,
     'italy2026': renderItaly2026Dashboard
   };
 

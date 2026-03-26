@@ -14,7 +14,8 @@ var AGENT_ENDPOINTS = {
   'registry-integrity-agent': '/agents/registry-integrity-agent',
   'intelligence-update-agent': '/agents/intelligence-update-agent',
   'connectors': '/agents/connectors',
-  'three-rivers-social-agent': '/agents/three-rivers-social-agent'
+  'three-rivers-social-agent': '/agents/three-rivers-social-agent',
+  'investment-research-agent': '/agents/investment-research-agent'
 };
 
 var AGENT_LABELS = {
@@ -27,7 +28,8 @@ var AGENT_LABELS = {
   'registry-integrity-agent': 'Registry Integrity Agent',
   'intelligence-update-agent': 'Intelligence Update Agent',
   'connectors': 'Connectors',
-  'three-rivers-social-agent': 'Social Media'
+  'three-rivers-social-agent': 'Social Media',
+  'investment-research-agent': 'Investment Research'
 };
 
 var DASHBOARD_AGENTS = {
@@ -36,7 +38,8 @@ var DASHBOARD_AGENTS = {
   'travel-agent': true,
   'slab-inventory-tracker-agent': true,
   'memory-consolidation-agent': true,
-  'italy2026': true
+  'italy2026': true,
+  'investment-research-agent': true
 };
 
 var QUICK_ACTIONS = {
@@ -84,6 +87,7 @@ var DOMAIN_MASTERS = [
     color: '#534AB7', dimColor: 'rgba(83,74,183,0.12)',
     subs: [
       { name: 'travel-agent', label: 'Travel', active: true },
+      { name: 'investment-research-agent', label: 'Investing', active: true },
       { name: 'memory-consolidation-agent', label: 'Memory', active: true },
       { name: 'italy2026', label: 'Italy 2026', active: true, external: true, url: null },
       { name: 'family-scheduler', label: 'Family', active: false }
