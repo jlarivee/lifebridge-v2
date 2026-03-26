@@ -73,7 +73,7 @@ app.post("/route", async (req, res) => {
     const result = await route(input.trim());
 
     // Auto-dispatch BUILD BRIEFs to agent-builder
-    if (result.response && result.response.includes("BUILD BRIEF")) {
+    if (result.response && result.response.includes("BUILD BRIEF") && !result.response.includes("ENHANCE BRIEF")) {
       try {
         const buildResult = await runAgentBuilder(result.response, {});
         result.build_session = {
@@ -84,6 +84,32 @@ app.post("/route", async (req, res) => {
         console.log(`[AUTO-BUILD] BUILD BRIEF dispatched to agent-builder: session ${buildResult.session_id}`);
       } catch (e) {
         console.log(`[AUTO-BUILD] Failed to dispatch: ${e.message}`);
+        result.build_session = { error: e.message };
+      }
+    }
+
+    // Auto-dispatch ENHANCE BRIEFs to agent-builder in enhance mode
+    if (result.response && result.response.includes("ENHANCE BRIEF")) {
+      try {
+        // Parse agent name from the enhance brief text
+        const nameMatch = result.response.match(/Agent to enhance:\s+([\w-]+)/i);
+        const enhanceMatch = result.response.match(/Enhancement:\s+([^\n]+)/i);
+        const enhanceBrief = {
+          agent_name: nameMatch ? nameMatch[1].trim() : "",
+          agent_to_enhance: nameMatch ? nameMatch[1].trim() : "",
+          enhancement: enhanceMatch ? enhanceMatch[1].trim() : result.response,
+          raw: result.response,
+        };
+        const enhanceResult = await runAgentBuilder(enhanceBrief, { enhance_brief: enhanceBrief });
+        result.build_session = {
+          session_id: enhanceResult.session_id,
+          mode: "enhance",
+          phase: enhanceResult.phase,
+          status: "Enhance Phase 1 started — reading existing files and planning changes",
+        };
+        console.log(`[AUTO-ENHANCE] ENHANCE BRIEF dispatched for ${enhanceBrief.agent_name}: session ${enhanceResult.session_id}`);
+      } catch (e) {
+        console.log(`[AUTO-ENHANCE] Failed to dispatch: ${e.message}`);
         result.build_session = { error: e.message };
       }
     }

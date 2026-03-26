@@ -1,12 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
-import { deployAgent } from "../tools/deploy-tools.js";
+import { deployAgent, deployEnhancement } from "../tools/deploy-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, "../..");
 const skill = readFileSync(
   join(__dirname, "../skills/agent-builder-agent.md"),
   "utf8"
@@ -21,6 +22,49 @@ const codeTemplate = readFileSync(
 );
 
 const client = new Anthropic();
+
+// ── File reading for enhance mode ─────────────────────────────────────────────
+
+function safeReadFile(relativePath) {
+  try {
+    const fullPath = join(PROJECT_ROOT, relativePath);
+    if (existsSync(fullPath)) {
+      return readFileSync(fullPath, "utf8");
+    }
+  } catch {}
+  return null;
+}
+
+function readExistingAgentFiles(agentName) {
+  const files = {};
+
+  // Agent code and skill
+  files.skill = safeReadFile(`src/skills/${agentName}.md`);
+  files.code = safeReadFile(`src/agents/${agentName}.js`);
+
+  // Dashboard — try agent name, then common short names
+  const dashboardNames = [
+    agentName,
+    agentName.replace(/-agent$/, ""),
+    agentName.replace(/-agent$/, "").replace(/-/g, ""),
+  ];
+  for (const name of dashboardNames) {
+    const content = safeReadFile(`public/js/dashboards/${name}.js`);
+    if (content) {
+      files.dashboard = content;
+      files.dashboardPath = `public/js/dashboards/${name}.js`;
+      break;
+    }
+  }
+
+  // Shared files
+  files.config = safeReadFile("public/js/config.js");
+  files.dashboardCss = safeReadFile("public/css/dashboard.css");
+
+  return files;
+}
+
+// ── System prompt builders ────────────────────────────────────────────────────
 
 function buildSystemPrompt(buildBrief, context) {
   return `${skill}
@@ -41,6 +85,41 @@ ${JSON.stringify(buildBrief, null, 2)}
 Context:
 ${JSON.stringify(context, null, 2)}`;
 }
+
+function buildEnhanceSystemPrompt(enhanceBrief, existingFiles, context) {
+  let fileContext = "\n\n## EXISTING FILES (current state)\n\n";
+
+  if (existingFiles.skill) {
+    fileContext += `### src/skills/${enhanceBrief.agent_name || "unknown"}.md\n\`\`\`markdown\n${existingFiles.skill}\n\`\`\`\n\n`;
+  }
+  if (existingFiles.code) {
+    fileContext += `### src/agents/${enhanceBrief.agent_name || "unknown"}.js\n\`\`\`javascript\n${existingFiles.code}\n\`\`\`\n\n`;
+  }
+  if (existingFiles.dashboard) {
+    fileContext += `### ${existingFiles.dashboardPath}\n\`\`\`javascript\n${existingFiles.dashboard}\n\`\`\`\n\n`;
+  }
+  if (existingFiles.config) {
+    fileContext += `### public/js/config.js\n\`\`\`javascript\n${existingFiles.config}\n\`\`\`\n\n`;
+  }
+  if (existingFiles.dashboardCss) {
+    // Only include last 200 lines of CSS to save tokens — new styles go at the end
+    const cssLines = existingFiles.dashboardCss.split("\n");
+    const tail = cssLines.length > 200 ? cssLines.slice(-200).join("\n") : existingFiles.dashboardCss;
+    fileContext += `### public/css/dashboard.css (last 200 lines — append new styles at the end)\n\`\`\`css\n${tail}\n\`\`\`\n\n`;
+  }
+
+  return `${skill}
+${fileContext}
+MODE: ENHANCE (modifying an existing agent, not building a new one)
+
+Enhance brief received:
+${JSON.stringify(enhanceBrief, null, 2)}
+
+Context:
+${JSON.stringify(context, null, 2)}`;
+}
+
+// ── BUILD mode (existing) ─────────────────────────────────────────────────────
 
 /**
  * Start a new build session — Phase 1.
@@ -70,9 +149,9 @@ Do NOT proceed to Phase 2 until you receive explicit approval.`;
     .join("")
     .trim();
 
-  // Store session: system prompt + full message history
   const session = {
     id: sessionId,
+    mode: "build",
     build_brief: buildBrief,
     context,
     system_prompt: systemPrompt,
@@ -97,8 +176,86 @@ Do NOT proceed to Phase 2 until you receive explicit approval.`;
   };
 }
 
+// ── ENHANCE mode (new) ───────────────────────────────────────────────────────
+
 /**
- * Continue an existing build session — send an approval or instruction,
+ * Start an enhance session — reads existing agent files, starts Phase 1.
+ */
+export async function startEnhance(enhanceBrief, context = {}) {
+  const sessionId = uuidv4();
+  const agentName = enhanceBrief.agent_name || enhanceBrief.agent_to_enhance || "";
+
+  if (!agentName) {
+    return {
+      agent: "agent-builder-agent",
+      output: "Enhancement failed: no agent name specified in enhance brief.",
+      success: false,
+    };
+  }
+
+  // Read all existing files for this agent
+  const existingFiles = readExistingAgentFiles(agentName);
+  const systemPrompt = buildEnhanceSystemPrompt(enhanceBrief, existingFiles, context);
+
+  const userMessage = `Execute the ENHANCE pipeline for this enhance brief.
+
+You are in ENHANCE mode — you are modifying an existing agent, not building a new one.
+
+Start with Enhance Phase 1 — read the existing files provided in your context,
+then output your enhancement plan showing what changes you will make to which files.
+
+Label your output clearly: ENHANCE PLAN — READY FOR REVIEW
+Do NOT proceed to Phase 2 until you receive explicit approval.`;
+
+  const messages = [{ role: "user", content: userMessage }];
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8192,
+    system: systemPrompt,
+    messages,
+  });
+
+  const output = response.content
+    .filter(b => b.type === "text")
+    .map(b => b.text)
+    .join("")
+    .trim();
+
+  const session = {
+    id: sessionId,
+    mode: "enhance",
+    enhance_brief: enhanceBrief,
+    agent_name: agentName,
+    existing_files: Object.keys(existingFiles).filter(k => existingFiles[k]),
+    context,
+    system_prompt: systemPrompt,
+    messages: [
+      ...messages,
+      { role: "assistant", content: output },
+    ],
+    phase: detectPhase(output),
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+  };
+
+  await db.set(`build-session:${sessionId}`, session);
+
+  return {
+    agent: "agent-builder-agent",
+    session_id: sessionId,
+    mode: "enhance",
+    phase: session.phase,
+    output,
+    requires_approval: true,
+    approval_reason: "Review the enhancement plan before proceeding",
+  };
+}
+
+// ── Continue session (works for both build and enhance) ───────────────────────
+
+/**
+ * Continue an existing build/enhance session — send an approval or instruction,
  * get the next phase output.
  */
 export async function continueBuild(sessionId, userMessage) {
@@ -107,7 +264,6 @@ export async function continueBuild(sessionId, userMessage) {
     throw new Error(`Build session ${sessionId} not found`);
   }
 
-  // Append the user's approval/instruction
   session.messages.push({ role: "user", content: userMessage });
 
   const response = await client.messages.create({
@@ -123,61 +279,86 @@ export async function continueBuild(sessionId, userMessage) {
     .join("")
     .trim();
 
-  // Append assistant response to history
   session.messages.push({ role: "assistant", content: output });
   session.phase = detectPhase(output);
   session.updated = new Date().toISOString();
 
-  // ── ACTUAL DEPLOYMENT: when builder says "DEPLOYMENT COMPLETE", write files ──
+  // ── DEPLOYMENT ──
   if (session.phase === "deployed") {
     try {
-      const extracted = extractArtifacts(session.messages);
-      if (extracted.agentName && extracted.skillContent && extracted.codeContent) {
-        const registryEntry = {
-          name: extracted.agentName,
-          domain: extracted.domain || "General",
-          status: "Active",
-          purpose: `Auto-built agent: ${extracted.agentName}`,
-          endpoints: [`/agents/${extracted.agentName}`],
-          created_at: new Date().toISOString(),
-        };
+      if (session.mode === "enhance") {
+        // Enhance mode: extract all modified/new files and deploy them
+        const files = extractEnhancementFiles(session.messages);
+        if (files.length > 0) {
+          const deployResult = await deployEnhancement(session.agent_name, files);
+          session.deploy_result = deployResult;
+          console.log(`[BUILDER] ENHANCED: ${session.agent_name} — ${files.length} files written`);
 
-        const deployResult = await deployAgent(
-          extracted.agentName,
-          extracted.skillContent,
-          extracted.codeContent,
-          registryEntry
-        );
-
-        session.deploy_result = deployResult;
-        console.log(`[BUILDER] DEPLOYED: ${extracted.agentName} — files written, registered, GitHub synced`);
-
-        // Hot-reload: notify the system
-        try {
-          const PORT = process.env.PORT || 5000;
-          await fetch(`http://localhost:${PORT}/system/agent-loaded`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agent: extracted.agentName }),
-          });
-        } catch {}
-
-        // Log execution
-        try {
-          const { logExecution } = await import("../tools/approval-tools.js");
-          await logExecution({
-            source: "agent-builder",
-            proposal_id: sessionId,
-            action_type: "agent_deployed",
-            change_type: "new_agent",
-            description: `Deployed new agent: ${extracted.agentName} — skill + code written, registered, route live`,
-            success: true,
-          });
-        } catch {}
+          // Log execution
+          try {
+            const { logExecution } = await import("../tools/approval-tools.js");
+            await logExecution({
+              source: "agent-builder",
+              proposal_id: sessionId,
+              action_type: "agent_enhanced",
+              change_type: "enhancement",
+              description: `Enhanced ${session.agent_name}: ${files.map(f => f.path).join(", ")}`,
+              success: true,
+            });
+          } catch {}
+        } else {
+          console.log(`[BUILDER] WARNING: Could not extract files from enhance session`);
+          session.deploy_result = { deployed: false, reason: "Could not extract files from conversation" };
+        }
       } else {
-        console.log(`[BUILDER] WARNING: Could not extract artifacts from session. Agent name: ${extracted.agentName}, skill: ${!!extracted.skillContent}, code: ${!!extracted.codeContent}`);
-        session.deploy_result = { deployed: false, reason: "Could not extract skill/code from conversation" };
+        // Build mode: original new agent deployment
+        const extracted = extractArtifacts(session.messages);
+        if (extracted.agentName && extracted.skillContent && extracted.codeContent) {
+          const registryEntry = {
+            name: extracted.agentName,
+            domain: extracted.domain || "General",
+            status: "Active",
+            purpose: `Auto-built agent: ${extracted.agentName}`,
+            endpoints: [`/agents/${extracted.agentName}`],
+            created_at: new Date().toISOString(),
+          };
+
+          const deployResult = await deployAgent(
+            extracted.agentName,
+            extracted.skillContent,
+            extracted.codeContent,
+            registryEntry
+          );
+
+          session.deploy_result = deployResult;
+          console.log(`[BUILDER] DEPLOYED: ${extracted.agentName} — files written, registered, GitHub synced`);
+
+          try {
+            const { logExecution } = await import("../tools/approval-tools.js");
+            await logExecution({
+              source: "agent-builder",
+              proposal_id: sessionId,
+              action_type: "agent_deployed",
+              change_type: "new_agent",
+              description: `Deployed new agent: ${extracted.agentName} — skill + code written, registered, route live`,
+              success: true,
+            });
+          } catch {}
+        } else {
+          console.log(`[BUILDER] WARNING: Could not extract artifacts from session. Agent name: ${extracted.agentName}, skill: ${!!extracted.skillContent}, code: ${!!extracted.codeContent}`);
+          session.deploy_result = { deployed: false, reason: "Could not extract skill/code from conversation" };
+        }
       }
+
+      // Hot-reload for both modes
+      try {
+        const PORT = process.env.PORT || 5000;
+        await fetch(`http://localhost:${PORT}/system/agent-loaded`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agent: session.agent_name || "unknown" }),
+        });
+      } catch {}
     } catch (e) {
       console.log(`[BUILDER] DEPLOY ERROR: ${e.message}`);
       session.deploy_result = { deployed: false, error: e.message };
@@ -186,19 +367,25 @@ export async function continueBuild(sessionId, userMessage) {
 
   await db.set(`build-session:${sessionId}`, session);
 
-  // Determine what approval is needed next
   let approvalReason = null;
-  if (session.phase === "phase-1-review") {
-    approvalReason = "Review the skill file before proceeding to Phase 2";
-  } else if (session.phase === "phase-2-review") {
-    approvalReason = "Review the agent code before proceeding to validation";
+  if (session.phase === "phase-1-review" || session.phase === "enhance-plan-review") {
+    approvalReason = session.mode === "enhance"
+      ? "Review the enhancement plan before proceeding"
+      : "Review the skill file before proceeding to Phase 2";
+  } else if (session.phase === "phase-2-review" || session.phase === "enhance-files-review") {
+    approvalReason = session.mode === "enhance"
+      ? "Review the modified files before validation"
+      : "Review the agent code before proceeding to validation";
   } else if (session.phase === "validated") {
-    approvalReason = "Validation passed — approve to deploy the agent";
+    approvalReason = session.mode === "enhance"
+      ? "Validation passed — approve to deploy the enhancement"
+      : "Validation passed — approve to deploy the agent";
   }
 
   return {
     agent: "agent-builder-agent",
     session_id: sessionId,
+    mode: session.mode || "build",
     phase: session.phase,
     output,
     deploy_result: session.deploy_result || null,
@@ -212,12 +399,18 @@ export async function continueBuild(sessionId, userMessage) {
  * Kept for backward compatibility with POST /agents/builder.
  */
 export async function runAgentBuilder(buildBrief, context = {}) {
+  // Auto-detect: if context contains enhance_brief, start enhance mode
+  if (context.enhance_brief || buildBrief.mode === "enhance" || buildBrief.agent_to_enhance) {
+    const enhanceBrief = context.enhance_brief || buildBrief;
+    return startEnhance(enhanceBrief, context);
+  }
   return startBuild(buildBrief, context);
 }
 
+// ── Artifact extraction ───────────────────────────────────────────────────────
+
 /**
- * Extract skill file content, code content, and agent name from the build conversation.
- * Scans all assistant messages for markdown/code fenced blocks.
+ * Extract skill file content, code content, and agent name from BUILD conversation.
  */
 function extractArtifacts(messages) {
   let skillContent = null;
@@ -229,7 +422,6 @@ function extractArtifacts(messages) {
     if (msg.role !== "assistant") continue;
     const text = typeof msg.content === "string" ? msg.content : "";
 
-    // Extract agent name from various patterns
     if (!agentName) {
       const nameMatch = text.match(/Agent:\s+([\w-]+)/i) ||
         text.match(/agent_name.*?["']?([\w-]+(?:-agent)?)["']?/i) ||
@@ -238,19 +430,16 @@ function extractArtifacts(messages) {
       if (nameMatch) agentName = nameMatch[1];
     }
 
-    // Extract domain
     if (!domain) {
       const domainMatch = text.match(/Domain[:\s]+(\w[\w\s]*\w)/i);
       if (domainMatch) domain = domainMatch[1].trim();
     }
 
-    // Extract skill content (markdown fenced block after SKILL FILE marker)
     if (!skillContent && text.includes("SKILL FILE")) {
       const mdMatch = text.match(/```(?:markdown)?\s*\n([\s\S]*?)```/);
       if (mdMatch) skillContent = mdMatch[1].trim();
     }
 
-    // Extract code content (js fenced block after AGENT CODE marker)
     if (!codeContent && text.includes("AGENT CODE")) {
       const jsMatch = text.match(/```(?:javascript|js)?\s*\n([\s\S]*?)```/);
       if (jsMatch) codeContent = jsMatch[1].trim();
@@ -260,11 +449,41 @@ function extractArtifacts(messages) {
   return { agentName, skillContent, codeContent, domain };
 }
 
+/**
+ * Extract all modified/new files from ENHANCE conversation.
+ * Looks for MODIFIED FILE: path and NEW FILE: path markers followed by fenced code blocks.
+ */
+function extractEnhancementFiles(messages) {
+  const files = [];
+  const seen = new Set();
+
+  for (const msg of messages) {
+    if (msg.role !== "assistant") continue;
+    const text = typeof msg.content === "string" ? msg.content : "";
+
+    // Match both MODIFIED FILE: path and NEW FILE: path
+    const filePattern = /(?:MODIFIED|NEW) FILE:\s*([^\n]+)\s*\n```(?:\w*)\s*\n([\s\S]*?)```/g;
+    let match;
+    while ((match = filePattern.exec(text)) !== null) {
+      const filePath = match[1].trim();
+      const content = match[2].trim();
+      if (filePath && content && !seen.has(filePath)) {
+        seen.add(filePath);
+        files.push({ path: filePath, content });
+      }
+    }
+  }
+
+  return files;
+}
+
 function detectPhase(output) {
   if (output.includes("DEPLOYMENT COMPLETE")) return "deployed";
   if (output.includes("VALIDATION PASSED")) return "validated";
   if (output.includes("VALIDATION FAILED")) return "validation-failed";
+  if (output.includes("ALL FILES — READY FOR REVIEW")) return "enhance-files-review";
   if (output.includes("AGENT CODE — READY FOR REVIEW")) return "phase-2-review";
+  if (output.includes("ENHANCE PLAN — READY FOR REVIEW")) return "enhance-plan-review";
   if (output.includes("SKILL FILE — READY FOR REVIEW")) return "phase-1-review";
   return "in-progress";
 }

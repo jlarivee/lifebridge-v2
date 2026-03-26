@@ -15,7 +15,8 @@ var AGENT_ENDPOINTS = {
   'intelligence-update-agent': '/agents/intelligence-update-agent',
   'connectors': '/agents/connectors',
   'three-rivers-social-agent': '/agents/three-rivers-social-agent',
-  'investment-research-agent': '/agents/investment-research-agent'
+  'investment-research-agent': '/agents/investment-research-agent',
+  'test-agent': '/test/run'
 };
 
 var AGENT_LABELS = {

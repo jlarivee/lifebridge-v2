@@ -211,6 +211,25 @@ Human approval:     [Required for which actions?]
 Priority:           [Build now | Queue for next session]
 ──────────────────────────
 
+If the request is about improving, enhancing, modifying, or adding features to an
+EXISTING agent (not using it, but changing what it can do), output an enhance brief:
+
+LIFEBRIDGE ENHANCE BRIEF
+──────────────────────────
+Agent to enhance:   [existing agent name from registry]
+Enhancement:        [specific change requested — be precise]
+Domain:             [Work | Personal Business | Personal Life | System]
+Files likely affected: [skill, code, dashboard, css, config — list all that apply]
+Reason:             [why this enhancement is needed]
+Human approval:     [Required — all enhancements require review before deploy]
+Priority:           [Build now | Queue for next session]
+──────────────────────────
+
+Key distinction: if the user wants to USE an agent (research a stock, plan a trip),
+route to the agent. If the user wants to CHANGE an agent (add a dashboard section,
+improve how it responds, add a new capability), output an ENHANCE BRIEF. Enhancement
+requests always go to the agent-builder-agent in enhance mode.
+
 ---
 
 ## Capability Registry
@@ -242,6 +261,13 @@ route to investment-research-agent, not Claude-native.
 When the master agent generates a BUILD BRIEF for any new agent,
 route it to agent-builder-agent. The build brief output is the
 direct input — pass it as the build_brief field in context.
+
+When the master agent generates an ENHANCE BRIEF for an existing agent,
+route it to agent-builder-agent in enhance mode. The enhance brief
+output is the direct input — pass it as the enhance_brief field in context.
+Enhancement signals include: "add a dashboard", "improve how X works",
+"show me positions persistently", "add a table to the view", "make the
+dashboard show X", "change how Y displays", "add a feature to Z agent".
 
 ---
 
