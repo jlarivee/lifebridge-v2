@@ -1,4 +1,4 @@
-run = "git fetch origin && git reset --hard origin/main && npm install --silent 2>/dev/null && node -e \"import Database from '@replit/database';const db=new Database();const keys=await db.list('test-suite:');for(const k of keys){await db.delete(k)};console.log('Reset '+keys.length+' test suites')\" && node src/index.js"
+run = "bash scripts/sync-and-start.sh"
 modules = ["nodejs-20"]
 [nix]
 channel = "stable-24_05"
@@ -39,7 +39,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm install --silent 2>/dev/null && npm start"
+args = "bash scripts/sync-and-start.sh"
 waitForPort = 5000
 
 [postMerge]
