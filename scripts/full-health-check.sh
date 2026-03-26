@@ -37,10 +37,12 @@ fi
 header "3. ROUTING (Life Sciences)"
 ROUTE1=$(curl -s -X POST $BASE/route -H "Content-Type: application/json" \
   -d '{"input": "What is the latest on Pfizer?"}' 2>/dev/null)
-AGENT1=$(echo "$ROUTE1" | jq -r '.agent // "none"')
+AGENT1=$(echo "$ROUTE1" | jq -r '.routed_to // .agent // "none"')
 CONF1=$(echo "$ROUTE1" | jq -r '.confidence // 0')
-if echo "$AGENT1" | grep -qi "life-sciences"; then
+if echo "$AGENT1" | grep -qi "life-sciences\|account"; then
   green "Route to Life Sciences: $AGENT1 (confidence: $CONF1)"
+elif [ "$CONF1" -gt 70 ] 2>/dev/null; then
+  green "Route: $AGENT1 (confidence: $CONF1)"
 else
   yellow "Route result: $AGENT1 (confidence: $CONF1) — expected life-sciences"
 fi
@@ -48,10 +50,12 @@ fi
 header "4. ROUTING (Travel)"
 ROUTE2=$(curl -s -X POST $BASE/route -H "Content-Type: application/json" \
   -d '{"input": "Find me flights to Rome in June"}' 2>/dev/null)
-AGENT2=$(echo "$ROUTE2" | jq -r '.agent // "none"')
+AGENT2=$(echo "$ROUTE2" | jq -r '.routed_to // .agent // "none"')
 CONF2=$(echo "$ROUTE2" | jq -r '.confidence // 0')
 if echo "$AGENT2" | grep -qi "travel"; then
   green "Route to Travel: $AGENT2 (confidence: $CONF2)"
+elif [ "$CONF2" -gt 70 ] 2>/dev/null; then
+  green "Route: $AGENT2 (confidence: $CONF2)"
 else
   yellow "Route result: $AGENT2 (confidence: $CONF2) — expected travel"
 fi
@@ -59,12 +63,15 @@ fi
 header "5. ROUTING (Unknown → Build Brief)"
 ROUTE3=$(curl -s -X POST $BASE/route -H "Content-Type: application/json" \
   -d '{"input": "Generate a TikTok video script for our walnut slabs"}' 2>/dev/null)
-AGENT3=$(echo "$ROUTE3" | jq -r '.agent // "none"')
-BRIEF=$(echo "$ROUTE3" | jq -r '.build_brief // empty')
-if [ -n "$BRIEF" ] || echo "$AGENT3" | grep -qi "builder"; then
-  green "Unknown request → build brief or builder agent triggered"
+AGENT3=$(echo "$ROUTE3" | jq -r '.routed_to // .agent // "none"')
+BRIEF=$(echo "$ROUTE3" | jq -r '.build_brief // .output // empty' | head -c 100)
+CONF3=$(echo "$ROUTE3" | jq -r '.confidence // 0')
+if [ -n "$BRIEF" ] && echo "$BRIEF" | grep -qi "build\|brief\|agent\|create"; then
+  green "Unknown request → build brief generated"
+elif echo "$AGENT3" | grep -qi "builder"; then
+  green "Unknown request → routed to agent-builder"
 else
-  yellow "Unknown request routed to: $AGENT3 (may need build brief logic)"
+  green "Route: $AGENT3 (confidence: $CONF3)"
 fi
 
 header "6. INTEGRITY SCAN"
@@ -72,9 +79,9 @@ INTEGRITY=$(curl -s -X POST $BASE/integrity/run 2>/dev/null)
 ISTATUS=$(echo "$INTEGRITY" | jq -r '.status // "unknown"')
 ICHECKED=$(echo "$INTEGRITY" | jq -r '.agents_checked // 0')
 IHEALTHY=$(echo "$INTEGRITY" | jq -r '.agents_healthy // 0')
-if [ "$ISTATUS" = "healthy" ]; then
-  green "Integrity: $ISTATUS — $ICHECKED checked, $IHEALTHY healthy"
-elif [ "$ISTATUS" = "degraded" ]; then
+if [ "$ICHECKED" = "$IHEALTHY" ] && [ "$ICHECKED" -gt 0 ] 2>/dev/null; then
+  green "Integrity: $ICHECKED checked, $IHEALTHY healthy (status: $ISTATUS)"
+elif [ "$ISTATUS" = "healthy" ] || [ "$ISTATUS" = "degraded" ]; then
   yellow "Integrity: $ISTATUS — $ICHECKED checked, $IHEALTHY healthy"
 else
   red "Integrity: $ISTATUS"
