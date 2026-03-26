@@ -45,3 +45,8 @@ waitForPort = 5000
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 30000
+
+[deployment]
+run = ["sh", "-c", "node src/index.js"]
+build = ["sh", "-c", "npm install"]
+deploymentTarget = "autoscale"
