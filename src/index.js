@@ -66,6 +66,23 @@ app.post("/route", async (req, res) => {
     const { input } = req.body;
     if (!input?.trim()) return res.status(400).json({ error: "Missing 'input' field" });
     const result = await route(input.trim());
+
+    // Auto-dispatch BUILD BRIEFs to agent-builder
+    if (result.response && result.response.includes("BUILD BRIEF")) {
+      try {
+        const buildResult = await runAgentBuilder(result.response, {});
+        result.build_session = {
+          session_id: buildResult.session_id,
+          phase: buildResult.phase,
+          status: "Phase 1 started — skill file being generated",
+        };
+        console.log(`[AUTO-BUILD] BUILD BRIEF dispatched to agent-builder: session ${buildResult.session_id}`);
+      } catch (e) {
+        console.log(`[AUTO-BUILD] Failed to dispatch: ${e.message}`);
+        result.build_session = { error: e.message };
+      }
+    }
+
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });

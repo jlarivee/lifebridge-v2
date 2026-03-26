@@ -363,7 +363,41 @@ export async function approveFinding(id) {
   finding.snapshot_id = snapshotId;
   await db.set(`intelligence:${finding.id}`, finding);
 
-  return { approved: true, snapshot_id: snapshotId, finding_id: id, change_applied: finding.suggested_action, context_updated: true };
+  // If the suggested action is actionable, route it through master agent to trigger real work
+  let actionResult = null;
+  const action = (finding.suggested_action || "").toLowerCase();
+  const isActionable = ["integrate", "build", "add", "implement", "create", "evaluate", "adopt", "migrate", "upgrade"].some(k => action.includes(k));
+
+  if (isActionable && finding.suggested_action) {
+    try {
+      const { route } = await import("./master-agent.js");
+      const routeResult = await route(`[AUTO-ACTION from intelligence finding] ${finding.suggested_action}`);
+      actionResult = {
+        routed: true,
+        confidence: routeResult.confidence,
+        build_brief_triggered: routeResult.response?.includes("BUILD BRIEF") || false,
+      };
+      console.log(`[INTEL-ACTION] Routed approved finding to master agent: confidence ${routeResult.confidence}`);
+
+      // Log the action routing
+      try {
+        const { logExecution } = await import("../tools/approval-tools.js");
+        await logExecution({
+          source: "intelligence-auto-action",
+          proposal_id: finding.id,
+          action_type: actionResult.build_brief_triggered ? "build_brief_dispatched" : "action_routed",
+          change_type: finding.category,
+          description: `Auto-routed: "${finding.suggested_action}" → confidence ${routeResult.confidence}${actionResult.build_brief_triggered ? " → BUILD BRIEF triggered" : ""}`,
+          success: true,
+        });
+      } catch {}
+    } catch (e) {
+      console.log(`[INTEL-ACTION] Failed to route: ${e.message}`);
+      actionResult = { routed: false, error: e.message };
+    }
+  }
+
+  return { approved: true, snapshot_id: snapshotId, finding_id: id, change_applied: finding.suggested_action, context_updated: true, action_result: actionResult };
 }
 
 export async function rejectFinding(id, reason = "") {

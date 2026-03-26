@@ -5,6 +5,16 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// Lazy imports to avoid circular dependencies
+let _startBuild = null;
+async function getStartBuild() {
+  if (!_startBuild) {
+    const mod = await import("../agents/agent-builder-agent.js");
+    _startBuild = mod.startBuild || mod.runAgentBuilder;
+  }
+  return _startBuild;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -104,16 +114,39 @@ export async function approveChange(proposalId, changeIndex) {
   } else if (isRegistryAdd) {
     actionType = "registry_addition";
     const proposed = change.proposed || "";
-    const registry = await readRegistry();
-    let entry;
-    try {
-      entry = proposed.trim().startsWith("{") ? JSON.parse(proposed) : { entry: proposed };
-    } catch {
-      entry = { entry: proposed };
+    // Check if this looks like a build brief / agent spec that should trigger the builder
+    const proposedLower = proposed.toLowerCase();
+    const isAgentBuildRequest = ["agent", "purpose:", "domain:", "trigger_patterns", "build brief"].some(k => proposedLower.includes(k));
+
+    if (isAgentBuildRequest) {
+      // Dispatch to agent-builder-agent for a full build pipeline
+      try {
+        const startBuild = await getStartBuild();
+        const buildBrief = proposed.includes("BUILD BRIEF") ? proposed : `BUILD BRIEF\n\n${proposed}`;
+        const buildResult = await startBuild(buildBrief, {});
+        applied = `Agent build initiated: session ${buildResult.session_id || "unknown"}, phase ${buildResult.phase || 1}. Builder is generating skill file for review.`;
+        actionType = "agent_build";
+      } catch (e) {
+        // Fall back to simple registry addition if builder fails
+        console.log(`[APPROVAL] Agent builder failed, falling back to registry add: ${e.message}`);
+        const registry = await readRegistry();
+        let entry;
+        try { entry = proposed.trim().startsWith("{") ? JSON.parse(proposed) : { name: proposed.slice(0, 100), status: "Proposed" }; }
+        catch { entry = { name: proposed.slice(0, 100), status: "Proposed" }; }
+        registry.agents.push(entry);
+        await writeRegistry(registry);
+        applied = `Registry addition (builder unavailable): added to agents list. Builder error: ${e.message}`;
+      }
+    } else {
+      // Simple registry entry (not an agent build)
+      const registry = await readRegistry();
+      let entry;
+      try { entry = proposed.trim().startsWith("{") ? JSON.parse(proposed) : { entry: proposed }; }
+      catch { entry = { entry: proposed }; }
+      registry.agents.push(entry);
+      await writeRegistry(registry);
+      applied = "Registry addition: added to agents list";
     }
-    registry.agents.push(entry);
-    await writeRegistry(registry);
-    applied = "Registry addition: added to agents list";
   } else if (isConnectorAdd) {
     actionType = "connector_addition";
     const proposed = change.proposed || "";
@@ -160,6 +193,28 @@ export async function approveChange(proposalId, changeIndex) {
   } else {
     actionType = "unknown";
     applied = `Unknown change type: ${changeType}`;
+  }
+
+  // Auto-test after skill edits or context changes
+  if (actionType === "skill_edit" || actionType === "context_addition") {
+    try {
+      const PORT = process.env.PORT || 5000;
+      const testResp = await fetch(`http://localhost:${PORT}/test/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "fast" }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const testResult = await testResp.json();
+      const testSummary = `Auto-test: ${testResult.passed}/${testResult.total_cases} passed, ${testResult.failed} failed`;
+      applied += ` | ${testSummary}`;
+      console.log(`[AUTO-TEST] ${testSummary}`);
+      if (testResult.failed > 0) {
+        console.log(`[AUTO-TEST] WARNING: ${testResult.failed} test(s) failed after ${actionType}`);
+      }
+    } catch (e) {
+      console.log(`[AUTO-TEST] Failed to run: ${e.message}`);
+    }
   }
 
   // Log execution
