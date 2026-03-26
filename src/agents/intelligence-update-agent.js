@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 import { readRegistry } from "../tools/registry-tools.js";
 import { sendSystemAlert } from "./connectors.js";
-import { readContext } from "../tools/context-tools.js";
+import { readContext, writeContext } from "../tools/context-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const skill = readFileSync(join(__dirname, "../skills/intelligence-update-agent.md"), "utf8");
@@ -329,11 +329,41 @@ export async function approveFinding(id) {
     context,
   });
 
+  // ACTUALLY WRITE to context — this was missing before
+  if (!context.learned_patterns) context.learned_patterns = [];
+  context.learned_patterns.push({
+    id: uuidv4(),
+    content: `[Intel ${finding.category}] ${finding.suggested_action || finding.summary}`,
+    source: "intelligence-update-agent",
+    finding_id: finding.id,
+    finding_title: finding.title,
+    relevance_score: finding.relevance_score,
+    added: new Date().toISOString(),
+    approved_by: "human",
+  });
+  context.last_updated = new Date().toISOString();
+  await writeContext(context);
+
+  // Log execution
+  try {
+    const { logExecution } = await import("../tools/approval-tools.js");
+    await logExecution({
+      source: "intelligence",
+      proposal_id: finding.id,
+      action_type: "context_addition",
+      change_type: finding.category,
+      description: `Intel finding approved: "${finding.title}" - ${finding.suggested_action || "added to context"}`,
+      success: true,
+    });
+  } catch (e) {
+    console.log("[EXEC-LOG] Failed to log intel execution:", e.message);
+  }
+
   finding.status = "approved";
   finding.snapshot_id = snapshotId;
   await db.set(`intelligence:${finding.id}`, finding);
 
-  return { approved: true, snapshot_id: snapshotId, finding_id: id, change_applied: finding.suggested_action };
+  return { approved: true, snapshot_id: snapshotId, finding_id: id, change_applied: finding.suggested_action, context_updated: true };
 }
 
 export async function rejectFinding(id, reason = "") {

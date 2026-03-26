@@ -132,6 +132,22 @@ app.get("/improve/history", async (req, res) => {
   }
 });
 
+// ── Execution Log ──
+app.get("/execution/log", async (req, res) => {
+  try {
+    const keys = await db.list("execution-log:");
+    const logs = [];
+    for (const key of keys) {
+      const entry = await db.get(key);
+      if (entry) logs.push(entry);
+    }
+    logs.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+    res.json(logs.slice(0, 20));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/registry", async (req, res) => {
   try { res.json(await readRegistry()); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -1090,8 +1106,22 @@ app.get("/memory/proposals/:id", async (req, res) => {
 });
 
 app.post("/memory/proposals/:id/approve", async (req, res) => {
-  try { res.json(await approveProposal(req.params.id)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const result = await approveProposal(req.params.id);
+    // Log execution
+    try {
+      const { logExecution } = await import("./tools/approval-tools.js");
+      await logExecution({
+        source: "memory",
+        proposal_id: req.params.id,
+        action_type: "context_addition",
+        change_type: "memory_fact",
+        description: `Memory fact approved and written to context`,
+        success: true,
+      });
+    } catch {}
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/memory/proposals/:id/reject", async (req, res) => {

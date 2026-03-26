@@ -43,28 +43,66 @@ export async function approveChange(proposalId, changeIndex) {
   }
 
   const change = changes[changeIndex];
-  const changeType = (change.type || "").toLowerCase();
+  const changeType = (change.type || "").toLowerCase().trim();
   let applied = "";
+  let actionType = "unknown";
 
-  if (changeType.includes("skill edit") || changeType.includes("system prompt edit")) {
-    const skillPath = path.join(__dirname, "..", "skills", "master-agent.md");
-    const current = change.current || "";
+  // Fuzzy type matching
+  const isSkillEdit = ["skill edit", "skill modification", "system prompt edit", "system prompt update", "prompt edit", "skill update"].some(t => changeType.includes(t));
+  const isRegistryAdd = ["registry addition", "registry update", "agent addition", "add agent", "register agent"].some(t => changeType.includes(t));
+  const isConnectorAdd = ["connector addition", "add connector", "connector update"].some(t => changeType.includes(t));
+  const isContextAdd = ["context addition", "context update", "add context", "learned pattern", "add preference", "add constraint"].some(t => changeType.includes(t));
+  const isNoChange = ["no change", "no changes", "none needed", "no change needed"].some(t => changeType.includes(t));
+
+  if (isSkillEdit) {
+    actionType = "skill_edit";
+    // Determine which skill file to edit
+    let skillFileName = "master-agent.md";
     const proposed = change.proposed || "";
+    const evidence = change.evidence || "";
+    const combined = (proposed + " " + evidence).toLowerCase();
+
+    // Check if a specific agent skill file is mentioned
+    const skillsDir = path.join(__dirname, "..", "skills");
+    try {
+      const skillFiles = fs.readdirSync(skillsDir).filter(f => f.endsWith(".md"));
+      for (const sf of skillFiles) {
+        const baseName = sf.replace(".md", "");
+        if (combined.includes(baseName) && baseName !== "master-agent") {
+          skillFileName = sf;
+          break;
+        }
+      }
+    } catch {}
+
+    const skillPath = path.join(__dirname, "..", "skills", skillFileName);
+    const current = change.current || "";
     if (current && proposed && fs.existsSync(skillPath)) {
       let content = fs.readFileSync(skillPath, "utf-8");
       if (content.includes(current)) {
         content = content.replace(current, proposed);
         fs.writeFileSync(skillPath, content, "utf-8");
-        applied = `Skill edit: replaced '${current.slice(0, 50)}...' with '${proposed.slice(0, 50)}...'`;
+        applied = `Skill edit (${skillFileName}): replaced '${current.slice(0, 60)}...' with '${proposed.slice(0, 60)}...'`;
       } else {
-        content += `\n\n${proposed}`;
+        content += "\n\n" + proposed;
         fs.writeFileSync(skillPath, content, "utf-8");
-        applied = `Skill edit: exact match not found, appended proposed text`;
+        applied = `Skill edit (${skillFileName}): exact match not found, appended proposed text`;
+      }
+    } else if (proposed && !current) {
+      // Append-only skill edit (no current text to replace)
+      if (fs.existsSync(skillPath)) {
+        let content = fs.readFileSync(skillPath, "utf-8");
+        content += "\n\n" + proposed;
+        fs.writeFileSync(skillPath, content, "utf-8");
+        applied = `Skill edit (${skillFileName}): appended new content`;
+      } else {
+        applied = `Skill edit: target file ${skillFileName} not found`;
       }
     } else {
       applied = "Skill edit: missing current/proposed text or skill file not found";
     }
-  } else if (changeType.includes("registry addition")) {
+  } else if (isRegistryAdd) {
+    actionType = "registry_addition";
     const proposed = change.proposed || "";
     const registry = await readRegistry();
     let entry;
@@ -76,7 +114,8 @@ export async function approveChange(proposalId, changeIndex) {
     registry.agents.push(entry);
     await writeRegistry(registry);
     applied = "Registry addition: added to agents list";
-  } else if (changeType.includes("connector addition")) {
+  } else if (isConnectorAdd) {
+    actionType = "connector_addition";
     const proposed = change.proposed || "";
     const registry = await readRegistry();
     let entry;
@@ -89,7 +128,8 @@ export async function approveChange(proposalId, changeIndex) {
     registry.connectors.push(entry);
     await writeRegistry(registry);
     applied = "Connector addition: added to connectors list";
-  } else if (changeType.includes("context addition")) {
+  } else if (isContextAdd) {
+    actionType = "context_addition";
     const proposed = change.proposed || "";
     const context = await readContext();
     const lower = proposed.toLowerCase();
@@ -114,10 +154,27 @@ export async function approveChange(proposalId, changeIndex) {
     context.last_updated = new Date().toISOString();
     await writeContext(context);
     applied = `Context addition: added to ${targetArray}`;
-  } else if (changeType.includes("no change")) {
-    applied = "No change needed — acknowledged";
+  } else if (isNoChange) {
+    actionType = "no_change";
+    applied = "No change needed -- acknowledged";
   } else {
+    actionType = "unknown";
     applied = `Unknown change type: ${changeType}`;
+  }
+
+  // Log execution
+  try {
+    await logExecution({
+      source: "improvement",
+      proposal_id: proposalId,
+      change_index: changeIndex,
+      action_type: actionType,
+      change_type: changeType,
+      description: applied,
+      success: !applied.startsWith("Unknown"),
+    });
+  } catch (e) {
+    console.log("[EXEC-LOG] Failed to log execution:", e.message);
   }
 
   if (!proposal.approved_changes) proposal.approved_changes = [];
@@ -156,3 +213,24 @@ export async function rejectChange(proposalId, changeIndex) {
 
   await db.set(`improvement:${proposalId}`, proposal);
 }
+
+// ── Execution Logging ──────────────────────────────────────────────────────
+
+async function logExecution(entry) {
+  const id = crypto.randomUUID();
+  const log = {
+    id,
+    timestamp: new Date().toISOString(),
+    source: entry.source || "unknown",
+    proposal_id: entry.proposal_id || null,
+    change_index: entry.change_index ?? null,
+    action_type: entry.action_type || "unknown",
+    change_type: entry.change_type || "",
+    description: entry.description || "",
+    success: entry.success !== false,
+  };
+  await db.set(`execution-log:${id}`, log);
+  return log;
+}
+
+export { logExecution };
