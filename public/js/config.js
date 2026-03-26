@@ -13,7 +13,8 @@ var AGENT_ENDPOINTS = {
   'memory-consolidation-agent': '/agents/memory-consolidation-agent',
   'registry-integrity-agent': '/agents/registry-integrity-agent',
   'intelligence-update-agent': '/agents/intelligence-update-agent',
-  'connectors': '/agents/connectors'
+  'connectors': '/agents/connectors',
+  'three-rivers-social-agent': '/agents/three-rivers-social-agent'
 };
 
 var AGENT_LABELS = {
@@ -25,7 +26,8 @@ var AGENT_LABELS = {
   'memory-consolidation-agent': 'Memory Consolidation',
   'registry-integrity-agent': 'Registry Integrity Agent',
   'intelligence-update-agent': 'Intelligence Update Agent',
-  'connectors': 'Connectors'
+  'connectors': 'Connectors',
+  'three-rivers-social-agent': 'Social Media'
 };
 
 var DASHBOARD_AGENTS = {
@@ -64,6 +66,7 @@ var DOMAIN_MASTERS = [
     color: '#1D9E75', dimColor: 'rgba(29,158,117,0.12)',
     subs: [
       { name: 'slab-inventory-tracker-agent', label: 'Inventory', active: true },
+      { name: 'three-rivers-social-agent', label: 'Social', active: true },
       { name: 'pricing-agent', label: 'Pricing', active: false },
       { name: 'customer-agent', label: 'Customer', active: false }
     ]
@@ -92,7 +95,7 @@ var DOMAIN_MASTERS = [
     subs: [
       { name: 'registry-integrity-agent', label: 'Integrity', active: true },
       { name: 'test-agent', label: 'Testing', active: true },
-      { name: 'agent-builder-agent', label: 'Builder', active: false }
+      { name: 'agent-builder-agent', label: 'Builder', active: true }
     ]
   }
 ];
