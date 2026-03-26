@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.7 (shipped — action loops fixed)
+**Current version:** v2.8 (shipped — autonomous execution engine live)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -425,6 +425,39 @@ Safety rollback: `git checkout v2.4-pre-refactor`
 
 **Test results:** 26 passed, 0 failed
 
+### v2.8 — Autonomous Execution Engine + First Self-Built Agent
+**Date:** March 26, 2026
+
+**What was built:**
+- Autonomous execution engine: approvals trigger real actions
+  - Registry/agent additions → dispatch to agent-builder 4-phase pipeline
+  - Intelligence findings → auto-route through master agent
+  - BUILD BRIEFs → auto-dispatched from /route endpoint
+  - Skill edits → auto-run test suite after changes
+- Agent builder ACTUALLY deploys: extractArtifacts() parses conversation,
+  deployAgent() writes files to disk, registers in DB, commits to GitHub
+- First self-built agent: **three-rivers-social-agent**
+  (Instagram/Facebook draft posts for Three Rivers Slab)
+- Frontend config auto-update for new agents
+- Health check: `bash scripts/full-health-check.sh` (tests 11 subsystems)
+- Auto-sync: `bash scripts/sync-and-start.sh` (git fetch + reset + start)
+- Deployment config persisted in .replit [deployment] section
+- GitHub auto-commit for new agents (GITHUB_TOKEN + GITHUB_REPO secrets)
+
+**The autonomous build pipeline:**
+```
+User request → Master agent (no capable agent) → BUILD BRIEF
+  → Auto-dispatch to agent-builder
+  → Phase 1: Skill file generated → human approves
+  → Phase 2: Code generated → human approves
+  → Phase 3: Validation (syntax, structure, dry-run)
+  → Phase 4: Tests registered → fail → files written → deploy → tests pass
+  → Agent LIVE and routable
+```
+
+**Agents:** 10 active (added three-rivers-social-agent)
+**Test results:** 26 passed, 0 failed
+
 ---
 
 ## The Master Agent System Prompt (Current — v2.5)
@@ -441,6 +474,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | morning-briefing-agent | System | Active |
 | intelligence-update-agent | System | Active |
 | registry-integrity-agent | System | Active |
+| three-rivers-social-agent | Personal Business | Active |
 | test-agent | System | Active |
 | memory-consolidation-agent | System | Active |
 | travel-agent | Personal Life | Active |
