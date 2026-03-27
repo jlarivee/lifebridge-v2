@@ -197,21 +197,32 @@ export async function startEnhance(enhanceBrief, context = {}) {
   const existingFiles = readExistingAgentFiles(agentName);
   const systemPrompt = buildEnhanceSystemPrompt(enhanceBrief, existingFiles, context);
 
-  const userMessage = `Execute the ENHANCE pipeline for this enhance brief.
+  const userMessage = `Execute the FULL ENHANCE pipeline for this enhance brief in a SINGLE response.
 
 You are in ENHANCE mode — you are modifying an existing agent, not building a new one.
 
-Start with Enhance Phase 1 — read the existing files provided in your context,
-then output your enhancement plan showing what changes you will make to which files.
+IMPORTANT: Complete ALL phases in this single response:
+1. Read the existing files provided in your context
+2. Plan your changes
+3. Generate ALL modified files with complete content
+4. Include a DEPLOYMENT section
 
-Label your output clearly: ENHANCE PLAN — READY FOR REVIEW
-Do NOT proceed to Phase 2 until you receive explicit approval.`;
+For EACH file you modify or create, output it in this exact format:
+
+===FILE: relative/path/to/file===
+(complete file content here)
+===END FILE===
+
+After all files, output: DEPLOYMENT COMPLETE
+
+Do NOT stop for review. Do NOT wait for approval. Run the full pipeline now.
+The rollback safety net will automatically revert if anything breaks.`;
 
   const messages = [{ role: "user", content: userMessage }];
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 8192,
+    max_tokens: 16384,
     system: systemPrompt,
     messages,
   });
@@ -239,6 +250,30 @@ Do NOT proceed to Phase 2 until you receive explicit approval.`;
     updated: new Date().toISOString(),
   };
 
+  // Auto-deploy if the builder completed all phases in one shot
+  if (session.phase === "deployed") {
+    try {
+      const files = extractEnhancementFiles(session.messages);
+      if (files.length > 0) {
+        const deployResult = await deployEnhancementSafe(session.agent_name, files);
+        session.deploy_result = deployResult;
+
+        if (deployResult.rolled_back) {
+          session.phase = "rollback";
+          console.log(`[BUILDER] ROLLED BACK: ${session.agent_name} — tests failed, originals restored`);
+        } else {
+          console.log(`[BUILDER] ENHANCED: ${session.agent_name} — ${files.length} files written, tests passed`);
+        }
+      } else {
+        console.log(`[BUILDER] WARNING: No files extracted from enhance output`);
+        session.deploy_result = { deployed: false, reason: "No files extracted" };
+      }
+    } catch (e) {
+      console.log(`[BUILDER] DEPLOY ERROR: ${e.message}`);
+      session.deploy_result = { deployed: false, error: e.message };
+    }
+  }
+
   await db.set(`build-session:${sessionId}`, session);
 
   return {
@@ -247,8 +282,8 @@ Do NOT proceed to Phase 2 until you receive explicit approval.`;
     mode: "enhance",
     phase: session.phase,
     output,
-    requires_approval: true,
-    approval_reason: "Review the enhancement plan before proceeding",
+    deploy_result: session.deploy_result || null,
+    requires_approval: false,
   };
 }
 
@@ -468,10 +503,21 @@ function extractEnhancementFiles(messages) {
     if (msg.role !== "assistant") continue;
     const text = typeof msg.content === "string" ? msg.content : "";
 
-    // Match both MODIFIED FILE: path and NEW FILE: path
+    // Match MODIFIED FILE: path and NEW FILE: path (code block format)
     const filePattern = /(?:MODIFIED|NEW) FILE:\s*([^\n]+)\s*\n```(?:\w*)\s*\n([\s\S]*?)```/g;
     let match;
     while ((match = filePattern.exec(text)) !== null) {
+      const filePath = match[1].trim();
+      const content = match[2].trim();
+      if (filePath && content && !seen.has(filePath)) {
+        seen.add(filePath);
+        files.push({ path: filePath, content });
+      }
+    }
+
+    // Also match ===FILE: path=== ... ===END FILE=== format
+    const altPattern = /===FILE:\s*([^\n=]+)===\s*\n([\s\S]*?)===END FILE===/g;
+    while ((match = altPattern.exec(text)) !== null) {
       const filePath = match[1].trim();
       const content = match[2].trim();
       if (filePath && content && !seen.has(filePath)) {
