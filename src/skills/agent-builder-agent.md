@@ -302,10 +302,11 @@ and trigger automatic rollback.
 - Prefix custom classes with the agent name: e.g., .investment-positions-table
 
 ### Dashboard Enhancement Rules:
-- When enhancing an existing dashboard, output ONLY the additions (new/modified functions)
-- Do NOT output the entire file content for files that already exist
-- For new sections: write a new function and show where it's called from
+- When enhancing an existing dashboard, MODIFY THE EXISTING dashboard file (e.g., public/js/dashboards/investment.js) — do NOT create a separate new file
+- Add new functions and rendering logic directly into the existing file
+- For new sections: write a new function and call it from the existing render function
 - Use ===FILE: path=== format for all file outputs
+- CRITICAL: if you create a new dashboard JS file, it must be the SAME file the dashboard-shell.js renderer map references. Check the renderer map to find the correct filename before writing.
 
 ### Config/Registry Updates (handled automatically):
 - The deploy pipeline updates config.js, dashboard-shell.js, and registry
