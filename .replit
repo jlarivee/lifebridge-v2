@@ -47,6 +47,5 @@ path = "scripts/post-merge.sh"
 timeoutMs = 30000
 
 [deployment]
-run = ["sh", "-c", "node src/index.js"]
-build = ["sh", "-c", "npm install"]
+run = ["sh", "-c", "bash scripts/sync-and-start.sh"]
 deploymentTarget = "autoscale"
