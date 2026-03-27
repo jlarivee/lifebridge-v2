@@ -1,11 +1,26 @@
 // public/js/dashboards/dashboard-shell.js
 // Dashboard shell: open, chat widget, and chat send logic
 
+// Dynamic agent CSS loader — loads agent-specific CSS from /css/agents/{name}.css
+function loadAgentCSS(agentName) {
+  var id = 'agent-css-' + agentName;
+  if (document.getElementById(id)) return; // already loaded
+  var link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = '/css/agents/' + agentName + '.css';
+  link.onerror = function() { this.remove(); }; // silently remove if no agent CSS exists
+  document.head.appendChild(link);
+}
+
 function openDashboard(agentName) {
   currentDashboardAgent = agentName;
   var el = document.getElementById('dashboardContent');
   el.innerHTML = '<div class="dash-loading">Loading dashboard...</div>';
   navigateTo('dashboard');
+
+  // Load agent-specific CSS (silently fails if no file exists)
+  loadAgentCSS(agentName);
 
   var renderers = {
     'morning-briefing-agent': renderBriefingDashboard,

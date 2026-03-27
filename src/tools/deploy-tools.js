@@ -6,6 +6,7 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { createHash } from "crypto";
 import { readRegistry, writeRegistry } from "./registry-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -145,9 +146,31 @@ const ALLOWED_PREFIXES = [
   "src/skills/",
   "public/js/",
   "public/css/",
+  "public/css/agents/",
 ];
 
+// Hard-blocked files — the builder can NEVER write to these under any circumstances
+const BLOCKED_FILES = new Set([
+  "public/css/dashboard.css",
+  "public/css/variables.css",
+  "public/css/reset.css",
+  "public/css/components.css",
+  "public/css/hub.css",
+  "public/css/mobile.css",
+  "public/index.html",
+  "public/js/dashboards/dashboard-shell.js",
+  "public/js/config.js",
+  "src/index.js",
+  "src/tools/deploy-tools.js",
+  "src/skills/master-agent.md",
+  "src/skills/improvement-agent.md",
+]);
+
 function isPathAllowed(filePath) {
+  if (BLOCKED_FILES.has(filePath)) {
+    console.log(`[DEPLOY] HARD-BLOCKED: ${filePath} is a protected system file`);
+    return false;
+  }
   return ALLOWED_PREFIXES.some(prefix => filePath.startsWith(prefix));
 }
 
@@ -383,10 +406,24 @@ export async function revertGitHubFiles(agentName, backup) {
   return { reverted: results.every(r => r.reverted), files: results };
 }
 
+// Protected CSS files — hashed before/after to detect unauthorized modification
+const PROTECTED_CSS = [
+  "public/css/dashboard.css", "public/css/variables.css", "public/css/reset.css",
+  "public/css/components.css", "public/css/hub.css", "public/css/mobile.css",
+];
+
+function hashFile(relativePath) {
+  const fullPath = join(PROJECT_ROOT, relativePath);
+  if (!existsSync(fullPath)) return null;
+  return createHash("sha256").update(readFileSync(fullPath, "utf8")).digest("hex");
+}
+
 /**
  * Safe enhancement deployment with rollback on test failure.
  * 1. Backup originals
+ * 1.5 Snapshot protected CSS hashes
  * 2. Write new files
+ * 2.5 Verify protected CSS unchanged (rollback if violated)
  * 3. Run tests
  * 4. If tests fail: restore originals + revert GitHub
  * 5. If tests pass: commit to GitHub, done
@@ -397,9 +434,28 @@ export async function deployEnhancementSafe(agentName, files) {
   const backup = backupFiles(allowedFiles);
   console.log(`[SAFE-DEPLOY] Backed up ${Object.keys(backup).length} files for ${agentName}`);
 
+  // 1.5 Snapshot protected CSS hashes BEFORE writing
+  const preHashes = {};
+  for (const f of PROTECTED_CSS) { preHashes[f] = hashFile(f); }
+
   // 2. Write new files to disk
   const written = writeEnhancementFiles(allowedFiles);
   console.log(`[SAFE-DEPLOY] Wrote ${written.length} files for ${agentName}`);
+
+  // 2.5 CSS integrity check — protected files must not have changed
+  for (const [f, hash] of Object.entries(preHashes)) {
+    if (!hash) continue; // file didn't exist before
+    const postHash = hashFile(f);
+    if (postHash !== hash) {
+      console.log(`[SAFE-DEPLOY] CSS INTEGRITY VIOLATION: ${f} was modified — rolling back`);
+      restoreFiles(backup);
+      return {
+        deployed: false, mode: "enhance", agent: agentName, rolled_back: true,
+        reason: `CSS integrity violation: ${f} was modified by the enhancement`,
+      };
+    }
+  }
+  console.log(`[SAFE-DEPLOY] CSS integrity check passed — protected files unchanged`);
 
   // 3. Run tests
   let testsPassed = false;
@@ -456,4 +512,133 @@ export async function deployEnhancementSafe(agentName, files) {
     github: githubResult,
     test_output: testOutput,
   };
+}
+
+// ── Safe config append (for new agent builds) ─────────────────────────────────
+
+/**
+ * Safely append a new agent to config.js maps without rewriting existing entries.
+ * Used by BUILD mode only — the builder Claude never touches config.js.
+ */
+export function safeAppendToConfig(agentName, label) {
+  const configPath = join(PROJECT_ROOT, "public/js/config.js");
+  if (!existsSync(configPath)) {
+    console.log(`[CONFIG] config.js not found — skipping`);
+    return false;
+  }
+  let content = readFileSync(configPath, "utf8");
+
+  // Skip if already registered
+  if (content.includes(`'${agentName}'`)) {
+    console.log(`[CONFIG] ${agentName} already in config.js — skipping`);
+    return false;
+  }
+
+  // Append to AGENT_ENDPOINTS
+  content = content.replace(
+    /(var AGENT_ENDPOINTS\s*=\s*\{[^}]+)([\s]*\};)/,
+    `$1,\n  '${agentName}': '/agents/${agentName}'$2`
+  );
+
+  // Append to AGENT_LABELS
+  content = content.replace(
+    /(var AGENT_LABELS\s*=\s*\{[^}]+)([\s]*\};)/,
+    `$1,\n  '${agentName}': '${label}'$2`
+  );
+
+  // Append to DASHBOARD_AGENTS
+  content = content.replace(
+    /(var DASHBOARD_AGENTS\s*=\s*\{[^}]+)([\s]*\};)/,
+    `$1,\n  '${agentName}': true$2`
+  );
+
+  writeFileSync(configPath, content, "utf8");
+  console.log(`[CONFIG] Appended ${agentName} to config.js`);
+  return true;
+}
+
+/**
+ * Safely append a new renderer to dashboard-shell.js renderers map.
+ */
+export function safeAppendToDashboardShell(agentName, renderFunctionName) {
+  const shellPath = join(PROJECT_ROOT, "public/js/dashboards/dashboard-shell.js");
+  if (!existsSync(shellPath)) {
+    console.log(`[CONFIG] dashboard-shell.js not found — skipping`);
+    return false;
+  }
+  let content = readFileSync(shellPath, "utf8");
+
+  if (content.includes(`'${agentName}'`)) {
+    console.log(`[CONFIG] ${agentName} already in dashboard-shell.js — skipping`);
+    return false;
+  }
+
+  // Find the last entry in the renderers map and add after it
+  content = content.replace(
+    /('italy2026':\s*renderItaly2026Dashboard)/,
+    `$1,\n    '${agentName}': ${renderFunctionName}`
+  );
+
+  writeFileSync(shellPath, content, "utf8");
+  console.log(`[CONFIG] Appended ${agentName} renderer to dashboard-shell.js`);
+  return true;
+}
+
+/**
+ * Safely append a script tag for a new dashboard JS file to index.html.
+ */
+export function safeAppendScriptTag(dashboardFileName) {
+  const htmlPath = join(PROJECT_ROOT, "public/index.html");
+  if (!existsSync(htmlPath)) {
+    console.log(`[CONFIG] index.html not found — skipping`);
+    return false;
+  }
+  let content = readFileSync(htmlPath, "utf8");
+
+  const scriptTag = `<script src="/js/dashboards/${dashboardFileName}"></script>`;
+  if (content.includes(scriptTag)) {
+    console.log(`[CONFIG] Script tag for ${dashboardFileName} already in index.html — skipping`);
+    return false;
+  }
+
+  // Insert before the closing </head> or after the last dashboard script tag
+  content = content.replace(
+    /(<script src="\/js\/dashboards\/dashboard-shell\.js"><\/script>)/,
+    `$1\n  ${scriptTag}`
+  );
+
+  writeFileSync(htmlPath, content, "utf8");
+  console.log(`[CONFIG] Appended script tag for ${dashboardFileName} to index.html`);
+  return true;
+}
+
+// ── Graceful restart ──────────────────────────────────────────────────────────
+
+/**
+ * Trigger a graceful server restart with maintenance notice.
+ * Sets a flag in the DB, then exits the process after a short delay.
+ * Replit auto-restarts the process on exit(0).
+ */
+export async function triggerGracefulRestart(agentName, reason) {
+  console.log(`[RESTART] Initiating graceful restart: ${reason}`);
+
+  try {
+    // Use dynamic import since db may not be available in all contexts
+    const Database = (await import("@replit/database")).default;
+    const rawDb = new Database();
+    await rawDb.set("system:maintenance", JSON.stringify({
+      active: true,
+      reason: `Deploying: ${agentName}`,
+      started_at: new Date().toISOString(),
+    }));
+    console.log(`[RESTART] Maintenance flag set`);
+  } catch (e) {
+    console.log(`[RESTART] Could not set maintenance flag: ${e.message}`);
+  }
+
+  // Delay to let the current HTTP response finish
+  setTimeout(() => {
+    console.log(`[RESTART] process.exit(0) — Replit will auto-restart`);
+    process.exit(0);
+  }, 2000);
 }

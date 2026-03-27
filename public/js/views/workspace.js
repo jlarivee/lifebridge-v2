@@ -394,10 +394,121 @@ async function sendFeedback(requestId, outcome, feedback, fid) {
       row.innerHTML = '<div class="fb-recorded">&#10003; Feedback recorded</div>';
       setTimeout(function() { row.style.opacity = '0'; }, 2000);
     }
+    // If accepted, start polling for builder approval gate
+    if (outcome === 'accepted') {
+      startBuilderApprovalPolling(row ? row.parentElement : document.getElementById('workspaceOutput'));
+    }
   } catch (e) {
     var row2 = document.getElementById(fid);
     if (row2) row2.innerHTML = '<div class="output-error">' + escapeHtml(e.message) + '</div>';
   }
+}
+
+// ── Builder approval gate polling ─────────────────────────────────────────────
+
+var _builderPollTimer = null;
+
+function startBuilderApprovalPolling(containerEl) {
+  if (_builderPollTimer) clearInterval(_builderPollTimer);
+
+  // Show "builder working" indicator
+  var statusEl = document.createElement('div');
+  statusEl.id = 'builderApprovalStatus';
+  statusEl.className = 'output-card';
+  statusEl.innerHTML = '<div class="output-card-header"><div class="output-card-query">Agent Builder</div></div>' +
+    '<div class="dash-loading"><div class="loading-dots"><span></span><span></span><span></span></div> Builder generating code...</div>';
+  containerEl.insertBefore(statusEl, containerEl.firstChild);
+
+  _builderPollTimer = setInterval(async function() {
+    try {
+      var resp = await fetch('/builder/pending');
+      var data = await resp.json();
+      if (data.pending && data.pending.length > 0) {
+        clearInterval(_builderPollTimer);
+        _builderPollTimer = null;
+        showApprovalGate(statusEl, data.pending[0]);
+      }
+    } catch (e) {
+      // Silently retry
+    }
+  }, 5000);
+
+  // Stop polling after 3 minutes
+  setTimeout(function() {
+    if (_builderPollTimer) {
+      clearInterval(_builderPollTimer);
+      _builderPollTimer = null;
+      statusEl.innerHTML = '<div class="dash-empty">Builder timed out. Check the Console tab for errors.</div>';
+    }
+  }, 180000);
+}
+
+function showApprovalGate(el, pending) {
+  var filesHtml = pending.files.map(function(f) {
+    return '<div class="dash-card" style="margin:8px 0;">' +
+      '<div class="dash-card-title" style="font-size:11px;color:var(--accent-teal);">' + escapeHtml(f.path) + '</div>' +
+      '<div class="dash-card-body" style="font-size:10px;max-height:150px;overflow:auto;white-space:pre-wrap;">' +
+        escapeHtml(f.preview) + (f.size > 500 ? '\n...' : '') +
+      '</div></div>';
+  }).join('');
+
+  el.innerHTML = '<div class="output-card-header">' +
+    '<div class="output-card-query">Enhancement Ready — ' + escapeHtml(pending.agent) + '</div>' +
+    '</div>' +
+    '<div class="dash-section-label">Files to be deployed</div>' +
+    filesHtml +
+    '<div style="display:flex;gap:12px;margin-top:16px;">' +
+      '<button class="dash-btn" id="builderApproveBtn" style="background:var(--accent-teal);color:#fff;">APPROVE</button>' +
+      '<button class="dash-btn" id="builderRejectBtn" style="background:#c0392b;color:#fff;">REJECT</button>' +
+    '</div>';
+
+  document.getElementById('builderApproveBtn').addEventListener('click', async function() {
+    this.disabled = true;
+    this.textContent = 'Deploying...';
+    try {
+      var resp = await fetch('/builder/pending/' + pending.id + '/approve', { method: 'POST', headers: {'Content-Type':'application/json'} });
+      var result = await resp.json();
+      if (result.status === 'deployed') {
+        el.innerHTML = '<div class="fb-recorded" style="padding:16px;text-align:center;">&#10003; Deployed! Server restarting — page will reload automatically.</div>';
+        // Start polling for maintenance end
+        startMaintenancePolling();
+      } else if (result.status === 'rolled_back') {
+        el.innerHTML = '<div class="output-error" style="padding:16px;">Rolled back: ' + escapeHtml(result.reason || 'Tests failed') + '</div>';
+      }
+    } catch (e) {
+      el.innerHTML = '<div class="output-error">' + escapeHtml(e.message) + '</div>';
+    }
+  });
+
+  document.getElementById('builderRejectBtn').addEventListener('click', async function() {
+    this.disabled = true;
+    try {
+      await fetch('/builder/pending/' + pending.id + '/reject', { method: 'POST', headers: {'Content-Type':'application/json'} });
+      el.innerHTML = '<div class="fb-recorded" style="padding:16px;text-align:center;">Enhancement rejected.</div>';
+    } catch (e) {
+      el.innerHTML = '<div class="output-error">' + escapeHtml(e.message) + '</div>';
+    }
+  });
+}
+
+// ── Maintenance mode polling ──────────────────────────────────────────────────
+
+function startMaintenancePolling() {
+  var poll = setInterval(async function() {
+    try {
+      var resp = await fetch('/system/maintenance');
+      var data = await resp.json();
+      if (!data.active) {
+        clearInterval(poll);
+        location.reload();
+      }
+    } catch (e) {
+      // Server is restarting — keep polling
+    }
+  }, 5000);
+
+  // Force reload after 5 minutes regardless
+  setTimeout(function() { location.reload(); }, 300000);
 }
 
 async function handleWorkspaceSubmit() {

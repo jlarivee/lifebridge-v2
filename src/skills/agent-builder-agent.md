@@ -266,27 +266,57 @@ If any enhancement breaks anything, the originals are restored automatically.
 
 ## File Paths Reference
 
-The agent builder can read and write these file locations:
-
-Backend:
-- src/agents/[agent-name].js — agent logic
+### ALLOWED — the builder can write to these:
+- src/agents/[agent-name].js — agent logic (backend)
 - src/skills/[agent-name].md — agent skill/prompt
+- public/js/dashboards/[name].js — dashboard rendering logic (frontend)
+- public/css/agents/[agent-name].css — agent-specific CSS (auto-loaded by dashboard system)
 
-Frontend:
-- public/js/dashboards/[name].js — dashboard rendering logic
-- public/js/config.js — hub configuration (AGENT_ENDPOINTS, AGENT_LABELS, DASHBOARD_AGENTS, DOMAIN_MASTERS)
-- public/css/dashboard.css — shared dashboard styles
+### HARD-BLOCKED — the builder can NEVER write to these (enforced by deploy pipeline):
+- public/css/dashboard.css — shared CSS for ALL dashboards (NEVER MODIFY)
+- public/css/variables.css — shared design tokens (NEVER MODIFY)
+- public/css/reset.css — shared browser reset (NEVER MODIFY)
+- public/css/components.css — shared component styles (NEVER MODIFY)
+- public/css/hub.css — hub page styles (NEVER MODIFY)
+- public/css/mobile.css — responsive overrides (NEVER MODIFY)
+- public/index.html — page shell (NEVER MODIFY)
+- public/js/config.js — deploy pipeline handles config updates automatically
+- public/js/dashboards/dashboard-shell.js — deploy pipeline handles renderer registration
+- src/index.js — server core (NEVER MODIFY)
+- src/tools/deploy-tools.js — deploy system (NEVER MODIFY)
+- src/skills/master-agent.md — master routing (NEVER MODIFY)
+- src/skills/improvement-agent.md — improvement system (NEVER MODIFY)
 
-The deploy system handles writing to any of these paths and committing all
-changed files to GitHub in a single operation.
+Any attempt to write to a blocked file is silently rejected and logged.
+If a blocked file is somehow modified, CSS integrity checks will detect it
+and trigger automatic rollback.
+
+### CSS Rules:
+- All new CSS goes to public/css/agents/[agent-name].css
+- The dashboard system dynamically loads agent CSS — no manual wiring needed
+- Use existing shared classes: .dash-header, .dash-title, .dash-subtitle,
+  .dash-card, .dash-card-body, .dash-card-title, .dash-card-meta, .dash-btn,
+  .dash-actions, .dash-section-label, .dash-loading, .dash-empty, .dash-chat,
+  .dash-tabs, .dash-tab, .dash-tab-content
+- Only create custom classes for truly agent-specific elements
+- Prefix custom classes with the agent name: e.g., .investment-positions-table
+
+### Dashboard Enhancement Rules:
+- When enhancing an existing dashboard, output ONLY the additions (new/modified functions)
+- Do NOT output the entire file content for files that already exist
+- For new sections: write a new function and show where it's called from
+- Use ===FILE: path=== format for all file outputs
+
+### Config/Registry Updates (handled automatically):
+- The deploy pipeline updates config.js, dashboard-shell.js, and registry
+- You do NOT need to generate these files — the pipeline does it for you
 
 ---
 
 ## Hard constraints — never violate these
 
-- Never modify src/skills/master-agent.md
-- Never modify src/skills/improvement-agent.md
-- Never modify src/index.js beyond route registration
+- Never modify any file in the HARD-BLOCKED list above
+- Never output a full file replacement for an existing dashboard — additions only
 - Never add to package.json
 - Never skip Phase 3 validation
 - Never execute Phase 4 without human approval at each phase gate

@@ -1,0 +1,9 @@
+/* Agent-specific styles for [AGENT_NAME] */
+/* This file is auto-loaded by the dashboard system when the agent dashboard opens. */
+/*
+ * RULES:
+ * - Use existing shared classes (.dash-card, .dash-header, etc.) where possible
+ * - Only add styles here for truly agent-specific visual elements
+ * - Prefix all custom classes with the agent name to avoid conflicts
+ *   e.g., .[AGENT_NAME]-custom-element { ... }
+ */

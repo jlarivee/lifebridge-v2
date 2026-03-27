@@ -226,6 +226,124 @@ app.post("/registry/update", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Builder approval gate ─────────────────────────────────────────────────────
+
+app.get("/builder/pending", async (req, res) => {
+  try {
+    const keys = await db.list("builder:pending:");
+    const pending = [];
+    for (const key of keys) {
+      const item = await db.get(key);
+      if (item && item.status === "awaiting_approval") {
+        // Don't send full file content in list view
+        pending.push({
+          id: item.id,
+          agent: item.agent,
+          mode: item.mode,
+          files: item.files, // previews only
+          created_at: item.created_at,
+          status: item.status,
+        });
+      }
+    }
+    res.json({ pending });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/builder/pending/:id", async (req, res) => {
+  try {
+    const item = await db.get(`builder:pending:${req.params.id}`);
+    if (!item) return res.status(404).json({ error: "Not found" });
+    // Return full file content for detailed review
+    res.json(item);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/builder/pending/:id/approve", async (req, res) => {
+  try {
+    const item = await db.get(`builder:pending:${req.params.id}`);
+    if (!item) return res.status(404).json({ error: "Not found" });
+    if (item.status !== "awaiting_approval") return res.json({ error: "Already processed", status: item.status });
+
+    // Deploy with safety net
+    const { deployEnhancementSafe, triggerGracefulRestart } = await import("./tools/deploy-tools.js");
+    const deployResult = await deployEnhancementSafe(item.agent, item.full_files);
+
+    // Update pending record
+    item.status = deployResult.rolled_back ? "rolled_back" : "deployed";
+    item.deploy_result = deployResult;
+    item.approved_at = new Date().toISOString();
+    await db.set(`builder:pending:${req.params.id}`, item);
+
+    if (deployResult.rolled_back) {
+      console.log(`[BUILDER] ROLLED BACK: ${item.agent} — ${deployResult.reason}`);
+      res.json({ status: "rolled_back", reason: deployResult.reason });
+    } else {
+      console.log(`[BUILDER] APPROVED & DEPLOYED: ${item.agent} — ${item.full_files.length} files`);
+      res.json({ status: "deployed", agent: item.agent, files: deployResult.files_written });
+      // Trigger graceful restart after response is sent
+      triggerGracefulRestart(item.agent, "Enhancement approved and deployed");
+    }
+  } catch (e) {
+    console.log(`[BUILDER] APPROVE ERROR: ${e.message}`);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/builder/pending/:id/reject", async (req, res) => {
+  try {
+    const item = await db.get(`builder:pending:${req.params.id}`);
+    if (!item) return res.status(404).json({ error: "Not found" });
+    item.status = "rejected";
+    item.rejected_at = new Date().toISOString();
+    item.reject_reason = req.body?.reason || "Human rejected";
+    await db.set(`builder:pending:${req.params.id}`, item);
+    console.log(`[BUILDER] REJECTED: ${item.agent} — ${item.reject_reason}`);
+    res.json({ status: "rejected", agent: item.agent });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── System endpoints ──────────────────────────────────────────────────────────
+
+app.get("/system/maintenance", async (req, res) => {
+  try {
+    const status = await db.get("system:maintenance");
+    res.json(typeof status === "string" ? JSON.parse(status) : status || { active: false });
+  } catch { res.json({ active: false }); }
+});
+
+// Integrity test endpoints
+app.get("/test/integrity/css", (req, res) => {
+  const { createHash } = require("crypto");
+  const cssFiles = ["dashboard.css", "variables.css", "reset.css", "components.css", "hub.css", "mobile.css"];
+  const hashes = {};
+  for (const f of cssFiles) {
+    const fp = path.join(__dirname, `../public/css/${f}`);
+    try {
+      if (existsSync(fp)) {
+        hashes[f] = createHash("sha256").update(readFileSync(fp, "utf8")).digest("hex");
+      }
+    } catch {}
+  }
+  res.json({ hashes, checked_at: new Date().toISOString() });
+});
+
+app.get("/test/integrity/config", (req, res) => {
+  try {
+    const configPath = path.join(__dirname, "../public/js/config.js");
+    const content = readFileSync(configPath, "utf8");
+    const maps = {
+      AGENT_ENDPOINTS: content.includes("var AGENT_ENDPOINTS"),
+      AGENT_LABELS: content.includes("var AGENT_LABELS"),
+      DASHBOARD_AGENTS: content.includes("var DASHBOARD_AGENTS"),
+      DOMAIN_MASTERS: content.includes("var DOMAIN_MASTERS"),
+    };
+    res.json({ valid: Object.values(maps).every(Boolean), maps });
+  } catch (e) {
+    res.json({ valid: false, error: e.message });
+  }
+});
+
 app.get("/context", async (req, res) => {
   try { res.json(await readContext()); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -1783,6 +1901,9 @@ async function start() {
       console.error(`Daily improvement cycle failed: ${e.message}`);
     }
   }, { timezone: "UTC" });
+
+  // Clear maintenance flag from any previous deploy restart
+  try { await db.set("system:maintenance", JSON.stringify({ active: false })); } catch {}
 
   const port = process.env.PORT || 5000;
   app.listen(port, () => {

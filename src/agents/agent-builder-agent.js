@@ -57,9 +57,8 @@ function readExistingAgentFiles(agentName) {
     }
   }
 
-  // Shared files
-  files.config = safeReadFile("public/js/config.js");
-  files.dashboardCss = safeReadFile("public/css/dashboard.css");
+  // Agent-specific CSS (NOT shared dashboard.css — that's blocked)
+  files.agentCss = safeReadFile(`public/css/agents/${agentName}.css`);
 
   return files;
 }
@@ -98,18 +97,35 @@ function buildEnhanceSystemPrompt(enhanceBrief, existingFiles, context) {
   if (existingFiles.dashboard) {
     fileContext += `### ${existingFiles.dashboardPath}\n\`\`\`javascript\n${existingFiles.dashboard}\n\`\`\`\n\n`;
   }
-  if (existingFiles.config) {
-    fileContext += `### public/js/config.js\n\`\`\`javascript\n${existingFiles.config}\n\`\`\`\n\n`;
+  if (existingFiles.agentCss) {
+    fileContext += `### public/css/agents/${enhanceBrief.agent_name || "unknown"}.css\n\`\`\`css\n${existingFiles.agentCss}\n\`\`\`\n\n`;
   }
-  if (existingFiles.dashboardCss) {
-    // Only include last 200 lines of CSS to save tokens — new styles go at the end
-    const cssLines = existingFiles.dashboardCss.split("\n");
-    const tail = cssLines.length > 200 ? cssLines.slice(-200).join("\n") : existingFiles.dashboardCss;
-    fileContext += `### public/css/dashboard.css (last 200 lines — append new styles at the end)\n\`\`\`css\n${tail}\n\`\`\`\n\n`;
-  }
+
+  const agentName = enhanceBrief.agent_name || "unknown";
 
   return `${skill}
 ${fileContext}
+
+## CSS RULES (MANDATORY — violations cause automatic rollback):
+- All new CSS MUST go to public/css/agents/${agentName}.css (auto-loaded by dashboard system)
+- NEVER write to public/css/dashboard.css or ANY shared CSS file — this is HARD-BLOCKED
+- NEVER write to public/js/config.js or public/js/dashboards/dashboard-shell.js — the deploy pipeline handles these
+- NEVER write to public/index.html or src/index.js
+- Use existing shared classes: .dash-header, .dash-title, .dash-subtitle, .dash-card, .dash-card-body, .dash-card-title, .dash-card-meta, .dash-btn, .dash-actions, .dash-section-label, .dash-loading, .dash-empty, .dash-chat, .dash-tabs, .dash-tab, .dash-tab-content
+- Prefix any custom classes with the agent name: e.g., .${agentName}-positions-table
+
+## DASHBOARD RULES (MANDATORY):
+- When enhancing a dashboard, output ONLY the additions — new functions, modified functions
+- Do NOT output the entire dashboard file content — only output the changed/added parts
+- For new sections: write a new function and clearly show where it gets called from in the existing render function
+- Mark additions with ===FILE: path=== format
+
+## ALLOWED FILE PATHS:
+- src/agents/${agentName}.js (agent logic)
+- src/skills/${agentName}.md (agent skill/prompt)
+- public/js/dashboards/*.js (dashboard rendering — additions only for existing files)
+- public/css/agents/${agentName}.css (agent-specific CSS — new file OK)
+
 MODE: ENHANCE (modifying an existing agent, not building a new one)
 
 Enhance brief received:
@@ -250,27 +266,25 @@ The rollback safety net will automatically revert if anything breaks.`;
     updated: new Date().toISOString(),
   };
 
-  // Auto-deploy if the builder completed all phases in one shot
+  // Extract files and store as pending — wait for human approval before deploying
   if (session.phase === "deployed") {
-    try {
-      const files = extractEnhancementFiles(session.messages);
-      if (files.length > 0) {
-        const deployResult = await deployEnhancementSafe(session.agent_name, files);
-        session.deploy_result = deployResult;
-
-        if (deployResult.rolled_back) {
-          session.phase = "rollback";
-          console.log(`[BUILDER] ROLLED BACK: ${session.agent_name} — tests failed, originals restored`);
-        } else {
-          console.log(`[BUILDER] ENHANCED: ${session.agent_name} — ${files.length} files written, tests passed`);
-        }
-      } else {
-        console.log(`[BUILDER] WARNING: No files extracted from enhance output`);
-        session.deploy_result = { deployed: false, reason: "No files extracted" };
-      }
-    } catch (e) {
-      console.log(`[BUILDER] DEPLOY ERROR: ${e.message}`);
-      session.deploy_result = { deployed: false, error: e.message };
+    const files = extractEnhancementFiles(session.messages);
+    if (files.length > 0) {
+      session.phase = "awaiting_approval";
+      const pendingId = sessionId;
+      await db.set(`builder:pending:${pendingId}`, {
+        id: pendingId,
+        agent: session.agent_name,
+        mode: "enhance",
+        files: files.map(f => ({ path: f.path, preview: f.content.substring(0, 500), size: f.content.length })),
+        full_files: files,
+        created_at: new Date().toISOString(),
+        status: "awaiting_approval",
+      });
+      console.log(`[BUILDER] Enhancement ready for approval: ${session.agent_name} — ${files.length} files — session ${pendingId}`);
+    } else {
+      console.log(`[BUILDER] WARNING: No files extracted from enhance output`);
+      session.deploy_result = { deployed: false, reason: "No files extracted" };
     }
   }
 
@@ -283,7 +297,7 @@ The rollback safety net will automatically revert if anything breaks.`;
     phase: session.phase,
     output,
     deploy_result: session.deploy_result || null,
-    requires_approval: false,
+    requires_approval: session.phase === "awaiting_approval",
   };
 }
 
