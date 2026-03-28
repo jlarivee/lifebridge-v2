@@ -1803,6 +1803,41 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
+  // One-time cleanup: auto-acknowledge old broken/duplicate alerts
+  try {
+    const alertKeys = await db.list("system-alert:");
+    let cleaned = 0;
+    const seenWatches = new Set();
+    for (const key of alertKeys) {
+      const alert = await db.get(key);
+      if (!alert || alert.acknowledged) continue;
+
+      // Clean legacy alerts with undefined fields
+      if (!alert.message && alert.issue_count === undefined) {
+        alert.acknowledged = true;
+        alert.acknowledged_at = new Date().toISOString();
+        alert.acknowledged_reason = "auto-cleaned: legacy alert with undefined fields";
+        await db.set(key, alert);
+        cleaned++;
+        continue;
+      }
+
+      // Deduplicate flight watch alerts — keep only the most recent per watch_id
+      if (alert.watch_id) {
+        if (seenWatches.has(alert.watch_id)) {
+          alert.acknowledged = true;
+          alert.acknowledged_at = new Date().toISOString();
+          alert.acknowledged_reason = "auto-cleaned: duplicate flight watch alert";
+          await db.set(key, alert);
+          cleaned++;
+        } else {
+          seenWatches.add(alert.watch_id);
+        }
+      }
+    }
+    if (cleaned > 0) console.log(`[CLEANUP] Auto-acknowledged ${cleaned} legacy/duplicate alert(s)`);
+  } catch (e) { console.log("[CLEANUP] Alert cleanup note:", e.message); }
+
   // Seed any missing test suites (preserves existing results)
   const seeded = await seedAllSuites();
   if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
@@ -1923,9 +1958,17 @@ async function start() {
   try { await db.set("system:maintenance", JSON.stringify({ active: false })); } catch {}
 
   const port = process.env.PORT || 5000;
-  app.listen(port, () => {
+  app.listen(port, async () => {
     console.log("LifeBridge v2.0 running on Claude Agent SDK");
     console.log(`Listening on port ${port}`);
+
+    // Run fast test suite AFTER server is listening so endpoints are reachable
+    try {
+      const startupTests = await runFullTestSuite("startup", "fast");
+      console.log(`[TEST] Startup fast run: ${startupTests.passed}/${startupTests.total_cases} passed, ${startupTests.failed} failed`);
+    } catch (e) {
+      console.log(`[TEST] Startup fast run failed: ${e.message}`);
+    }
   });
 }
 

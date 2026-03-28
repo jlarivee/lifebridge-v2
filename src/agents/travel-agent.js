@@ -578,16 +578,28 @@ export async function checkFlightWatches() {
 
         const threshold = watch.price_threshold_usd;
         if (threshold && priceData.current_price <= threshold) {
-          const flightAlertId = uuidv4();
-          await db.set(`system-alert:${flightAlertId}`, {
-            id: flightAlertId,
-            created_at: new Date().toISOString(),
-            severity: "info",
-            source: "travel-agent",
-            message: `Flight watch ${routeFrom}→${routeTo}: $${priceData.current_price} dropped below threshold $${threshold} — good time to book!`,
-            watch_id: watch.id,
-            acknowledged: false,
-          });
+          // Only create one alert per watch — skip if an unacknowledged alert exists for this watch
+          const alertKeys = await db.list("system-alert:");
+          let alreadyAlerted = false;
+          for (const ak of alertKeys) {
+            const existing = await db.get(ak);
+            if (existing && existing.watch_id === watch.id && !existing.acknowledged) {
+              alreadyAlerted = true;
+              break;
+            }
+          }
+          if (!alreadyAlerted) {
+            const flightAlertId = uuidv4();
+            await db.set(`system-alert:${flightAlertId}`, {
+              id: flightAlertId,
+              created_at: new Date().toISOString(),
+              severity: "info",
+              source: "travel-agent",
+              message: `Flight watch ${routeFrom}→${routeTo}: $${priceData.current_price} dropped below threshold $${threshold} — good time to book!`,
+              watch_id: watch.id,
+              acknowledged: false,
+            });
+          }
         }
       }
     } catch (e) {

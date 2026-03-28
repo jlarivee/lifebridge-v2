@@ -398,8 +398,26 @@ export async function runTestCase(agentName, testCase, trigger, tier = "full") {
     notes: error || null,
   };
 
-  // Fast tier: skip DB writes entirely — no run history, no suite updates
-  // Full tier: persist run records and update suite state
+  // Always update suite test case status (so the Tests tab shows current results)
+  if (suite) {
+    const tc = suite.test_cases.find(t => t.id === testCase.id);
+    if (tc) {
+      tc.last_run_at = run.run_at;
+      tc.last_status = run.status;
+      tc.last_output = run.actual_output?.slice(0, 500);
+    }
+    suite.updated_at = new Date().toISOString();
+
+    // Capture baseline on first pass
+    if (run.status === "pass" && !suite.baseline_output) {
+      suite.baseline_output = run.actual_output;
+      suite.baseline_captured_at = run.run_at;
+    }
+
+    await db.set(`test-suite:${agentName}`, suite);
+  }
+
+  // Full tier: also persist individual run records and history
   if (tier === "full") {
     await db.set(`test-run:${run.id}`, run);
 
@@ -408,24 +426,6 @@ export async function runTestCase(agentName, testCase, trigger, tier = "full") {
       cached.unshift(run);
       await db.set(`agent-recent-runs:${run.agent_name}`, cached.slice(0, 10));
     } catch (_) {}
-
-    if (suite) {
-      const tc = suite.test_cases.find(t => t.id === testCase.id);
-      if (tc) {
-        tc.last_run_at = run.run_at;
-        tc.last_status = run.status;
-        tc.last_output = run.actual_output?.slice(0, 500);
-      }
-      suite.updated_at = new Date().toISOString();
-
-      // Capture baseline on first pass
-      if (run.status === "pass" && !suite.baseline_output) {
-        suite.baseline_output = run.actual_output;
-        suite.baseline_captured_at = run.run_at;
-      }
-
-      await db.set(`test-suite:${agentName}`, suite);
-    }
   }
 
   return run;
