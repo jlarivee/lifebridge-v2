@@ -136,6 +136,50 @@ export async function deployAgent(agentName, skillContent, codeContent, registry
   };
 }
 
+/**
+ * Full new-agent deployment with UI wiring.
+ * Writes files, registers, updates config.js for hub visibility, commits to GitHub.
+ * Used by /builder/pending/:id/approve for BUILD mode.
+ */
+export async function deployNewAgentFull(agentName, files, agentLabel, domain) {
+  // 1. Write all files to disk
+  const written = writeEnhancementFiles(files);
+
+  // 2. Extract skill + code for GitHub commit
+  const skillFile = files.find(f => f.path.startsWith("src/skills/"));
+  const codeFile = files.find(f => f.path.startsWith("src/agents/"));
+
+  // 3. Register in DB
+  const registryEntry = {
+    name: agentName,
+    domain: domain || "General",
+    status: "Active",
+    purpose: `Auto-built agent: ${agentLabel || agentName}`,
+    endpoints: [`/agents/${agentName}`],
+    created_at: new Date().toISOString(),
+  };
+  await registerAgent(registryEntry);
+
+  // 4. Update config.js — adds to AGENT_ENDPOINTS, AGENT_LABELS, DASHBOARD_AGENTS
+  const label = agentLabel || agentName.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  safeAppendToConfig(agentName, label);
+
+  // 5. Commit to GitHub (best-effort)
+  let githubResult = { synced: false, reason: "no skill/code files" };
+  if (skillFile && codeFile) {
+    githubResult = await commitToGitHub(agentName, skillFile.content, codeFile.content);
+  }
+
+  console.log(`[DEPLOY] New agent fully deployed: ${agentName} — ${written.length} files, config updated`);
+
+  return {
+    deployed: true,
+    agent: agentName,
+    files_written: written,
+    github: githubResult,
+  };
+}
+
 // ── Enhancement deployment (arbitrary file writes) ────────────────────────────
 
 const PROJECT_ROOT = join(SRC_DIR, "..");
@@ -457,9 +501,35 @@ export async function deployEnhancementSafe(agentName, files) {
   }
   console.log(`[SAFE-DEPLOY] CSS integrity check passed — protected files unchanged`);
 
-  // 3. Run tests
+  // 3. Run baseline tests BEFORE enhancement is active (restore, test, re-write)
+  //    This captures pre-existing failures so we only roll back on NEW failures.
+  let baselineFailures = 0;
+  try {
+    // Temporarily restore originals to get baseline
+    restoreFiles(backup);
+    const PORT_B = process.env.PORT || 5000;
+    const baseResp = await fetch(`http://localhost:${PORT_B}/test/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (baseResp.ok) {
+      const baseData = await baseResp.json();
+      baselineFailures = baseData.failed || 0;
+      console.log(`[SAFE-DEPLOY] Baseline: ${baseData.passed || 0} passed, ${baselineFailures} failed`);
+    }
+    // Re-write the enhancement files
+    writeEnhancementFiles(allowedFiles);
+  } catch (e) {
+    console.log(`[SAFE-DEPLOY] Baseline test error (proceeding): ${e.message}`);
+    // Re-write regardless
+    writeEnhancementFiles(allowedFiles);
+  }
+
+  // 4. Run tests with enhancement applied
   let testsPassed = false;
   let testOutput = "";
+  let postFailures = 0;
   try {
     const PORT = process.env.PORT || 5000;
     const testResp = await fetch(`http://localhost:${PORT}/test/run`, {
@@ -469,9 +539,11 @@ export async function deployEnhancementSafe(agentName, files) {
     });
     if (testResp.ok) {
       const testData = await testResp.json();
-      testsPassed = (testData.failed || 0) === 0;
-      testOutput = `${testData.passed || 0} passed, ${testData.failed || 0} failed`;
-      console.log(`[SAFE-DEPLOY] Tests: ${testOutput}`);
+      postFailures = testData.failed || 0;
+      // Only fail if NEW failures appeared (more failures than baseline)
+      testsPassed = postFailures <= baselineFailures;
+      testOutput = `${testData.passed || 0} passed, ${postFailures} failed (baseline: ${baselineFailures})`;
+      console.log(`[SAFE-DEPLOY] Post-enhancement tests: ${testOutput}`);
     } else {
       testOutput = `Test endpoint returned ${testResp.status}`;
       console.log(`[SAFE-DEPLOY] Test endpoint error: ${testResp.status}`);
@@ -481,9 +553,9 @@ export async function deployEnhancementSafe(agentName, files) {
     console.log(`[SAFE-DEPLOY] Test run error: ${e.message}`);
   }
 
-  // 4. If tests failed: ROLLBACK
+  // 5. If NEW tests failed: ROLLBACK
   if (!testsPassed) {
-    console.log(`[SAFE-DEPLOY] TESTS FAILED — rolling back ${agentName}`);
+    console.log(`[SAFE-DEPLOY] NEW TESTS FAILED — rolling back ${agentName} (${postFailures} failures vs ${baselineFailures} baseline)`);
 
     const restoreResult = restoreFiles(backup);
     console.log(`[SAFE-DEPLOY] Restored ${restoreResult.length} files from backup`);
@@ -493,7 +565,7 @@ export async function deployEnhancementSafe(agentName, files) {
       mode: "enhance",
       agent: agentName,
       rolled_back: true,
-      reason: `Tests failed after enhancement: ${testOutput}`,
+      reason: `New test failures after enhancement: ${testOutput}`,
       files_restored: restoreResult,
       test_output: testOutput,
     };
@@ -534,22 +606,32 @@ export function safeAppendToConfig(agentName, label) {
     return false;
   }
 
-  // Append to AGENT_ENDPOINTS
+  // Append to AGENT_ENDPOINTS — find last entry line and add after it
   content = content.replace(
-    /(var AGENT_ENDPOINTS\s*=\s*\{[^}]+)([\s]*\};)/,
-    `$1,\n  '${agentName}': '/agents/${agentName}'$2`
+    /(var AGENT_ENDPOINTS\s*=\s*\{[\s\S]*?)((\n\s*\};))/m,
+    (_, before, closing) => {
+      // Remove trailing whitespace/newlines before closing
+      const trimmed = before.replace(/[\s,]*$/, '');
+      return `${trimmed},\n  '${agentName}': '/agents/${agentName}'${closing}`;
+    }
   );
 
   // Append to AGENT_LABELS
   content = content.replace(
-    /(var AGENT_LABELS\s*=\s*\{[^}]+)([\s]*\};)/,
-    `$1,\n  '${agentName}': '${label}'$2`
+    /(var AGENT_LABELS\s*=\s*\{[\s\S]*?)((\n\s*\};))/m,
+    (_, before, closing) => {
+      const trimmed = before.replace(/[\s,]*$/, '');
+      return `${trimmed},\n  '${agentName}': '${label}'${closing}`;
+    }
   );
 
   // Append to DASHBOARD_AGENTS
   content = content.replace(
-    /(var DASHBOARD_AGENTS\s*=\s*\{[^}]+)([\s]*\};)/,
-    `$1,\n  '${agentName}': true$2`
+    /(var DASHBOARD_AGENTS\s*=\s*\{[\s\S]*?)((\n\s*\};))/m,
+    (_, before, closing) => {
+      const trimmed = before.replace(/[\s,]*$/, '');
+      return `${trimmed},\n  '${agentName}': true${closing}`;
+    }
   );
 
   writeFileSync(configPath, content, "utf8");

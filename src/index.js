@@ -238,6 +238,8 @@ app.get("/builder/pending", async (req, res) => {
         pending.push({
           id: item.id,
           agent: item.agent,
+          agent_label: item.agent_label,
+          domain: item.domain,
           mode: item.mode,
           files: item.files, // previews only
           created_at: item.created_at,
@@ -264,24 +266,39 @@ app.post("/builder/pending/:id/approve", async (req, res) => {
     if (!item) return res.status(404).json({ error: "Not found" });
     if (item.status !== "awaiting_approval") return res.json({ error: "Already processed", status: item.status });
 
-    // Deploy with safety net
-    const { deployEnhancementSafe, triggerGracefulRestart } = await import("./tools/deploy-tools.js");
-    const deployResult = await deployEnhancementSafe(item.agent, item.full_files);
+    let deployResult;
 
-    // Update pending record
-    item.status = deployResult.rolled_back ? "rolled_back" : "deployed";
-    item.deploy_result = deployResult;
-    item.approved_at = new Date().toISOString();
-    await db.set(`builder:pending:${req.params.id}`, item);
+    if (item.mode === "build") {
+      // BUILD mode: deploy new agent with full UI wiring
+      const { deployNewAgentFull, triggerGracefulRestart } = await import("./tools/deploy-tools.js");
+      deployResult = await deployNewAgentFull(item.agent, item.full_files, item.agent_label, item.domain);
 
-    if (deployResult.rolled_back) {
-      console.log(`[BUILDER] ROLLED BACK: ${item.agent} — ${deployResult.reason}`);
-      res.json({ status: "rolled_back", reason: deployResult.reason });
-    } else {
-      console.log(`[BUILDER] APPROVED & DEPLOYED: ${item.agent} — ${item.full_files.length} files`);
+      item.status = "deployed";
+      item.deploy_result = deployResult;
+      item.approved_at = new Date().toISOString();
+      await db.set(`builder:pending:${req.params.id}`, item);
+
+      console.log(`[BUILDER] NEW AGENT DEPLOYED: ${item.agent} — ${item.full_files.length} files`);
       res.json({ status: "deployed", agent: item.agent, files: deployResult.files_written });
-      // Trigger graceful restart after response is sent
-      triggerGracefulRestart(item.agent, "Enhancement approved and deployed");
+      triggerGracefulRestart(item.agent, "New agent approved and deployed");
+    } else {
+      // ENHANCE mode: deploy with safety net (rollback if tests fail)
+      const { deployEnhancementSafe, triggerGracefulRestart } = await import("./tools/deploy-tools.js");
+      deployResult = await deployEnhancementSafe(item.agent, item.full_files);
+
+      item.status = deployResult.rolled_back ? "rolled_back" : "deployed";
+      item.deploy_result = deployResult;
+      item.approved_at = new Date().toISOString();
+      await db.set(`builder:pending:${req.params.id}`, item);
+
+      if (deployResult.rolled_back) {
+        console.log(`[BUILDER] ROLLED BACK: ${item.agent} — ${deployResult.reason}`);
+        res.json({ status: "rolled_back", reason: deployResult.reason });
+      } else {
+        console.log(`[BUILDER] APPROVED & DEPLOYED: ${item.agent} — ${item.full_files.length} files`);
+        res.json({ status: "deployed", agent: item.agent, files: deployResult.files_written });
+        triggerGracefulRestart(item.agent, "Enhancement approved and deployed");
+      }
     }
   } catch (e) {
     console.log(`[BUILDER] APPROVE ERROR: ${e.message}`);

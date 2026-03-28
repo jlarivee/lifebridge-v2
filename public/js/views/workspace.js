@@ -183,6 +183,18 @@ function renderRoutingResult(result, userInput) {
       html += '<button class="routing-cancel-btn" id="routingCancelBtn">Cancel</button>';
       html += '</div>';
     }
+  } else if (rest.indexOf('BUILD BRIEF') !== -1 || rest.indexOf('ENHANCE BRIEF') !== -1) {
+    // Build/Enhance brief detected — show the brief and a BUILD THIS button
+    var isBuild = rest.indexOf('BUILD BRIEF') !== -1;
+    html += '<div class="routing-response-card">';
+    html += '<div class="routing-reasoning-header">' + (isBuild ? 'Build Brief — New Agent' : 'Enhance Brief') + '</div>';
+    html += '<div class="routing-response-text" style="white-space:pre-wrap;font-size:12px;">' + escapeHtml(rest) + '</div>';
+    html += '</div>';
+
+    html += '<div class="routing-actions">';
+    html += '<button class="routing-proceed-btn" id="routingBuildBtn" style="background:var(--accent-teal);color:#fff;">' + (isBuild ? '🔨 BUILD THIS' : '⚡ ENHANCE') + '</button>';
+    html += '<button class="routing-cancel-btn" id="routingCancelBtn">Cancel</button>';
+    html += '</div>';
   } else {
     html += '<div class="routing-response-card">';
     html += '<div class="routing-reasoning-header">Response</div>';
@@ -203,6 +215,16 @@ function renderRoutingResult(result, userInput) {
   if (proceedBtn) {
     proceedBtn.addEventListener('click', function() {
       proceedToAgent(agentEndpoint, routedAgent, userInput, routedContext, conf, result.id);
+    });
+  }
+
+  var buildBtn = document.getElementById('routingBuildBtn');
+  if (buildBtn) {
+    buildBtn.addEventListener('click', function() {
+      buildBtn.disabled = true;
+      buildBtn.textContent = 'Builder working...';
+      // The builder was already auto-dispatched by /route — just start polling for pending approval
+      startBuilderApprovalPolling(container);
     });
   }
 
@@ -452,9 +474,11 @@ function showApprovalGate(el, pending) {
       '</div></div>';
   }).join('');
 
+  var modeLabel = pending.mode === 'build' ? 'New Agent Ready' : 'Enhancement Ready';
   el.innerHTML = '<div class="output-card-header">' +
-    '<div class="output-card-query">Enhancement Ready — ' + escapeHtml(pending.agent) + '</div>' +
+    '<div class="output-card-query">' + modeLabel + ' — ' + escapeHtml(pending.agent) + '</div>' +
     '</div>' +
+    (pending.mode === 'build' ? '<div class="dash-card-meta" style="padding:0 16px 8px;color:var(--accent-teal);">Domain: ' + escapeHtml(pending.domain || 'General') + '</div>' : '') +
     '<div class="dash-section-label">Files to be deployed</div>' +
     filesHtml +
     '<div style="display:flex;gap:12px;margin-top:16px;">' +

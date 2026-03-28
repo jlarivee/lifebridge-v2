@@ -135,26 +135,49 @@ Context:
 ${JSON.stringify(context, null, 2)}`;
 }
 
-// ── BUILD mode (existing) ─────────────────────────────────────────────────────
+// ── BUILD mode ────────────────────────────────────────────────────────────────
 
 /**
- * Start a new build session — Phase 1.
- * Returns a session_id the caller uses to continue the pipeline.
+ * Start a new build session — runs ALL phases in one Claude call.
+ * Generates skill file + agent code, stores as pending approval.
+ * Human reviews and approves/rejects via UI.
  */
 export async function startBuild(buildBrief, context = {}) {
   const sessionId = uuidv4();
   const systemPrompt = buildSystemPrompt(buildBrief, context);
 
-  const userMessage = `Execute the 4-phase Agent Builder pipeline for this build brief.
-Start with Phase 1 — write the skill file and output it for review.
-Label your output clearly: SKILL FILE — READY FOR REVIEW
-Do NOT proceed to Phase 2 until you receive explicit approval.`;
+  const userMessage = `Execute the FULL Agent Builder pipeline for this build brief in a SINGLE response.
+
+IMPORTANT: Complete ALL phases now:
+1. Design the agent — name, domain, purpose
+2. Write the SKILL FILE (markdown)
+3. Write the AGENT CODE (JavaScript)
+4. Include a DEPLOYMENT section
+
+For EACH file, output it in this exact format:
+
+===FILE: src/skills/{agent-name}.md===
+(complete skill file content)
+===END FILE===
+
+===FILE: src/agents/{agent-name}.js===
+(complete agent code content — use the code template provided)
+===END FILE===
+
+After all files, output a section like:
+AGENT NAME: {agent-name}
+AGENT LABEL: {Human Readable Label}
+DOMAIN: {Work|Personal Business|Personal Life|System}
+DEPLOYMENT COMPLETE
+
+Do NOT stop for review. Generate everything now.
+The human will review all artifacts before anything is deployed.`;
 
   const messages = [{ role: "user", content: userMessage }];
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 8192,
+    max_tokens: 16384,
     system: systemPrompt,
     messages,
   });
@@ -180,15 +203,81 @@ Do NOT proceed to Phase 2 until you receive explicit approval.`;
     updated: new Date().toISOString(),
   };
 
+  // Extract files and metadata, store as pending approval
+  if (session.phase === "deployed") {
+    const files = extractEnhancementFiles(session.messages); // reuse ===FILE: format parser
+    const meta = extractBuildMeta(output);
+
+    if (files.length > 0) {
+      session.phase = "awaiting_approval";
+      const pendingId = sessionId;
+      await db.set(`builder:pending:${pendingId}`, {
+        id: pendingId,
+        agent: meta.agentName || "unknown-agent",
+        agent_label: meta.agentLabel || meta.agentName || "New Agent",
+        domain: meta.domain || "General",
+        mode: "build",
+        files: files.map(f => ({ path: f.path, preview: f.content.substring(0, 500), size: f.content.length })),
+        full_files: files,
+        created_at: new Date().toISOString(),
+        status: "awaiting_approval",
+      });
+      console.log(`[BUILDER] New agent ready for approval: ${meta.agentName} — ${files.length} files — session ${pendingId}`);
+    } else {
+      // Try legacy extraction as fallback
+      const extracted = extractArtifacts(session.messages);
+      if (extracted.skillContent && extracted.codeContent) {
+        session.phase = "awaiting_approval";
+        const pendingId = sessionId;
+        const legacyFiles = [
+          { path: `src/skills/${extracted.agentName}.md`, content: extracted.skillContent },
+          { path: `src/agents/${extracted.agentName}.js`, content: extracted.codeContent },
+        ];
+        await db.set(`builder:pending:${pendingId}`, {
+          id: pendingId,
+          agent: extracted.agentName,
+          agent_label: extracted.agentName,
+          domain: extracted.domain || "General",
+          mode: "build",
+          files: legacyFiles.map(f => ({ path: f.path, preview: f.content.substring(0, 500), size: f.content.length })),
+          full_files: legacyFiles,
+          created_at: new Date().toISOString(),
+          status: "awaiting_approval",
+        });
+        console.log(`[BUILDER] New agent ready for approval (legacy extract): ${extracted.agentName}`);
+      } else {
+        console.log(`[BUILDER] WARNING: No files extracted from build output`);
+        session.deploy_result = { deployed: false, reason: "No files extracted" };
+      }
+    }
+  }
+
   await db.set(`build-session:${sessionId}`, session);
 
   return {
     agent: "agent-builder-agent",
     session_id: sessionId,
+    mode: "build",
     phase: session.phase,
     output,
-    requires_approval: true,
-    approval_reason: "Review the skill file before proceeding to Phase 2",
+    requires_approval: session.phase === "awaiting_approval",
+    approval_reason: session.phase === "awaiting_approval"
+      ? "Review the generated agent files before deployment"
+      : null,
+  };
+}
+
+/**
+ * Extract agent name, label, domain from BUILD output metadata.
+ */
+function extractBuildMeta(output) {
+  const nameMatch = output.match(/AGENT NAME:\s*([\w-]+)/i);
+  const labelMatch = output.match(/AGENT LABEL:\s*([^\n]+)/i);
+  const domainMatch = output.match(/DOMAIN:\s*([\w\s]+)/i);
+  return {
+    agentName: nameMatch ? nameMatch[1].trim() : null,
+    agentLabel: labelMatch ? labelMatch[1].trim() : null,
+    domain: domainMatch ? domainMatch[1].trim() : null,
   };
 }
 
