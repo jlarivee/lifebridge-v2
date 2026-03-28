@@ -3,3 +3,5 @@ node_modules/
 .cache/
 .upm/
 replit.nix
+.env.local
+data/local-db.json

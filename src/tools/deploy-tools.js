@@ -624,8 +624,8 @@ export async function triggerGracefulRestart(agentName, reason) {
 
   try {
     // Use dynamic import since db may not be available in all contexts
-    const Database = (await import("@replit/database")).default;
-    const rawDb = new Database();
+    const { ensureDB } = await import("../db.js");
+    const rawDb = await ensureDB();
     await rawDb.set("system:maintenance", JSON.stringify({
       active: true,
       reason: `Deploying: ${agentName}`,

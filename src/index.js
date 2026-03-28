@@ -56,7 +56,6 @@ import {
 import { autoRegisterAllAgents } from "./auto-register.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
-import Database from "@replit/database";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const client = new Anthropic();
@@ -434,9 +433,7 @@ app.post("/system/agent-loaded", async (req, res) => {
   console.log(`[LIFEBRIDGE] Route: POST /agents/${agent}`);
   console.log(`[LIFEBRIDGE] Registry updated. System ready.\n`);
   try {
-    const rawDb = new Database();
-    const registryRaw = await rawDb.get("registry");
-    const registry = registryRaw ? JSON.parse(registryRaw) : { agents: [] };
+    const registry = await db.get("registry") || { agents: [] };
     res.json({ success: true, message: `Agent ${agent} is now live`, total_agents: registry.agents?.length || 0 });
   } catch (e) {
     res.json({ success: true, message: `Agent ${agent} hot-loaded` });
