@@ -26,10 +26,11 @@ function parseChanges(proposalText) {
   for (const part of parts.slice(1)) {
     const change = {};
     for (const field of ["Type", "Evidence", "Current", "Proposed", "Reasoning", "Risk", "Confidence"]) {
+      // Match field with flexible whitespace (handles indented intelligence proposals)
       const match = part.match(
         new RegExp(
-          `${field}:\\s*(.*?)(?=\\n\\s*(?:Type|Evidence|Current|Proposed|Reasoning|Risk|Confidence|Change|OVERALL|$))`,
-          "s"
+          `^[ \\t]*${field}:\\s*(.*?)(?=\\n[ \\t]*(?:Type|Evidence|Current|Proposed|Reasoning|Risk|Confidence|Change|OVERALL|$))`,
+          "sm"
         )
       );
       if (match) {

@@ -426,9 +426,11 @@ app.post("/system/deploy-agent", async (req, res) => {
       const intReport = await runIntegrityCheck("deploy", agent_name);
       console.log(`[INTEGRITY] Post-deploy scan for ${agent_name}: ${intReport.status}`);
       if (intReport.status === "critical") {
-        await db.set(`system-alert:${uuidv4()}`, {
-          id: uuidv4(), created_at: new Date().toISOString(),
+        const alertId = uuidv4();
+        await db.set(`system-alert:${alertId}`, {
+          id: alertId, created_at: new Date().toISOString(),
           severity: "critical", source: "registry-integrity-agent",
+          message: `${intReport.issues.length} integrity issue(s) found after deploying ${agent_name}`,
           issue_count: intReport.issues.length, report_id: intReport.report_id,
           acknowledged: false,
         });
@@ -1801,8 +1803,7 @@ async function start() {
     console.log(`Loaded ${dynamicCount} dynamic agent(s) from registry`);
   }
 
-  // Reset stale test suites (ones with natural language route tests) then re-seed
-  await resetTestSuites();
+  // Seed any missing test suites (preserves existing results)
   const seeded = await seedAllSuites();
   if (seeded > 0) console.log(`Seeded ${seeded} new test suite(s)`);
 
@@ -1834,9 +1835,11 @@ async function start() {
       const report = await runIntegrityCheck("scheduled");
       console.log(`[INTEGRITY] Weekly scan: ${report.status} — ${report.agents_checked} agents, ${report.issues.length} issues`);
       if (report.status === "critical") {
-        await db.set(`system-alert:${uuidv4()}`, {
-          id: uuidv4(), created_at: new Date().toISOString(),
+        const alertId = uuidv4();
+        await db.set(`system-alert:${alertId}`, {
+          id: alertId, created_at: new Date().toISOString(),
           severity: "critical", source: "registry-integrity-agent",
+          message: `${report.issues.length} integrity issue(s) found in weekly scan`,
           issue_count: report.issues.length, report_id: report.report_id,
           acknowledged: false,
         });

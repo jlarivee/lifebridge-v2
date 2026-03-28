@@ -64,7 +64,7 @@ function parseProposalChanges(text) {
     var fields = ['Type', 'Evidence', 'Current', 'Proposed', 'Reasoning', 'Risk', 'Confidence'];
     for (var j = 0; j < fields.length; j++) {
       var field = fields[j];
-      var re = new RegExp(field + ':\\s*([\\s\\S]*?)(?=\\n\\s*(?:Type|Evidence|Current|Proposed|Reasoning|Risk|Confidence|Change|OVERALL|$))', '');
+      var re = new RegExp('^[ \\t]*' + field + ':\\s*([\\s\\S]*?)(?=\\n[ \\t]*(?:Type|Evidence|Current|Proposed|Reasoning|Risk|Confidence|Change|OVERALL|$))', 'sm');
       var m = part.match(re);
       if (m) change[field.toLowerCase()] = m[1].trim();
     }

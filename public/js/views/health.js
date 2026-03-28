@@ -14,7 +14,8 @@ async function loadHealthAlerts() {
     for (var i = 0; i < alerts.length; i++) {
       var a = alerts[i];
       html += '<div style="background:#ef444411;border:1px solid #ef444433;border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">';
-      html += '<div style="font-family:var(--font-mono);font-size:11px;color:#ef4444;">\ud83d\udea8 Critical: ' + a.issue_count + ' issue(s) \u2014 ' + new Date(a.created_at).toLocaleString() + '</div>';
+      var alertText = a.message ? a.message : (a.issue_count + ' issue(s)');
+      html += '<div style="font-family:var(--font-mono);font-size:11px;color:#ef4444;">\ud83d\udea8 ' + (a.severity || 'Critical') + ': ' + alertText + ' \u2014 ' + new Date(a.created_at).toLocaleString() + '</div>';
       html += '<button onclick="acknowledgeAlert(\'' + a.id + '\')" style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;">Acknowledge</button>';
       html += '</div>';
     }

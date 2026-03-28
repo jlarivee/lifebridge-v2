@@ -455,8 +455,9 @@ export async function createLoyaltySnapshot(snapshotData) {
   await db.set(`loyalty-snapshot:${snapshot.id}`, snapshot);
 
   if (snapshot.points_expiring_90_days && snapshot.points_expiring_90_days > 0) {
-    await db.set(`system-alert:${uuidv4()}`, {
-      id: uuidv4(),
+    const loyaltyAlertId = uuidv4();
+    await db.set(`system-alert:${loyaltyAlertId}`, {
+      id: loyaltyAlertId,
       created_at: new Date().toISOString(),
       severity: "warning",
       source: "travel-agent",
@@ -577,8 +578,9 @@ export async function checkFlightWatches() {
 
         const threshold = watch.price_threshold_usd;
         if (threshold && priceData.current_price <= threshold) {
-          await db.set(`system-alert:${uuidv4()}`, {
-            id: uuidv4(),
+          const flightAlertId = uuidv4();
+          await db.set(`system-alert:${flightAlertId}`, {
+            id: flightAlertId,
             created_at: new Date().toISOString(),
             severity: "info",
             source: "travel-agent",
@@ -616,8 +618,9 @@ export async function checkDocExpiry() {
         ? `Travel document "${doc.name}" EXPIRED ${Math.abs(daysUntil)} days ago`
         : `Travel document "${doc.name}" expires in ${daysUntil} days`;
 
-      await db.set(`system-alert:${uuidv4()}`, {
-        id: uuidv4(),
+      const docAlertId = uuidv4();
+      await db.set(`system-alert:${docAlertId}`, {
+        id: docAlertId,
         created_at: new Date().toISOString(),
         severity,
         source: "travel-agent",

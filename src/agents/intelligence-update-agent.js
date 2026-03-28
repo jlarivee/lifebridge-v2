@@ -191,7 +191,26 @@ Return ONLY valid JSON:
 
 async function generateProposals(findings) {
   const surfaced = findings.filter(f => f.relevance_score >= 6);
+
+  // Dedup: load existing pending proposals to avoid creating duplicates
+  const existingKeys = await db.list("improvement:");
+  const existingTitles = new Set();
+  for (const key of existingKeys) {
+    const existing = await db.get(key);
+    if (existing && existing.status === "pending" && existing.proposal) {
+      // Extract title from proposal text
+      const titleMatch = existing.proposal.match(/INTELLIGENCE FINDING — (.+)\n/);
+      if (titleMatch) existingTitles.add(titleMatch[1].trim().toLowerCase());
+    }
+  }
+
   for (const finding of surfaced) {
+    // Skip if a pending proposal with the same title already exists
+    if (existingTitles.has((finding.title || "").toLowerCase())) {
+      console.log(`[INTEL] Skipping duplicate proposal: "${finding.title}"`);
+      continue;
+    }
+
     const proposalId = uuidv4();
     const proposal = {
       id: proposalId,

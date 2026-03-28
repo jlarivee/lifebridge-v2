@@ -69,9 +69,10 @@ export async function loadDynamicAgents(app) {
       // Mount the route
       app.post(routePath, async (req, res) => {
         try {
-          const { input, context } = req.body || {};
-          if (!input) return res.status(400).json({ error: "input required" });
-          const result = await runFn(input, context || {});
+          const { input, context, request } = req.body || {};
+          const userInput = input || request;
+          if (!userInput) return res.status(400).json({ error: "input required" });
+          const result = await runFn(userInput, context || {});
           res.json(result);
         } catch (e) {
           res.status(500).json({ error: e.message });
