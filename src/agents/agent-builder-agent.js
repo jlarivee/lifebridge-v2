@@ -273,7 +273,7 @@ The human will review all artifacts before anything is deployed.`;
 function extractBuildMeta(output) {
   const nameMatch = output.match(/AGENT NAME:\s*([\w-]+)/i);
   const labelMatch = output.match(/AGENT LABEL:\s*([^\n]+)/i);
-  const domainMatch = output.match(/DOMAIN:\s*([\w\s]+)/i);
+  const domainMatch = output.match(/DOMAIN:\s*(Work|Personal Business|Personal Life|System|General)/i);
   return {
     agentName: nameMatch ? nameMatch[1].trim() : null,
     agentLabel: labelMatch ? labelMatch[1].trim() : null,
