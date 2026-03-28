@@ -14,6 +14,29 @@ const masterSkillPath = path.join(__dirname, "../skills/master-agent.md");
 const client = new Anthropic();
 
 export async function runImprovementCycle() {
+  // Skip if there's already a pending improvement-cycle proposal (not intelligence)
+  // This prevents daily duplicates piling up when nobody reviews them
+  const existingKeys = await db.list("improvement:");
+  let pendingCount = 0;
+  for (const key of existingKeys) {
+    const existing = await db.get(key);
+    if (existing && existing.status === "pending" && existing.requests_reviewed > 0) {
+      pendingCount++;
+    }
+  }
+  if (pendingCount >= 3) {
+    console.log(`[IMPROVE] Skipping — ${pendingCount} pending improvement proposals already queued. Review them first.`);
+    return {
+      id: null,
+      timestamp: new Date().toISOString(),
+      status: "skipped",
+      requests_reviewed: 0,
+      proposal: `Skipped: ${pendingCount} pending proposals already in queue. Review existing proposals before generating new ones.`,
+      approved_changes: [],
+      rejected_changes: [],
+    };
+  }
+
   const masterSkill = fs.readFileSync(masterSkillPath, "utf-8");
   const registry = await readRegistry();
   const context = await readContext();

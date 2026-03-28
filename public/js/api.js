@@ -83,6 +83,10 @@ async function getImprovementHistory() {
   return apiFetch('/improve/history');
 }
 
+async function dismissAllImprovements() {
+  return apiFetch('/improve/dismiss-all', { method: 'POST' });
+}
+
 // ─── Ideas ───
 async function getIdeas() {
   return apiFetch('/ideas');

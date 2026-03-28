@@ -183,6 +183,26 @@ app.get("/improve/history", async (req, res) => {
   }
 });
 
+// Dismiss all pending improvement proposals
+app.post("/improve/dismiss-all", async (req, res) => {
+  try {
+    const keys = await db.list("improvement:");
+    let dismissed = 0;
+    for (const key of keys) {
+      const entry = await db.get(key);
+      if (entry && entry.status === "pending") {
+        entry.status = "dismissed";
+        entry.dismissed_at = new Date().toISOString();
+        await db.set(key, entry);
+        dismissed++;
+      }
+    }
+    res.json({ success: true, dismissed });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Execution Log ──
 app.get("/execution/log", async (req, res) => {
   try {

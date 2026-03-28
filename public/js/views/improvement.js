@@ -186,11 +186,16 @@ async function loadHistory() {
     var history = await getImprovementHistory();
     var el = document.getElementById('historySection');
     var html = '';
+    var pendingCount = history.filter(function(h) { return h.status === 'pending'; }).length;
+
+    if (pendingCount > 2) {
+      html += '<div style="margin-bottom:10px;"><button onclick="handleDismissAll()" id="dismissAllBtn" style="font-family:JetBrains Mono,monospace;font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;">Dismiss all ' + pendingCount + ' pending</button></div>';
+    }
     if (!history.length) html = '<div style="color:var(--text-muted);font-family:JetBrains Mono,monospace;font-size:11px;">No improvement history yet.</div>';
     for (var i = 0; i < history.length; i++) {
       var h = history[i];
       var date = new Date(h.timestamp).toLocaleDateString();
-      var statusClass = h.status === 'pending' ? 'status-pending' : 'status-resolved';
+      var statusClass = h.status === 'pending' ? 'status-pending' : h.status === 'dismissed' ? 'status-dismissed' : 'status-resolved';
       var changeCount = (h.approved_changes || []).length + (h.rejected_changes || []).length;
       var totalChanges = parseProposalChanges(h.proposal).length;
       html += '<div class="history-entry"><span>' + date + '</span><span class="status-badge ' + statusClass + '">' + h.status + '</span><span>' + changeCount + '/' + totalChanges + ' changes resolved</span></div>';
@@ -203,5 +208,24 @@ async function loadHistory() {
     }
   } catch (e) {
     document.getElementById('historySection').innerHTML = '<div class="output-error">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function handleDismissAll() {
+  var btn = document.getElementById('dismissAllBtn');
+  if (!btn) return;
+  btn.textContent = 'Dismissing...';
+  btn.disabled = true;
+  try {
+    var result = await dismissAllImprovements();
+    btn.textContent = result.dismissed + ' dismissed';
+    btn.style.color = '#22c55e';
+    btn.style.borderColor = '#22c55e';
+    // Clear proposal cards and reload
+    document.getElementById('proposalArea').innerHTML = '';
+    setTimeout(function() { loadHistory(); }, 1500);
+  } catch (e) {
+    btn.textContent = 'Failed';
+    btn.disabled = false;
   }
 }
