@@ -705,7 +705,6 @@ export async function triggerGracefulRestart(agentName, reason) {
   console.log(`[RESTART] Initiating graceful restart: ${reason}`);
 
   try {
-    // Use dynamic import since db may not be available in all contexts
     const { ensureDB } = await import("../db.js");
     const rawDb = await ensureDB();
     await rawDb.set("system:maintenance", JSON.stringify({
@@ -716,6 +715,17 @@ export async function triggerGracefulRestart(agentName, reason) {
     console.log(`[RESTART] Maintenance flag set`);
   } catch (e) {
     console.log(`[RESTART] Could not set maintenance flag: ${e.message}`);
+  }
+
+  if (process.env.LOCAL_DEV === "true") {
+    // In local dev, don't exit — just log and clear maintenance flag
+    console.log(`[RESTART] LOCAL_DEV mode — skipping process.exit, agent deployed in-place`);
+    try {
+      const { ensureDB } = await import("../db.js");
+      const rawDb = await ensureDB();
+      await rawDb.set("system:maintenance", null);
+    } catch (e) {}
+    return;
   }
 
   // Delay to let the current HTTP response finish

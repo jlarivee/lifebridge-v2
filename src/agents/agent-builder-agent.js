@@ -21,7 +21,7 @@ const codeTemplate = readFileSync(
   "utf8"
 );
 
-const client = new Anthropic();
+const client = new Anthropic({ timeout: 10 * 60 * 1000 }); // 10 min timeout for large enhance operations
 
 // ── File reading for enhance mode ─────────────────────────────────────────────
 
@@ -205,16 +205,38 @@ The human will review all artifacts before anything is deployed.`;
 
   // Extract files and metadata, store as pending approval
   if (session.phase === "deployed") {
-    const files = extractEnhancementFiles(session.messages); // reuse ===FILE: format parser
+    let files = extractEnhancementFiles(session.messages); // reuse ===FILE: format parser
     const meta = extractBuildMeta(output);
+    const agentName = meta.agentName || "unknown-agent";
+
+    // Normalize file paths to match the canonical agent name (with -agent suffix)
+    // e.g. if Claude wrote src/agents/home-maintenance.js but name is home-maintenance-agent
+    if (agentName !== "unknown-agent") {
+      files = files.map(f => {
+        let path = f.path;
+        // Fix agent code path
+        const agentFileMatch = path.match(/^src\/agents\/([\w-]+)\.js$/);
+        if (agentFileMatch && agentFileMatch[1] !== agentName) {
+          path = `src/agents/${agentName}.js`;
+          console.log(`[BUILDER] Normalized file path: ${f.path} → ${path}`);
+        }
+        // Fix skill path
+        const skillFileMatch = path.match(/^src\/skills\/([\w-]+)\.md$/);
+        if (skillFileMatch && skillFileMatch[1] !== agentName) {
+          path = `src/skills/${agentName}.md`;
+          console.log(`[BUILDER] Normalized file path: ${f.path} → ${path}`);
+        }
+        return { ...f, path };
+      });
+    }
 
     if (files.length > 0) {
       session.phase = "awaiting_approval";
       const pendingId = sessionId;
       await db.set(`builder:pending:${pendingId}`, {
         id: pendingId,
-        agent: meta.agentName || "unknown-agent",
-        agent_label: meta.agentLabel || meta.agentName || "New Agent",
+        agent: agentName,
+        agent_label: meta.agentLabel || agentName.replace(/-agent$/, "").replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
         domain: meta.domain || "General",
         mode: "build",
         files: files.map(f => ({ path: f.path, preview: f.content.substring(0, 500), size: f.content.length })),
@@ -222,7 +244,7 @@ The human will review all artifacts before anything is deployed.`;
         created_at: new Date().toISOString(),
         status: "awaiting_approval",
       });
-      console.log(`[BUILDER] New agent ready for approval: ${meta.agentName} — ${files.length} files — session ${pendingId}`);
+      console.log(`[BUILDER] New agent ready for approval: ${agentName} — ${files.length} files — session ${pendingId}`);
     } else {
       // Try legacy extraction as fallback
       const extracted = extractArtifacts(session.messages);
@@ -271,12 +293,38 @@ The human will review all artifacts before anything is deployed.`;
  * Extract agent name, label, domain from BUILD output metadata.
  */
 function extractBuildMeta(output) {
-  const nameMatch = output.match(/AGENT NAME:\s*([\w-]+)/i);
-  const labelMatch = output.match(/AGENT LABEL:\s*([^\n]+)/i);
+  // Try explicit metadata lines first
+  let nameMatch = output.match(/AGENT NAME:\s*([\w-]+)/i);
+  const rawLabelMatch = output.match(/AGENT LABEL:\s*([^\n]+)/i);
   const domainMatch = output.match(/DOMAIN:\s*(Work|Personal Business|Personal Life|System|General)/i);
+
+  let agentName = nameMatch ? nameMatch[1].trim() : null;
+
+  // Fallback: extract agent name from ===FILE: paths if metadata line missing
+  if (!agentName) {
+    const filePathMatch = output.match(/===FILE:\s*src\/agents\/([\w-]+)\.js===/i);
+    if (filePathMatch) {
+      agentName = filePathMatch[1].trim();
+      console.log(`[BUILDER] extractBuildMeta: fell back to file path extraction → ${agentName}`);
+    }
+  }
+  if (!agentName) {
+    const skillPathMatch = output.match(/===FILE:\s*src\/skills\/([\w-]+)\.md===/i);
+    if (skillPathMatch) {
+      agentName = skillPathMatch[1].trim();
+      console.log(`[BUILDER] extractBuildMeta: fell back to skill path extraction → ${agentName}`);
+    }
+  }
+
+  // Normalize: ensure name ends with -agent
+  if (agentName && !agentName.endsWith("-agent")) {
+    agentName = agentName + "-agent";
+    console.log(`[BUILDER] extractBuildMeta: normalized name to ${agentName}`);
+  }
+
   return {
-    agentName: nameMatch ? nameMatch[1].trim() : null,
-    agentLabel: labelMatch ? labelMatch[1].trim() : null,
+    agentName,
+    agentLabel: rawLabelMatch ? rawLabelMatch[1].trim().replace(/^\*+\s*/, '').replace(/\s*\*+$/, '') : null,
     domain: domainMatch ? domainMatch[1].trim() : null,
   };
 }
@@ -327,7 +375,7 @@ The rollback safety net will automatically revert if anything breaks.`;
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 16384,
+    max_tokens: 32768,
     system: systemPrompt,
     messages,
   });
@@ -635,6 +683,9 @@ function extractEnhancementFiles(messages) {
 
 function detectPhase(output) {
   if (output.includes("DEPLOYMENT COMPLETE")) return "deployed";
+  // If we have ===FILE: blocks, treat as deployed even without explicit DEPLOYMENT COMPLETE
+  // (Claude sometimes hits token limits or forgets the footer)
+  if (output.includes("===FILE:") && output.includes("===END FILE===")) return "deployed";
   if (output.includes("VALIDATION PASSED")) return "validated";
   if (output.includes("VALIDATION FAILED")) return "validation-failed";
   if (output.includes("ALL FILES — READY FOR REVIEW")) return "enhance-files-review";
