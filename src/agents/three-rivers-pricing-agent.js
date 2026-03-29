@@ -18,6 +18,16 @@ const skill = readFileSync(
 
 const client = new Anthropic();
 
+export const AGENT_META = {
+  name: "three-rivers-pricing-agent",
+  domain: "Three Rivers",
+  purpose: "Research market comps and generate Facebook Marketplace listings for wood slabs",
+  status: "Active",
+  trigger_patterns: ["price slab", "slab pricing", "marketplace listing", "three rivers pricing"],
+  endpoints: ["/agents/three-rivers-pricing-agent"],
+  requires_approval: [],
+};
+
 // ── Board feet & figure premium ──────────────────────────────────────────────
 
 const FIGURE_PREMIUMS = { none: 1.0, low: 1.1, high: 1.25, exceptional: 1.4 };

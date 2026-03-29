@@ -20,6 +20,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const AGENTS_DIR = join(__dirname, "agents");
 
 /**
+ * Remove registry entries whose code file doesn't exist on disk.
+ * Prevents ghost agents from accumulating after renames/deletions.
+ */
+function pruneGhostAgents(registry) {
+  const before = registry.agents.length;
+  registry.agents = registry.agents.filter(a => {
+    const codePath = a.code_file
+      ? join(__dirname, "..", a.code_file)
+      : join(AGENTS_DIR, `${a.name}.js`);
+    if (existsSync(codePath)) return true;
+    console.log(`[AUTO-REG] Pruned ghost agent: ${a.name} (file missing: ${codePath})`);
+    return false;
+  });
+  return before - registry.agents.length;
+}
+
+/**
  * Scan all agent files for AGENT_META exports and register any
  * that are missing from the registry. Idempotent — safe to call
  * on every startup.
@@ -27,6 +44,10 @@ const AGENTS_DIR = join(__dirname, "agents");
 export async function autoRegisterAllAgents() {
   const registry = await readRegistry();
   registry.agents = registry.agents || [];
+
+  // Prune agents whose files no longer exist
+  const pruned = pruneGhostAgents(registry);
+
   const existingNames = new Set(registry.agents.map(a => a.name));
 
   const files = readdirSync(AGENTS_DIR).filter(
@@ -87,13 +108,17 @@ export async function autoRegisterAllAgents() {
     }
   }
 
-  if (registered > 0) {
+  if (registered > 0 || pruned > 0) {
     await writeRegistry(registry);
+  }
+
+  if (pruned > 0) {
+    console.log(`[AUTO-REG] Pruned ${pruned} ghost agent(s)`);
   }
 
   if (errors.length > 0) {
     console.log(`[AUTO-REG] ${errors.length} error(s): ${errors.join("; ")}`);
   }
 
-  return { registered, total_scanned: files.length, errors };
+  return { registered, pruned, total_scanned: files.length, errors };
 }
