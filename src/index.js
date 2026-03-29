@@ -2,6 +2,8 @@ import express from "express";
 import cron from "node-cron";
 import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
+import { execSync } from "child_process";
 import Anthropic from "@anthropic-ai/sdk";
 import { initDefaults } from "./db.js";
 import { route } from "./agents/master-agent.js";
@@ -60,6 +62,63 @@ import * as db from "./db.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const client = new Anthropic();
 const app = express();
+
+// ── GitHub Webhook — auto-pull and restart on every push to main ─────────────
+// Must be registered BEFORE app.use(express.json()) so we can read the raw body
+// for HMAC signature verification.
+// Setup: GitHub repo → Settings → Webhooks → Add webhook
+//   Payload URL:  https://lifebridge-v-2.replit.app/webhooks/github
+//   Content type: application/json
+//   Secret:       value of GITHUB_WEBHOOK_SECRET env var (optional but recommended)
+//   Events:       Just the push event
+app.post("/webhooks/github", express.raw({ type: "*/*" }), (req, res) => {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  const sig    = req.headers["x-hub-signature-256"];
+
+  if (secret && sig) {
+    const hmac = crypto.createHmac("sha256", secret);
+    hmac.update(req.body);
+    const expected = "sha256=" + hmac.digest("hex");
+    if (sig !== expected) {
+      console.log("[WEBHOOK] Invalid signature — request rejected");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+  }
+
+  let payload;
+  try { payload = JSON.parse(req.body.toString()); }
+  catch { return res.status(400).json({ error: "Invalid JSON payload" }); }
+
+  const branch  = payload.ref?.replace("refs/heads/", "");
+  const pusher  = payload.pusher?.name || "unknown";
+  const commits = payload.commits?.length ?? 0;
+  const msg     = commits > 0 ? payload.commits[0].message.split("\n")[0] : "";
+
+  if (branch !== "main") {
+    console.log(`[WEBHOOK] Push to '${branch}' — skipped (not main)`);
+    return res.json({ skipped: true, reason: `branch '${branch}' is not main` });
+  }
+
+  console.log(`[WEBHOOK] Push to main by ${pusher}: "${msg}" (${commits} commit(s)) — pulling`);
+  res.json({ ok: true, message: `Pull queued — ${commits} commit(s) from ${pusher}` });
+
+  // Pull and restart after response is flushed (skip in local dev)
+  setTimeout(() => {
+    if (process.env.LOCAL_DEV) {
+      console.log("[WEBHOOK] LOCAL_DEV — skipping pull/restart");
+      return;
+    }
+    try {
+      execSync("git pull origin main", { stdio: "inherit", timeout: 30000 });
+      console.log("[WEBHOOK] Pull complete — restarting");
+      process.exit(0); // Replit auto-restarts via sync-and-start.sh
+    } catch (e) {
+      console.error("[WEBHOOK] Pull failed:", e.message);
+    }
+  }, 500);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
