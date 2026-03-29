@@ -17,7 +17,8 @@ var AGENT_ENDPOINTS = {
   'three-rivers-social-agent': '/agents/three-rivers-social-agent',
   'investment-research-agent': '/agents/investment-research-agent',
   'test-agent': '/test/run',
-  'three-rivers-pricing-agent': '/agents/three-rivers-pricing-agent'
+  'three-rivers-pricing-agent': '/agents/three-rivers-pricing-agent',
+  'prompt-engineering-agent': '/api/prompt-engineering/session/start'
 };
 
 var AGENT_LABELS = {
@@ -32,7 +33,8 @@ var AGENT_LABELS = {
   'connectors': 'Connectors',
   'three-rivers-social-agent': 'Social Media',
   'investment-research-agent': 'Investment Research',
-  'three-rivers-pricing-agent': 'Three Rivers Pricing'
+  'three-rivers-pricing-agent': 'Three Rivers Pricing',
+  'prompt-engineering-agent': 'Prompt Engineering'
 };
 
 var DASHBOARD_AGENTS = {
@@ -103,7 +105,8 @@ var DOMAIN_MASTERS = [
     subs: [
       { name: 'registry-integrity-agent', label: 'Integrity', active: true },
       { name: 'test-agent', label: 'Testing', active: true },
-      { name: 'agent-builder-agent', label: 'Builder', active: true }
+      { name: 'agent-builder-agent', label: 'Builder', active: true },
+      { name: 'prompt-engineering-agent', label: 'Prompts', active: true }
     ]
   }
 ];

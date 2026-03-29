@@ -55,6 +55,16 @@ import {
   runInvestmentResearchAgent, getInvestmentWatchlist, getInvestmentPortfolio,
   getInvestmentTrades, getInvestmentSummary
 } from "./agents/investment-research-agent.js";
+import {
+  startSession as peStartSession,
+  sessionMessage as peSessionMessage,
+  generatePrompt as peGeneratePrompt,
+  savePrompt as peSavePrompt,
+  listPrompts as peListPrompts,
+  getPrompt as peGetPrompt,
+  updatePrompt as peUpdatePrompt,
+  deletePrompt as peDeletePrompt,
+} from "./agents/prompt-engineering-agent.js";
 import { autoRegisterAllAgents } from "./auto-register.js";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "./db.js";
@@ -1325,6 +1335,60 @@ app.post("/agents/travel-agent", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Prompt Engineering Agent ─────────────────────────────────────────────────
+
+app.post("/api/prompt-engineering/session/start", async (req, res) => {
+  try {
+    const { topic } = req.body || {};
+    if (!topic?.trim()) return res.status(400).json({ error: "topic required" });
+    res.json(await peStartSession(topic.trim()));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/prompt-engineering/session/message", async (req, res) => {
+  try {
+    const { sessionId, message } = req.body || {};
+    if (!sessionId || !message?.trim()) return res.status(400).json({ error: "sessionId and message required" });
+    res.json(await peSessionMessage(sessionId, message.trim()));
+  } catch (e) { res.status(e.message === "Session not found or expired" ? 404 : 500).json({ error: e.message }); }
+});
+
+app.post("/api/prompt-engineering/session/generate", async (req, res) => {
+  try {
+    const { sessionId } = req.body || {};
+    if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+    res.json(await peGeneratePrompt(sessionId));
+  } catch (e) { res.status(e.message === "Session not found or expired" ? 404 : 500).json({ error: e.message }); }
+});
+
+app.post("/api/prompt-engineering/prompts/save", async (req, res) => {
+  try {
+    const { sessionId, title, tags } = req.body || {};
+    if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+    res.json(await peSavePrompt(sessionId, title, tags));
+  } catch (e) { res.status(e.message.includes("not found") ? 404 : 500).json({ error: e.message }); }
+});
+
+app.get("/api/prompt-engineering/prompts", async (req, res) => {
+  try { res.json({ prompts: await peListPrompts() }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/prompt-engineering/prompts/:id", async (req, res) => {
+  try { res.json({ prompt: await peGetPrompt(req.params.id) }); }
+  catch (e) { res.status(e.message === "Prompt not found" ? 404 : 500).json({ error: e.message }); }
+});
+
+app.patch("/api/prompt-engineering/prompts/:id", async (req, res) => {
+  try { res.json({ prompt: await peUpdatePrompt(req.params.id, req.body || {}) }); }
+  catch (e) { res.status(e.message === "Prompt not found" ? 404 : 500).json({ error: e.message }); }
+});
+
+app.delete("/api/prompt-engineering/prompts/:id", async (req, res) => {
+  try { res.json(await peDeletePrompt(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Dynamic Agent Action Endpoint (catch-all for registered agents) ─────────

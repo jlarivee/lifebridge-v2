@@ -30,7 +30,8 @@ function openDashboard(agentName) {
     'memory-consolidation-agent': renderMemoryDashboard,
     'investment-research-agent': renderInvestmentDashboard,
     'italy2026': renderItaly2026Dashboard,
-    'three-rivers-social-agent': renderSocialDashboard
+    'three-rivers-social-agent': renderSocialDashboard,
+    'prompt-engineering-agent': renderPromptEngineeringDashboard
   };
 
   var renderer = renderers[agentName];

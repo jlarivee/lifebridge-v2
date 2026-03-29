@@ -37,6 +37,10 @@ function navigateTo(viewName, skipPush) {
   }
 }
 
+function openPromptEngineering() {
+  openDashboard('prompt-engineering-agent');
+}
+
 function switchHubView(mode) {
   currentHubView = mode;
   var topoContainer = document.getElementById('hubTopologyContainer');

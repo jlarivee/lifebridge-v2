@@ -253,3 +253,46 @@ async function rejectMemoryProposal(id, reason) {
 async function apiRunMemoryConsolidation() {
   return apiFetch('/memory/run', { method: 'POST' });
 }
+
+// ─── Prompt Engineering ───
+async function peApiStartSession(topic) {
+  return apiFetch('/api/prompt-engineering/session/start', {
+    method: 'POST', body: JSON.stringify({ topic: topic })
+  });
+}
+
+async function peApiSendMessage(sessionId, message) {
+  return apiFetch('/api/prompt-engineering/session/message', {
+    method: 'POST', body: JSON.stringify({ sessionId: sessionId, message: message })
+  });
+}
+
+async function peApiGenerate(sessionId) {
+  return apiFetch('/api/prompt-engineering/session/generate', {
+    method: 'POST', body: JSON.stringify({ sessionId: sessionId })
+  });
+}
+
+async function peApiSave(sessionId, title, tags) {
+  return apiFetch('/api/prompt-engineering/prompts/save', {
+    method: 'POST', body: JSON.stringify({ sessionId: sessionId, title: title, tags: tags })
+  });
+}
+
+async function peApiGetPrompts() {
+  return apiFetch('/api/prompt-engineering/prompts');
+}
+
+async function peApiGetPrompt(id) {
+  return apiFetch('/api/prompt-engineering/prompts/' + id);
+}
+
+async function peApiUpdatePrompt(id, updates) {
+  return apiFetch('/api/prompt-engineering/prompts/' + id, {
+    method: 'PATCH', body: JSON.stringify(updates)
+  });
+}
+
+async function peApiDeletePrompt(id) {
+  return apiFetch('/api/prompt-engineering/prompts/' + id, { method: 'DELETE' });
+}
