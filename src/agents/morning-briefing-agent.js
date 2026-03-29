@@ -7,11 +7,31 @@ import Anthropic from "@anthropic-ai/sdk";
 import { v4 as uuidv4 } from "uuid";
 import * as db from "../db.js";
 import { sendGmail, sendSlack } from "./connectors.js";
+import { getDashboardUrl, getBaseUrl } from "../tools/safe-config.js";
 
-const PORT = process.env.PORT || 5000;
-const BASE = process.env.REPLIT_URL || `http://localhost:${PORT}`;
-const DASHBOARD_URL = process.env.REPLIT_URL || "https://lifebridge-v2.replit.app";
+const BASE = getBaseUrl();
+const DASHBOARD_URL = getDashboardUrl();
 const client = new Anthropic();
+
+// ── Weather ─────────────────────────────────────────────────────────────────
+
+async function fetchWeather() {
+  try {
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 150,
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+      messages: [{
+        role: "user",
+        content: "What is today's weather forecast for Canton Valley, CT (or nearby Canton, CT)? Reply in one concise sentence with current conditions, high/low temps in Fahrenheit, and precipitation chance.",
+      }],
+    });
+    const text = resp.content.filter(b => b.type === "text").map(b => b.text).join("").trim();
+    return text || "Weather data unavailable.";
+  } catch (e) {
+    return `Weather unavailable: ${e.message}`;
+  }
+}
 
 // ── Data Fetchers ───────────────────────────────────────────────────────────
 
@@ -118,12 +138,13 @@ async function fetchSlab() {
 // ── Briefing Compilation ────────────────────────────────────────────────────
 
 export async function compileBriefing() {
-  const [health, tests, intel, proposals, ideas, slab] = await Promise.allSettled([
-    fetchHealth(), fetchTests(), fetchIntelligence(),
+  const [weather, health, tests, intel, proposals, ideas, slab] = await Promise.allSettled([
+    fetchWeather(), fetchHealth(), fetchTests(), fetchIntelligence(),
     fetchProposals(), fetchIdeas(), fetchSlab(),
   ]);
 
   const sections = {
+    weather: weather.status === "fulfilled" ? weather.value : "Weather unavailable.",
     health: health.status === "fulfilled" ? health.value : `Data unavailable: ${health.reason}`,
     tests: tests.status === "fulfilled" ? tests.value : `Data unavailable: ${tests.reason}`,
     intelligence: intel.status === "fulfilled" ? intel.value : `Data unavailable: ${intel.reason}`,
@@ -160,6 +181,9 @@ function formatBriefing(sections) {
 LIFEBRIDGE — ${day.toUpperCase()} ${time} UTC
 ═══════════════════════════════════════
 
+🌤️ WEATHER — CANTON VALLEY, CT
+${sections.weather}
+
 🟢 SYSTEM HEALTH
 ${sections.health}
 
@@ -188,6 +212,7 @@ View full dashboard: ${DASHBOARD_URL}
 
 function formatSlack(sections) {
   return `*LIFEBRIDGE DAILY BRIEFING*\n\n` +
+    `*🌤️ Weather — Canton Valley, CT*\n${sections.weather}\n\n` +
     `*🟢 System Health*\n${sections.health}\n\n` +
     `*📊 Tests*\n${sections.tests}\n\n` +
     `*🔍 Intelligence*\n${sections.intelligence}\n\n` +

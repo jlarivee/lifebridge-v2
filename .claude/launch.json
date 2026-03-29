@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lifebridge-local",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["scripts/local-dev.sh"],
+      "port": 5400
+    }
+  ]
+}

@@ -1,70 +1,158 @@
-/* Investment Research Agent — positions table and portfolio styles */
+/* Investment Research Agent Dashboard Styles */
 
-.invest-positions-table {
+.investment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.investment-summary-item {
+  text-align: center;
+  padding: 1rem;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+}
+
+.investment-summary-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.investment-summary-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.investment-positions-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
-  margin-top: 8px;
+  margin-top: 1rem;
 }
 
-.invest-positions-table th {
+.investment-positions-table th {
+  background: var(--surface-secondary);
+  padding: 0.75rem;
   text-align: left;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-muted);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  position: sticky;
-  top: 0;
-}
-
-.invest-positions-table td {
-  padding: 10px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  color: var(--text-primary);
-}
-
-.invest-positions-table tr:hover td {
-  background: rgba(255,255,255,0.02);
-}
-
-.invest-ticker {
-  font-weight: 700;
-  color: var(--color-primary, #6366f1);
-  letter-spacing: 0.05em;
-}
-
-.invest-pnl-pos {
-  color: #22c55e;
   font-weight: 600;
-}
-
-.invest-pnl-neg {
-  color: #ef4444;
-  font-weight: 600;
-}
-
-.invest-summary-row {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 10px 0 12px 0;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 4px;
+  border-bottom: 2px solid var(--border-primary);
 }
 
-.invest-summary-row strong {
-  color: var(--text-primary);
+.investment-positions-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: 0.9rem;
 }
 
-.invest-refresh-time {
+.investment-positions-table tbody tr:hover {
+  background: var(--surface-secondary);
+}
+
+.investment-ticker {
+  font-weight: 600;
+  color: var(--accent-primary);
+  font-family: 'Courier New', monospace;
+}
+
+.investment-pnl.positive {
+  color: var(--success-primary);
+  font-weight: 600;
+}
+
+.investment-pnl.negative {
+  color: var(--error-primary);
+  font-weight: 600;
+}
+
+.investment-trade-item {
+  padding: 1rem;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: var(--surface-primary);
+}
+
+.investment-trade-item:last-child {
+  margin-bottom: 0;
+}
+
+.investment-trade-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.investment-trade-action {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.investment-trade-action.buy {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success-primary);
+  border: 1px solid var(--success-primary);
+}
+
+.investment-trade-action.sell {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error-primary);
+  border: 1px solid var(--error-primary);
+}
+
+.investment-trade-date {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
   margin-left: auto;
-  color: var(--text-muted);
-  font-size: 10px;
+}
+
+.investment-trade-details {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.investment-trade-thesis {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-style: italic;
+  padding: 0.5rem;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  border-left: 3px solid var(--accent-primary);
+}
+
+@media (max-width: 768px) {
+  .investment-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .investment-positions-table {
+    font-size: 0.8rem;
+  }
+  
+  .investment-positions-table th,
+  .investment-positions-table td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .investment-trade-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .investment-trade-date {
+    margin-left: 0;
+  }
 }

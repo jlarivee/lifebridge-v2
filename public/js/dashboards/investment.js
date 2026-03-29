@@ -1,139 +1,197 @@
-// public/js/dashboards/investment.js
-// Investment Research Agent dashboard logic
-
-var _investRefreshInterval = null;
+/**
+ * Investment Research Agent Dashboard
+ * Displays persistent positions table with auto-refresh
+ */
 
 async function renderInvestmentDashboard(el) {
-  el.innerHTML =
-    '<div class="dash-header"><div class="dash-title">Investment Research</div>' +
-    '<div class="dash-subtitle">Personal Life &mdash; Paper Trading &amp; Research</div></div>' +
-    '<div class="dash-actions">' +
-      '<button class="dash-btn" onclick="dashInvestRefresh()">Refresh</button>' +
-      '<button class="dash-btn" onclick="dashInvestResearch()">Research Ticker</button>' +
-      '<button class="dash-btn" onclick="dashInvestWatchlist()">Watchlist</button>' +
-      '<button class="dash-btn" onclick="dashInvestTrades()">Trade History</button>' +
-    '</div>' +
-    '<div class="dash-section-label">Portfolio Positions</div>' +
-    '<div id="dashInvestPositions"><div class="dash-loading">Loading positions...</div></div>' +
-    '<div class="dash-section-label" style="margin-top:16px;">Portfolio Summary</div>' +
-    '<div id="dashInvestSummary"><div class="dash-loading">Loading...</div></div>' +
-    dashChatHtml('investment-research-agent');
+  el.innerHTML = `
+    <div class="dash-header">
+      <div class="dash-title">Investment Portfolio</div>
+      <div class="dash-subtitle">Paper trading positions and P&L</div>
+    </div>
+    
+    <div class="dash-card">
+      <div class="dash-card-body">
+        <div class="dash-section-label">Portfolio Summary</div>
+        <div id="portfolio-summary" class="investment-summary">
+          <div class="dash-loading">Loading portfolio summary...</div>
+        </div>
+      </div>
+    </div>
 
-  // Clear any previous auto-refresh
-  if (_investRefreshInterval) {
-    clearInterval(_investRefreshInterval);
-    _investRefreshInterval = null;
-  }
+    <div class="dash-card">
+      <div class="dash-card-body">
+        <div class="dash-section-label">Current Positions</div>
+        <div id="positions-table" class="investment-positions">
+          <div class="dash-loading">Loading positions...</div>
+        </div>
+      </div>
+    </div>
 
-  loadInvestPositions();
-  loadInvestSummary();
+    <div class="dash-card">
+      <div class="dash-card-body">
+        <div class="dash-section-label">Recent Activity</div>
+        <div id="recent-trades" class="investment-trades">
+          <div class="dash-loading">Loading recent trades...</div>
+        </div>
+      </div>
+    </div>
+  `;
 
-  // Auto-refresh positions every 60 seconds
-  _investRefreshInterval = setInterval(function() {
-    loadInvestPositions();
-    loadInvestSummary();
-  }, 60000);
+  // Load initial data
+  loadPortfolioData();
+  
+  // Set up auto-refresh every 60 seconds
+  setInterval(loadPortfolioData, 60000);
 }
 
-async function loadInvestPositions() {
-  var container = document.getElementById('dashInvestPositions');
-  if (!container) return;
+async function loadPortfolioData() {
   try {
-    var resp = await fetch('/investment/portfolio');
-    var data = await resp.json();
-    var portfolio = data.output;
-
-    if (!portfolio || !portfolio.positions || portfolio.positions.length === 0) {
-      container.innerHTML =
-        '<div class="invest-summary-row">' +
-          '<span>Cash: <strong>$' + (portfolio ? (portfolio.virtual_cash || 0).toLocaleString() : 0) + '</strong></span>' +
-          '<span>Total Value: <strong>$' + (portfolio ? (portfolio.total_value || 0).toLocaleString() : 0) + '</strong></span>' +
-        '</div>' +
-        '<div class="dash-empty">No positions yet. Use the chat below to execute a paper trade.</div>';
-      return;
-    }
-
-    var rows = portfolio.positions.map(function(p) {
-      var currentPrice = p.current_price || p.avg_cost;
-      var unrealizedPnl = (currentPrice - p.avg_cost) * p.quantity;
-      var pnlClass = unrealizedPnl >= 0 ? 'invest-pnl-pos' : 'invest-pnl-neg';
-      var pnlSign = unrealizedPnl >= 0 ? '+' : '';
-      return '<tr>' +
-        '<td class="invest-ticker">' + escapeHtml(p.ticker) + '</td>' +
-        '<td>' + p.quantity + '</td>' +
-        '<td>$' + p.avg_cost.toFixed(2) + '</td>' +
-        '<td>$' + currentPrice.toFixed(2) + '</td>' +
-        '<td class="' + pnlClass + '">' + pnlSign + '$' + unrealizedPnl.toFixed(2) + '</td>' +
-      '</tr>';
-    }).join('');
-
-    var positionsValue = portfolio.positions.reduce(function(sum, p) {
-      return sum + p.quantity * (p.current_price || p.avg_cost);
-    }, 0);
-
-    container.innerHTML =
-      '<div class="invest-summary-row">' +
-        '<span>Cash: <strong>$' + (portfolio.virtual_cash || 0).toLocaleString() + '</strong></span>' +
-        '<span>Positions Value: <strong>$' + positionsValue.toLocaleString() + '</strong></span>' +
-        '<span>Total: <strong>$' + (portfolio.total_value || 0).toLocaleString() + '</strong></span>' +
-        '<span class="invest-refresh-time">Updated ' + new Date().toLocaleTimeString() + '</span>' +
-      '</div>' +
-      '<table class="invest-positions-table">' +
-        '<thead><tr>' +
-          '<th>Ticker</th><th>Qty</th><th>Avg Cost</th><th>Current</th><th>Unrealized P&amp;L</th>' +
-        '</tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-      '</table>';
-  } catch(e) {
-    var c = document.getElementById('dashInvestPositions');
-    if (c) c.innerHTML = '<div class="dash-empty">Failed to load positions: ' + escapeHtml(e.message) + '</div>';
-  }
-}
-
-async function loadInvestSummary() {
-  var summaryEl = document.getElementById('dashInvestSummary');
-  if (!summaryEl) return;
-  try {
-    var resp = await fetch('/investment/summary');
-    var data = await resp.json();
-    var s = data.output;
-    if (s) {
-      summaryEl.innerHTML =
-        '<div class="dash-card"><div class="dash-card-body">' +
-          '<div><strong>Watchlist:</strong> ' + (s.watchlist_count || 0) + ' tickers' +
-            (s.tickers && s.tickers.length > 0 ? ' (' + escapeHtml(s.tickers.join(', ')) + ')' : '') + '</div>' +
-          '<div><strong>Trades:</strong> ' + (s.open_trades || 0) + ' open, ' + (s.closed_trades || 0) + ' closed</div>' +
-          (s.win_rate !== null && s.win_rate !== undefined ? '<div><strong>Win Rate:</strong> ' + s.win_rate + '%</div>' : '') +
-        '</div></div>';
+    const [portfolioResp, tradesResp] = await Promise.all([
+      fetch('/investment/portfolio'),
+      fetch('/investment/trades')
+    ]);
+    
+    const portfolioData = await portfolioResp.json();
+    const tradesData = await tradesResp.json();
+    
+    if (portfolioData.success) {
+      renderPortfolioSummary(portfolioData.output);
+      renderPositionsTable(portfolioData.output.positions || []);
     } else {
-      summaryEl.innerHTML = '<div class="dash-empty">No portfolio data yet.</div>';
+      document.getElementById('portfolio-summary').innerHTML = 
+        '<div class="dash-empty">Error loading portfolio data</div>';
     }
-  } catch(e) {
-    var el = document.getElementById('dashInvestSummary');
-    if (el) el.innerHTML = '<div class="dash-empty">Failed to load summary.</div>';
+    
+    if (tradesData.success) {
+      renderRecentTrades(tradesData.output.slice(-5)); // Last 5 trades
+    } else {
+      document.getElementById('recent-trades').innerHTML = 
+        '<div class="dash-empty">Error loading trades data</div>';
+    }
+    
+  } catch (error) {
+    console.error('Error loading portfolio data:', error);
+    document.getElementById('portfolio-summary').innerHTML = 
+      '<div class="dash-empty">Connection error</div>';
+    document.getElementById('positions-table').innerHTML = 
+      '<div class="dash-empty">Connection error</div>';
+    document.getElementById('recent-trades').innerHTML = 
+      '<div class="dash-empty">Connection error</div>';
   }
 }
 
-function dashInvestRefresh() {
-  loadInvestPositions();
-  loadInvestSummary();
+function renderPortfolioSummary(portfolio) {
+  const totalValue = portfolio.total_value || 0;
+  const cash = portfolio.virtual_cash || 0;
+  const positionsValue = totalValue - cash;
+  const positionsCount = portfolio.positions ? portfolio.positions.length : 0;
+  
+  document.getElementById('portfolio-summary').innerHTML = `
+    <div class="investment-summary-grid">
+      <div class="investment-summary-item">
+        <div class="investment-summary-label">Total Value</div>
+        <div class="investment-summary-value">$${totalValue.toLocaleString()}</div>
+      </div>
+      <div class="investment-summary-item">
+        <div class="investment-summary-label">Cash</div>
+        <div class="investment-summary-value">$${cash.toLocaleString()}</div>
+      </div>
+      <div class="investment-summary-item">
+        <div class="investment-summary-label">Positions Value</div>
+        <div class="investment-summary-value">$${positionsValue.toLocaleString()}</div>
+      </div>
+      <div class="investment-summary-item">
+        <div class="investment-summary-label">Positions</div>
+        <div class="investment-summary-value">${positionsCount}</div>
+      </div>
+    </div>
+  `;
 }
 
-function dashInvestResearch() {
-  var input = document.getElementById('dashChatInput');
-  input.value = '';
-  input.focus();
-  input.placeholder = 'e.g., Research NVDA, analyze semiconductor sector...';
+function renderPositionsTable(positions) {
+  const container = document.getElementById('positions-table');
+  
+  if (!positions || positions.length === 0) {
+    container.innerHTML = '<div class="dash-empty">No positions to display</div>';
+    return;
+  }
+  
+  const tableHtml = `
+    <table class="investment-positions-table">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Quantity</th>
+          <th>Avg Cost</th>
+          <th>Current Price</th>
+          <th>Market Value</th>
+          <th>Unrealized P&L</th>
+          <th>% Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${positions.map(pos => {
+          const marketValue = pos.quantity * (pos.current_price || pos.avg_cost);
+          const costBasis = pos.quantity * pos.avg_cost;
+          const unrealizedPnl = marketValue - costBasis;
+          const percentReturn = ((unrealizedPnl / costBasis) * 100);
+          
+          return `
+            <tr>
+              <td class="investment-ticker">${pos.ticker}</td>
+              <td>${pos.quantity}</td>
+              <td>$${pos.avg_cost.toFixed(2)}</td>
+              <td>$${(pos.current_price || pos.avg_cost).toFixed(2)}</td>
+              <td>$${marketValue.toLocaleString()}</td>
+              <td class="investment-pnl ${unrealizedPnl >= 0 ? 'positive' : 'negative'}">
+                $${unrealizedPnl.toLocaleString()}
+              </td>
+              <td class="investment-pnl ${percentReturn >= 0 ? 'positive' : 'negative'}">
+                ${percentReturn.toFixed(2)}%
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+  
+  container.innerHTML = tableHtml;
 }
 
-function dashInvestWatchlist() {
-  var input = document.getElementById('dashChatInput');
-  input.value = 'Show my current watchlist with any price alerts';
-  dashChatSend();
+function renderRecentTrades(trades) {
+  const container = document.getElementById('recent-trades');
+  
+  if (!trades || trades.length === 0) {
+    container.innerHTML = '<div class="dash-empty">No recent trades</div>';
+    return;
+  }
+  
+  const tradesHtml = trades.map(trade => {
+    const date = new Date(trade.executed_at).toLocaleDateString();
+    const time = new Date(trade.executed_at).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    
+    return `
+      <div class="investment-trade-item">
+        <div class="investment-trade-header">
+          <span class="investment-ticker">${trade.ticker}</span>
+          <span class="investment-trade-action ${trade.action}">${trade.action.toUpperCase()}</span>
+          <span class="investment-trade-date">${date} ${time}</span>
+        </div>
+        <div class="investment-trade-details">
+          ${trade.quantity} shares @ $${trade.price.toFixed(2)} = $${trade.total.toLocaleString()}
+        </div>
+        ${trade.thesis ? `<div class="investment-trade-thesis">${trade.thesis}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  
+  container.innerHTML = tradesHtml;
 }
 
-function dashInvestTrades() {
-  var input = document.getElementById('dashChatInput');
-  input.value = 'Show my trade history and performance stats';
-  dashChatSend();
-}
+// Export the main render function for the dashboard system
+window.renderInvestmentDashboard = renderInvestmentDashboard;
