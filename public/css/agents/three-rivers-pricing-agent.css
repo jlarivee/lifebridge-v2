@@ -1,0 +1,186 @@
+/* Three Rivers Pricing Agent — dashboard styles */
+
+.pricing-form-wrap { display: flex; flex-direction: column; gap: 16px; }
+
+.pricing-form-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.pricing-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+
+.pricing-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.pricing-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
+.pricing-field-full { flex: 100%; }
+
+.pricing-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.pricing-input,
+.pricing-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.pricing-input:focus,
+.pricing-select:focus { border-color: var(--accent-hub); }
+
+.pricing-btn {
+  margin-top: 8px;
+  width: 100%;
+  background: var(--accent-hub);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+.pricing-btn:hover { opacity: 0.9; }
+.pricing-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pricing-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pricing-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent-hub);
+  border-radius: 50%;
+  animation: pricingSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes pricingSpin { to { transform: rotate(360deg); } }
+
+.pricing-error {
+  background: var(--color-error-dim);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 13px;
+  padding: 12px 16px;
+}
+
+.pricing-result-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.pricing-price-row { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }
+
+.pricing-price-main {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-success);
+}
+.pricing-price-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.pricing-price-range { font-size: 13px; color: var(--text-secondary); }
+
+.pricing-comps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pricing-comps-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pricing-comps-table td {
+  padding: 8px 8px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pricing-comps-table tr:last-child td { border-bottom: none; }
+
+.pricing-listing-wrap { position: relative; }
+.pricing-listing {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.pricing-copy-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+.pricing-copy-btn:hover { border-color: var(--accent-hub); color: var(--accent-hub); }
+
+.pricing-notes {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pricing-raw {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

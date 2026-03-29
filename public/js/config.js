@@ -46,6 +46,7 @@ var DASHBOARD_AGENTS = {
   'italy2026': true,
   'investment-research-agent': true,
   'three-rivers-pricing-agent': true,
+  'three-rivers-social-agent': true,
   'prompt-engineering-agent': true
 };
 

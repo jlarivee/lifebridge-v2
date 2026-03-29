@@ -31,6 +31,7 @@ function openDashboard(agentName) {
     'investment-research-agent': renderInvestmentDashboard,
     'italy2026': renderItaly2026Dashboard,
     'three-rivers-social-agent': renderSocialDashboard,
+    'three-rivers-pricing-agent': renderPricingDashboard,
     'prompt-engineering-agent': renderPromptEngineeringDashboard
   };
 
