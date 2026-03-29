@@ -41,7 +41,8 @@ ${JSON.stringify(context, null, 2)}`;
       if (block.type === "tool_use" && block.name === "api_calls") {
         try {
           // Make the API call to get inventory data
-          const apiResponse = await fetch(`${process.env.BASE_URL}/agents/slab-inventory-tracker-agent`, {
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5400}`;
+          const apiResponse = await fetch(`${baseUrl}/agents/slab-inventory-tracker-agent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

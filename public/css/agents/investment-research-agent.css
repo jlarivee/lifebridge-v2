@@ -1,0 +1,70 @@
+/* Investment Research Agent — positions table and portfolio styles */
+
+.invest-positions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 8px;
+}
+
+.invest-positions-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: sticky;
+  top: 0;
+}
+
+.invest-positions-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.invest-positions-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.invest-ticker {
+  font-weight: 700;
+  color: var(--color-primary, #6366f1);
+  letter-spacing: 0.05em;
+}
+
+.invest-pnl-pos {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.invest-pnl-neg {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.invest-summary-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 0 12px 0;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+}
+
+.invest-summary-row strong {
+  color: var(--text-primary);
+}
+
+.invest-refresh-time {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+}

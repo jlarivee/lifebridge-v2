@@ -308,6 +308,55 @@ and trigger automatic rollback.
 - Use ===FILE: path=== format for all file outputs
 - CRITICAL: if you create a new dashboard JS file, it must be the SAME file the dashboard-shell.js renderer map references. Check the renderer map to find the correct filename before writing.
 
+### MANDATORY — Dashboard Entry Point Pattern:
+The dashboard-shell.js renderer map calls a specific global function for each agent dashboard:
+  'investment-research-agent': renderInvestmentDashboard
+  'morning-briefing-agent':    renderBriefingDashboard
+  'travel-agent':              renderTravelDashboard
+  'memory-consolidation-agent': renderMemoryDashboard
+  'life-sciences-account-agent': renderAccountDashboard
+
+RULES YOU MUST NEVER VIOLATE:
+1. The top-level render function MUST:
+   - Accept `el` as the FIRST parameter: `async function renderInvestmentDashboard(el)`
+   - Write the HTML shell into el: `el.innerHTML = '<div>...</div>';`
+   - Then call async helpers to load data into the rendered DOM elements
+   - NEVER return a string — dashboard-shell.js ignores return values
+   - NEVER omit the `el` parameter
+
+   CORRECT pattern (copy this exactly):
+   ```javascript
+   async function renderInvestmentDashboard(el) {
+     el.innerHTML =
+       '<div class="dash-header"><div class="dash-title">Investment Research</div></div>' +
+       '<div id="invest-positions"><div class="dash-loading">Loading...</div></div>';
+     loadInvestPositions(); // fire and forget — populates DOM after render
+   }
+
+   async function loadInvestPositions() {
+     var container = document.getElementById('invest-positions');
+     try {
+       var resp = await fetch('/investment/portfolio');
+       var data = await resp.json();
+       container.innerHTML = buildPositionsHtml(data.output);
+     } catch(e) {
+       container.innerHTML = '<div class="dash-empty">Error: ' + e.message + '</div>';
+     }
+   }
+   ```
+
+   WRONG — these patterns will be REJECTED immediately:
+   ```javascript
+   function renderInvestmentDashboard() { return '<div>...</div>'; }   // returns string
+   function renderInvestmentDashboard() { document.getElementById... } // missing el param
+   class InvestmentDashboard { render(el) {...} }                       // class with no wrapper
+   window.renderInvestmentDashboard = renderInvestmentDashboard;        // exports but wrong sig
+   ```
+
+2. NEVER replace an existing dashboard file completely. ALWAYS keep and modify the existing renderXxxDashboard(el) function.
+3. Validation MUST check: file contains `renderInvestmentDashboard(el)` with `el` as explicit parameter.
+   If the function signature is wrong or missing, REJECT and regenerate.
+
 ### Config/Registry Updates (handled automatically):
 - The deploy pipeline updates config.js, dashboard-shell.js, and registry
 - You do NOT need to generate these files — the pipeline does it for you
@@ -318,6 +367,8 @@ and trigger automatic rollback.
 
 - Never modify any file in the HARD-BLOCKED list above
 - Never output a full file replacement for an existing dashboard — additions only
+- Never remove or rename the global renderXxxDashboard(el) entry point function — dashboard-shell.js depends on it
+- If using a class in a dashboard file, always wrap it: `async function renderXxxDashboard(el) { new MyClass().render(el); }`
 - Never add to package.json
 - Never skip Phase 3 validation
 - Never execute Phase 4 without human approval at each phase gate
