@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.16 (shipped — Three Rivers Social dashboard, pricing agent, Express routing fix)
+**Current version:** v2.17 (shipped — GitHub webhook auto-deploy, git identity fix, full production audit)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -575,14 +575,18 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ### Completed — Three Rivers Pricing Agent (v2.16) ✅
 ### Completed — Express dynamic routing fix — catch-all no longer intercepts spoke agents (v2.16) ✅
 ### Completed — Replit pipeline fixes: streaming builder, no-OOM, deployment auto-commit, sync script safety (v2.16) ✅
+### Completed — GitHub webhook auto-deploy — every git push auto-deploys to Replit in ~10s (v2.17) ✅
+### Completed — Git identity fix — builder commits no longer fail with "Author identity unknown" (v2.17) ✅
+### Completed — Production audit — full working/broken inventory of live Replit app (v2.17) ✅
 
 ### Next priority (in order)
 
-1. **Replit pull + republish** — `git pull origin main` in Replit Shell → Republish to get all v2.15/2.16 fixes live
-2. **Slack webhook URL** — paste full URL into `.env.local` and Replit secrets
-3. **Investment Research Agent enhancements** — morning scan integration into briefing, automated trade idea generation
-4. **Multi-turn conversation memory** — context persistence within a session
-5. **Agent-to-agent delegation** — spoke agent calls another spoke agent
+1. **Add Replit Secrets** — `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL` so builder auto-commits work
+2. **Clean ghost agents from Replit DB** — remove `connecticut-slab-pricing-agent` + `sawmill-conditions-agent` registry entries, register `three-rivers-pricing-agent`
+3. **Test full pipeline end-to-end** — push a change → confirm webhook fires → Replit auto-deploys → verify live
+4. **Three Rivers Social Generate button** — confirm working after routing fix is live in deployed app
+5. **Investment Research Agent enhancements** — morning scan integration into briefing
+6. **Agent-to-agent delegation** — spoke agent calls another spoke agent
 
 ### Future capabilities
 - Multi-turn conversation memory within a session
@@ -981,6 +985,74 @@ All 3 were committed by Replit Agent in commits `259b586`, `9001dbf`, `39eba2a` 
 **Pending:**
 - Slack webhook URL — Josh needs full URL from Replit secrets → `.env.local`
 - Replit needs `git pull origin main` + Republish to get all fixes live
+
+---
+
+### v2.17 — GitHub Webhook Auto-Deploy + Production Audit ✅
+**Date:** March 29, 2026
+
+**Production audit findings (lifebridge-v-2.replit.app):**
+- ✅ 14 agents in registry, all health endpoints 200
+- ✅ Gmail (360ms) + Slack (192ms) both connected
+- ✅ 34/34 fast tests passing
+- ✅ Three Rivers Social dashboard renders (sample posts load from localStorage)
+- ✅ Master agent routing working correctly (ENHANCE BRIEF generated correctly)
+- ❌ Generate button on social dashboard failed — routing fix NOT on Replit yet (catch-all intercepting)
+- ❌ Enhancement builder silently failed — OOM + git reset wipe loop (fixes in GitHub but not pulled)
+- ❌ `three-rivers-pricing-agent` missing from Replit (Replit has ghost `connecticut-slab-pricing-agent` instead)
+- ❌ 2 ghost agents: `connecticut-slab-pricing-agent` + `sawmill-conditions-agent` (in registry, no files)
+- ❌ 2 orphaned files: `sawmill-weather-agent` + `test-deletion-agent` (files exist, not in registry)
+- ❌ Git commit after builder deploy failing: "Author identity unknown" — no git config in Replit env
+
+**What was built:**
+
+**`POST /webhooks/github` endpoint (src/index.js):**
+- Registered BEFORE `app.use(express.json())` so raw body is available for HMAC verification
+- Validates `x-hub-signature-256` header if `GITHUB_WEBHOOK_SECRET` env var is set
+- Checks `payload.ref === 'refs/heads/main'` — ignores non-main pushes
+- Responds 200 immediately, then after 500ms: `git pull origin main` + `process.exit(0)`
+- `process.exit(0)` causes Replit to restart with the newly pulled code
+- Skipped entirely in `LOCAL_DEV` mode
+- **Verified: returns `{"ok":true,"message":"Pull queued..."}` ✅**
+- Added imports: `import crypto from "crypto"` + `import { execSync } from "child_process"`
+
+**`scripts/sync-and-start.sh` (rewritten):**
+- Removed `git fetch + git reset --hard origin/main` entirely — webhook handles all pulls now
+- Added git identity config from env vars: `git config --global user.name "$GIT_AUTHOR_NAME"`
+- Added `pkill -f "node src/index.js"` as fallback alongside `fuser -k 5000/tcp`
+- On startup, prints current commit and git identity being used
+
+**GitHub webhook configured:**
+- URL: `https://lifebridge-v-2.replit.app/webhooks/github`
+- Events: push only
+- No secret (can add `GITHUB_WEBHOOK_SECRET` to Replit secrets later for HMAC)
+- **Status: ✅ LIVE — returns 200**
+
+**Replit architecture clarified:**
+- `lifebridge-v-2.replit.app` = Published deployment (separate from dev Shell)
+- Dev server in Shell → accessible at `.replit.dev` URL
+- Must click **Republish** in Replit UI to deploy new code to `.replit.app`
+- After webhook is live, future pushes auto-deploy without Republish
+
+**Git identity fix:**
+- Replit builder commits were failing: "fatal: unable to auto-detect email address (runner@...)"
+- Fix: sync-and-start.sh reads `GIT_AUTHOR_NAME` + `GIT_AUTHOR_EMAIL` from Replit secrets
+- Add to Replit Secrets: `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`
+
+**Full deploy cycle now:**
+```
+Claude Code builds locally → git push → GitHub webhook fires
+  → POST /webhooks/github → git pull origin main → process.exit(0)
+  → Replit restarts with new code → live in ~10 seconds
+```
+Builder auto-commit also works: `deployAgent → gitCommitAndPush → push → webhook fires → auto-deploy`
+
+**Git commits:** `69e8476` (webhook), `a4defd5` (git identity)
+
+**Pending cleanup (Replit DB, not code):**
+- Remove ghost agents from Replit registry: `connecticut-slab-pricing-agent`, `sawmill-conditions-agent`
+- Register `three-rivers-pricing-agent` in Replit DB (file exists in GitHub, just not in prod registry)
+- Add Replit Secrets: `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`
 
 ---
 
