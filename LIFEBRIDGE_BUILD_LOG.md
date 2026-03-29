@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.14 (shipped — local dev environment, investment positions table, morning briefing delivery)
+**Current version:** v2.16 (shipped — Three Rivers Social dashboard, pricing agent, Express routing fix)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -512,6 +512,7 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 | slab-inventory-tracker-agent | Personal Business | Active |
 | agent-builder-agent | System | Active |
 | investment-research-agent | Personal Life | Active |
+| three-rivers-pricing-agent | Personal Business | Active |
 
 **Claude-native capabilities:** web_search, code_execution, file_reading, api_calls, artifact_creation, structured_reasoning, skill_invocation
 
@@ -570,12 +571,18 @@ Stored as src/skills/master-agent.md. Includes reasoning protocol with confidenc
 ### Completed — Morning Briefing localhost fix ✅
 ### Completed — Slab cut dates fix script ✅
 ### Completed — Travel Agent full build (already complete as of v2.8) ✅
+### Completed — Three Rivers Social Dashboard + orphaned agent registry fix (v2.15) ✅
+### Completed — Three Rivers Pricing Agent (v2.16) ✅
+### Completed — Express dynamic routing fix — catch-all no longer intercepts spoke agents (v2.16) ✅
+### Completed — Replit pipeline fixes: streaming builder, no-OOM, deployment auto-commit, sync script safety (v2.16) ✅
 
 ### Next priority (in order)
 
-1. **Investment Research Agent enhancements** — morning scan integration into briefing, automated trade idea generation
-2. **Multi-turn conversation memory** — context persistence within a session
-3. **Agent-to-agent delegation** — spoke agent calls another spoke agent
+1. **Replit pull + republish** — `git pull origin main` in Replit Shell → Republish to get all v2.15/2.16 fixes live
+2. **Slack webhook URL** — paste full URL into `.env.local` and Replit secrets
+3. **Investment Research Agent enhancements** — morning scan integration into briefing, automated trade idea generation
+4. **Multi-turn conversation memory** — context persistence within a session
+5. **Agent-to-agent delegation** — spoke agent calls another spoke agent
 
 ### Future capabilities
 - Multi-turn conversation memory within a session
@@ -888,13 +895,6 @@ Explicit CORRECT/WRONG code blocks with comments added — builder now has no am
 - Failed: 1 (`slab-inventory-tracker-agent` — routing failure, pre-existing orphaned agent)
 - Errors: 0
 
-**Orphaned agents (pre-existing, not caused by this session):**
-- `slab-inventory-tracker-agent` — code file + skill file exist but agent not in registry
-- `three-rivers-social-agent` — code file + skill file exist but agent not in registry
-- `test-deletion-agent` — skill file only, no registry entry
-
-These need to be registered or cleaned up in a future session.
-
 **Files committed in git `250e8ec`:**
 - `src/tools/safe-config.js` (new)
 - `src/agents/morning-briefing-agent.js` (weather section + safe-config)
@@ -903,11 +903,84 @@ These need to be registered or cleaned up in a future session.
 - `public/css/agents/investment-research-agent.css` (investment styles)
 - `.claude/launch.json` (lifebridge-local preview config)
 
-**Pending (not done yet):**
-- Slack webhook URL — Josh needs to paste full URL from Replit secrets into `.env.local`
-- Replit OOM fix — streaming builder call + memory increase (Replit Agent instruction written)
-- Three Rivers Pricing Agent (Phase 7 — optional, ready to build)
-- Clean up 3 orphaned agents (register or delete)
+---
+
+### v2.15 — Three Rivers Social Dashboard + Orphaned Agent Cleanup ✅
+**Date:** March 28, 2026
+
+**Problem:** `three-rivers-social-agent` was orphaned — skill and code files existed but agent was NOT in the DB registry. Master agent never received context about it so couldn't route to it. Dashboard JS also missing.
+
+**What was built:**
+- **`public/js/dashboards/three-rivers-social.js` (new):**
+  - `renderSocialDashboard(el)` — correct dashboard pattern (writes `el.innerHTML`, fires loaders)
+  - 3 seeded sample posts (walnut Instagram, cherry Facebook, white oak Instagram) shown before generation
+  - Platform filter tabs: All / Instagram / Facebook
+  - Generate button → `POST /agents/three-rivers-social-agent` → parses structured post blocks from `output` text
+  - Copy Post / Copy Hashtags / Delete per card
+  - `localStorage` persistence (`lifebridge-social-posts`)
+- **`public/css/agents/three-rivers-social-agent.css` (new):**
+  - Social post card grid, platform badges (Instagram gradient / Facebook blue), species/dims tags, filter pills
+- **`public/js/dashboards/dashboard-shell.js` updated:**
+  - Added `'three-rivers-social-agent': renderSocialDashboard` to renderer map
+- **`public/index.html` updated:**
+  - Added `<script src="/js/dashboards/three-rivers-social.js"></script>`
+- **`data/local-db.json` updated:**
+  - Registered `three-rivers-social-agent` with trigger patterns: "social media", "instagram", "facebook post", "post ideas", "marketing content", "slab post", "wood post", "three rivers post"
+  - Registered `slab-inventory-tracker-agent` (was also orphaned)
+
+**Git commit:** `f659a22`
+
+---
+
+### v2.16 — Three Rivers Pricing Agent + Express Routing Fix ✅
+**Date:** March 28, 2026
+
+**What was built:**
+
+**Three Rivers Pricing Agent:**
+- **`src/skills/three-rivers-pricing-agent.md` (new):**
+  - Board feet formula: `(L×W×T)/144`
+  - Figure premiums: none×1.0, low×1.1, high×1.25, exceptional×1.4
+  - Comp research protocol: search `"{species} live edge slab {L}x{W} for sale"`, 3–5 comps, use median $/bf (not average — ignore outliers)
+  - Price range: low (−15%), mid (market median × figure premium), high (+15%)
+  - FB Marketplace listing format: title ≤ 100 chars, description ≤ 500 chars
+  - Hard constraints: never fabricate comps, never hardcode prices, never post to social platforms
+- **`src/agents/three-rivers-pricing-agent.js` (new):**
+  - `parseSlab()`: accepts structured object or JSON string or natural language
+  - Pre-calculates board feet and figure premium multiplier before Claude call
+  - Calls `client.messages.create` with `tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]`
+  - **Critical**: uses `content: [{ type: "text", text: userMessage }]` array format (required when tools are present — plain string causes 400)
+  - Parses structured `\`\`\`json ... \`\`\`` block from response
+  - Returns: `{ agent, output, success, board_feet, price_range, recommended_price, comps[], listing, pricing_notes }`
+- **`data/local-db.json` updated:** Registered `three-rivers-pricing-agent` with trigger patterns
+
+**Validation test:**
+```bash
+curl -s -X POST http://localhost:5400/agents/three-rivers-pricing-agent \
+  -H 'Content-Type: application/json' \
+  -d '{ "input": { "species": "walnut", "length_inches": 72, "width_inches": 20, "thickness_inches": 2, "figure": "high", "notes": "live edge both sides" } }'
+```
+Result: 5 comps found, `recommended_price: 700`, complete FB Marketplace listing, `pricing_notes` with median $/bf breakdown.
+
+**Express routing fix (agent-loader.js) — critical bug:**
+- **Root cause:** `POST /agents/:name` catch-all in `src/index.js` (line ~1273) is registered statically at startup. `loadDynamicAgents()` runs AFTER, adding specific routes. Express matches in registration order — catch-all always won.
+- **Symptom:** All dynamic agent requests hit the catch-all, which passes the raw `input` object as `content` to Claude → `400: messages.0.content: Input should be a valid list`
+- **Fix in `src/agent-loader.js`:** After each `app.post(routePath, handler)`, move the new layer BEFORE the catch-all in `app._router.stack` via `stack.splice(catchAllIdx, 0, stack.pop())`
+- **Impact:** All 14 dynamic agents now have their specific routes matched first. Catch-all becomes true fallback only.
+
+**Test results after fix:** 34/34 passing (all agents including previously orphaned ones now routable)
+
+**Replit pipeline fixes verified already in GitHub:**
+- `deploy-tools.js` — `deployEnhancementSafe` now runs only `POST /test/run/${agentName}` with 30s timeout (not full suite twice). `gitCommitAndPush()` uses local `execSync` git (no GitHub API token required)
+- `agent-builder-agent.js` — `streamClaude()` uses `client.messages.stream()` to prevent OOM kills on Replit
+- `sync-and-start.sh` — checks `git diff --quiet` before `git reset --hard origin/main`; skips sync if local changes exist (prevents overwriting builder-deployed files)
+All 3 were committed by Replit Agent in commits `259b586`, `9001dbf`, `39eba2a` and are in `main`. **Replit just needs to `git pull origin main` + Republish.**
+
+**Git commits:** `706a23e`, `ebce37b`, `259b586`, `9001dbf`, `39eba2a`
+
+**Pending:**
+- Slack webhook URL — Josh needs full URL from Replit secrets → `.env.local`
+- Replit needs `git pull origin main` + Republish to get all fixes live
 
 ---
 
