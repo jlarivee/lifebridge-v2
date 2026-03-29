@@ -70,6 +70,11 @@
   font-weight: 600;
 }
 
+.investment-pnl.warning {
+  color: var(--warning-primary);
+  font-weight: 600;
+}
+
 .investment-trade-item {
   padding: 1rem;
   border: 1px solid var(--border-secondary);
@@ -131,6 +136,177 @@
   border-left: 3px solid var(--accent-primary);
 }
 
+/* Testing Features */
+
+.investment-test-controls {
+  margin: 1rem 0;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.investment-test-summary {
+  padding: 1rem;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid var(--accent-primary);
+}
+
+.investment-test-summary h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.investment-test-summary p {
+  margin: 0.25rem 0;
+  color: var(--text-secondary);
+}
+
+.investment-stress-scenario {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--surface-primary);
+}
+
+.investment-scenario-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.investment-scenario-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.investment-scenario-summary {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.investment-risk-overview {
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--surface-secondary);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.investment-risk-score-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.investment-risk-score-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.investment-risk-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.investment-risk-metric {
+  padding: 1rem;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+}
+
+.investment-metric-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.investment-metric-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.investment-sector-allocation {
+  margin-bottom: 1.5rem;
+}
+
+.investment-sector-allocation h4 {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.investment-sector-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.investment-sector-label {
+  width: 100px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.investment-sector-bar {
+  flex: 1;
+  height: 24px;
+  background: var(--surface-secondary);
+  border-radius: 4px;
+  position: relative;
+  margin: 0 1rem;
+  overflow: hidden;
+}
+
+.investment-sector-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  opacity: 0.8;
+  transition: width 0.3s ease;
+}
+
+.investment-sector-percent {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.investment-recommendations {
+  background: var(--surface-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-primary);
+}
+
+.investment-recommendations h4 {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-primary);
+}
+
+.investment-recommendations ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.investment-recommendations li {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 @media (max-width: 768px) {
   .investment-summary-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -154,5 +330,34 @@
   
   .investment-trade-date {
     margin-left: 0;
+  }
+
+  .investment-scenario-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .investment-risk-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .investment-test-controls {
+    flex-direction: column;
+  }
+
+  .investment-sector-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .investment-sector-label {
+    width: auto;
+  }
+
+  .investment-sector-bar {
+    width: 100%;
+    margin: 0;
   }
 }

@@ -21,7 +21,18 @@ const codeTemplate = readFileSync(
   "utf8"
 );
 
-const client = new Anthropic({ timeout: 10 * 60 * 1000 }); // 10 min timeout for large enhance operations
+const client = new Anthropic({ timeout: 10 * 60 * 1000 });
+
+async function streamClaude({ model, max_tokens, system, messages }) {
+  const chunks = [];
+  const stream = client.messages.stream({ model, max_tokens, system, messages });
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+      chunks.push(event.delta.text);
+    }
+  }
+  return chunks.join("");
+}
 
 // ── File reading for enhance mode ─────────────────────────────────────────────
 
@@ -175,18 +186,12 @@ The human will review all artifacts before anything is deployed.`;
 
   const messages = [{ role: "user", content: userMessage }];
 
-  const response = await client.messages.create({
+  const output = (await streamClaude({
     model: "claude-sonnet-4-20250514",
     max_tokens: 16384,
     system: systemPrompt,
     messages,
-  });
-
-  const output = response.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
-    .join("")
-    .trim();
+  })).trim();
 
   const session = {
     id: sessionId,
@@ -373,18 +378,12 @@ The rollback safety net will automatically revert if anything breaks.`;
 
   const messages = [{ role: "user", content: userMessage }];
 
-  const response = await client.messages.create({
+  const output = (await streamClaude({
     model: "claude-sonnet-4-20250514",
     max_tokens: 32768,
     system: systemPrompt,
     messages,
-  });
-
-  const output = response.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
-    .join("")
-    .trim();
+  })).trim();
 
   const session = {
     id: sessionId,
@@ -452,18 +451,12 @@ export async function continueBuild(sessionId, userMessage) {
 
   session.messages.push({ role: "user", content: userMessage });
 
-  const response = await client.messages.create({
+  const output = (await streamClaude({
     model: "claude-sonnet-4-20250514",
     max_tokens: 8192,
     system: session.system_prompt,
     messages: session.messages,
-  });
-
-  const output = response.content
-    .filter(b => b.type === "text")
-    .map(b => b.text)
-    .join("")
-    .trim();
+  })).trim();
 
   session.messages.push({ role: "assistant", content: output });
   session.phase = detectPhase(output);
