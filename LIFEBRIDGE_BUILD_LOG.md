@@ -3,7 +3,7 @@
 **Project:** LifeBridge Autonomous Agent Operating System  
 **Owner:** Josh Larivee  
 **Started:** March 22, 2026  
-**Current version:** v2.9 (shipped — investment research agent + fixes)
+**Current version:** v2.14 (shipped — local dev environment, investment positions table, morning briefing delivery)
 **Repo v1:** github.com/jlarivee/lifebridge  
 **Repo v2:** github.com/jlarivee/lifebridge-v2  
 
@@ -781,6 +781,133 @@ This was a major build session. Everything below was built, committed, and pushe
 - Claude Code settings allow: npm, gh, curl to Replit, node --check, Claude Preview
 - launch.json configured for Italy 2026 local dev (api-server port 3001, vite-client port 5173)
 - This is the new workflow: Claude Code for building/reviewing → git push → Replit pulls and runs
+
+---
+
+## Session Notes — March 28–29, 2026 (v2.10–v2.14 — Local Dev + Investment Table + Morning Briefing)
+
+This was a focused hardening session. All work done locally via Claude Code before touching Replit.
+Git commit: `250e8ec` — pushed to `main` on `github.com/jlarivee/lifebridge-v2`.
+
+---
+
+### v2.10 — Full Local Development Environment ✅
+
+**Problem:** No reliable way to test before pushing to Replit. Replit OOM-killed Node during large Claude builder calls. Nothing could be verified without pushing live.
+
+**What was built:**
+- **`.env.local` fixed:** `PORT=5000` → `PORT=5400` (macOS AirPlay/ControlCenter conflicts on 5000). Added `BASE_URL=http://localhost:5400`. Added `GMAIL_USER` and `GMAIL_APP_PASSWORD`.
+- **`scripts/local-dev.sh` enhanced:** Port conflict check, dependency check, color-coded status output showing which connectors are active vs. skipped based on env vars, summary line on startup.
+- **`scripts/local-health.sh` (new):** Quick < 5-second health check — server up, agents loaded, DB responding.
+- **`scripts/local-test.sh` (new):** 26-test comprehensive suite runner, tests all GET endpoints, agent routing, builder pipeline, briefing endpoints, outputs PASS/FAIL per category.
+- **`.claude/launch.json` updated:** Added `lifebridge-local` configuration (bash `scripts/local-dev.sh`, port 5400) alongside Italy 2026 configs.
+- **Dual-mode DB confirmed:** `LOCAL_DEV=true` → `data/local-db.json` (gitignored). All 12 agents load. Cron jobs run.
+
+**New workflow:**
+```
+Build locally → bash scripts/local-dev.sh → test with curl/browser → git push → Replit pulls
+```
+
+---
+
+### v2.11 — Investment Positions Table Dashboard ✅
+
+**Problem:** Investment research agent dashboard showed no positions table. 2.5 days of failed Replit attempts due to OOM kills and wrong dashboard pattern.
+
+**Root cause (builder generating wrong patterns):**
+- Attempt 1: Builder output `class InvestmentDashboard { render(el) }` — incompatible with `dashboard-shell.js` which calls `renderInvestmentDashboard(el)` directly
+- Attempt 2: Builder output `function renderInvestmentDashboard() { return '<div>...</div>'; }` — returns string, ignores `el`, dashboard-shell ignores return values so nothing renders
+- Attempt 3 (success): `async function renderInvestmentDashboard(el)` with `el.innerHTML` — correct
+
+**Fix — agent-builder-agent.md skill updated with MANDATORY pattern section:**
+```javascript
+// CORRECT — mandatory pattern:
+async function renderInvestmentDashboard(el) {
+  el.innerHTML = '<div class="dash-header">...</div><div id="invest-positions">...</div>';
+  loadInvestPositions(); // fire and forget
+}
+// WRONG — these are REJECTED:
+function renderInvestmentDashboard() { return '<div>...</div>'; }   // returns string
+function renderInvestmentDashboard() { document.getElementById... } // missing el param
+class InvestmentDashboard { render(el) {...} }                      // class with no wrapper
+```
+Explicit CORRECT/WRONG code blocks with comments added — builder now has no ambiguity.
+
+**What was deployed:**
+- `public/js/dashboards/investment.js` — full positions table with ticker, qty, avg cost, current price, market value, unrealized P&L, % return columns; portfolio summary grid; recent 5 trades
+- `public/css/agents/investment-research-agent.css` — investment-specific CSS (investment-positions-table, investment-pnl positive/negative, summary grid, trade items)
+- Auto-refresh every 60 seconds via `setInterval(loadPortfolioData, 60000)`
+- Pulls from `/investment/portfolio` and `/investment/trades` endpoints
+- Deployed via master agent → ENHANCE BRIEF → builder → approve → `deployEnhancementSafe()` pipeline ✅
+
+---
+
+### v2.12 — safe-config.js URL Helper ✅
+
+**Problem:** `morning-briefing-agent.js` hardcoded `localhost:5000` as fallback and a specific Replit URL as production URL. Multiple agents had the same problem — no canonical way to resolve the correct URL in both environments.
+
+**What was built:**
+- **`src/tools/safe-config.js` (new file):** Two exported functions:
+  - `getDashboardUrl()` — returns `REPLIT_URL` in production, `http://localhost:{PORT}` locally
+  - `getBaseUrl()` — returns `BASE_URL` if set, then `REPLIT_URL`, then `http://localhost:{PORT}`
+- **`morning-briefing-agent.js` updated:** Removed hardcoded URLs, now imports from `safe-config`
+- **Port default corrected:** Was `5000`, now reads `process.env.PORT || 5400`
+
+**Rule established:** Never hardcode a localhost or Replit URL anywhere in agent code. Always use `getDashboardUrl()` or `getBaseUrl()` from `src/tools/safe-config.js`.
+
+---
+
+### v2.13 — Morning Briefing Weather Section + Gmail Delivery ✅
+
+**Problem:** Morning briefing had no weather section. Gmail delivery was broken — credentials not configured. No skill file existed for the briefing agent.
+
+**What was fixed:**
+- **Weather section added to briefing:** `fetchWeather()` calls Claude with `web_search_20250305` tool, asks for Canton Valley, CT current conditions, high/low in °F, precipitation chance. Gracefully degrades to "Weather unavailable." on any error.
+- **Weather added to:** `compileBriefing()`, `formatBriefing()` (email), `formatSlack()` (Slack message)
+- **`src/skills/morning-briefing-agent.md` created** (was missing — agent had been running skill-less):
+  - Documents all 8 sections with exact specs
+  - Delivery rules (Gmail subject format, Slack condensed format)
+  - Graceful degradation requirement
+  - Dashboard URL must use `getDashboardUrl()` — never hardcoded
+  - Focus section: actionable ("Run the test suite") not generic ("Consider improvements")
+- **Gmail credentials added** to `.env.local` (gitignored — never committed)
+
+**Verified locally:**
+- `GET /connectors/status` → Gmail: `connected: true, status: "ok"`, SMTP verified in 495ms
+- `POST /briefing/run` → all 8 sections compiled, `delivered_via: ["gmail"]` ✅
+- Email delivered to `jlarivee@gmail.com` ✅
+- Slack: `not_configured` (SLACK_WEBHOOK_URL not set — need full URL from Josh)
+
+---
+
+### v2.14 — Test Suite Verification + GitHub Push ✅
+
+**Test results (local, fast tier):**
+- Total: 32 cases
+- Passed: 31
+- Failed: 1 (`slab-inventory-tracker-agent` — routing failure, pre-existing orphaned agent)
+- Errors: 0
+
+**Orphaned agents (pre-existing, not caused by this session):**
+- `slab-inventory-tracker-agent` — code file + skill file exist but agent not in registry
+- `three-rivers-social-agent` — code file + skill file exist but agent not in registry
+- `test-deletion-agent` — skill file only, no registry entry
+
+These need to be registered or cleaned up in a future session.
+
+**Files committed in git `250e8ec`:**
+- `src/tools/safe-config.js` (new)
+- `src/agents/morning-briefing-agent.js` (weather section + safe-config)
+- `src/skills/morning-briefing-agent.md` (new — was missing)
+- `public/js/dashboards/investment.js` (positions table)
+- `public/css/agents/investment-research-agent.css` (investment styles)
+- `.claude/launch.json` (lifebridge-local preview config)
+
+**Pending (not done yet):**
+- Slack webhook URL — Josh needs to paste full URL from Replit secrets into `.env.local`
+- Replit OOM fix — streaming builder call + memory increase (Replit Agent instruction written)
+- Three Rivers Pricing Agent (Phase 7 — optional, ready to build)
+- Clean up 3 orphaned agents (register or delete)
 
 ---
 

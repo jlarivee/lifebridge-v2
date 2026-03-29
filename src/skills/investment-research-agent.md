@@ -45,6 +45,7 @@ Not a financial advisor. All output is research and education only.
    - Sector allocation breakdown
    - Win rate, average gain/loss, best/worst trade
    - Total portfolio value and return since inception
+   - Dashboard at `/dashboard/investment-research-agent` shows a live positions table with columns: Ticker, Quantity, Avg Cost, Current Price, Market Value, Unrealized P&L, % Return — auto-refreshes every 60 seconds
 
 5. TRADE IDEAS — generate research-backed ideas
    - Thesis (1-2 sentences why)
