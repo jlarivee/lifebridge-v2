@@ -2087,6 +2087,28 @@ async function start() {
     }
   }, { timezone: "UTC" });
 
+  // ── Git auto-update poll (every 5 min) ─────────────────────────────────────
+  // Replit's auth shield blocks inbound GitHub webhook POSTs, so the webhook
+  // alone is not reliable. This poller is the primary self-update mechanism:
+  // fetch origin, compare HEAD, pull + restart if new commits exist.
+  cron.schedule("*/5 * * * *", async () => {
+    if (process.env.LOCAL_DEV) return;
+    try {
+      const { execSync } = await import("child_process");
+      const local  = execSync("git rev-parse HEAD",         { encoding: "utf8", timeout: 10000 }).trim();
+      execSync("git fetch origin main --quiet",              { timeout: 30000 });
+      const remote = execSync("git rev-parse origin/main",  { encoding: "utf8", timeout: 10000 }).trim();
+      if (local !== remote) {
+        console.log(`[AUTO-UPDATE] New commits (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling and restarting`);
+        execSync("git pull origin main", { stdio: "inherit", timeout: 30000 });
+        process.exit(0);
+      }
+    } catch (e) {
+      console.log(`[AUTO-UPDATE] Poll failed: ${e.message}`);
+    }
+  });
+  console.log("Auto-update poller registered — checking for new commits every 5 min");
+
   // Daily improvement cycle at midnight UTC
   cron.schedule("0 0 * * *", async () => {
     try {
