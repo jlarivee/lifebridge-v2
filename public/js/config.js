@@ -16,7 +16,8 @@ var AGENT_ENDPOINTS = {
   'connectors': '/agents/connectors',
   'three-rivers-social-agent': '/agents/three-rivers-social-agent',
   'investment-research-agent': '/agents/investment-research-agent',
-  'test-agent': '/test/run'
+  'test-agent': '/test/run',
+  'connecticut-slab-pricing-agent': '/agents/connecticut-slab-pricing-agent'
 };
 
 var AGENT_LABELS = {
@@ -30,7 +31,8 @@ var AGENT_LABELS = {
   'intelligence-update-agent': 'Intelligence Update Agent',
   'connectors': 'Connectors',
   'three-rivers-social-agent': 'Social Media',
-  'investment-research-agent': 'Investment Research'
+  'investment-research-agent': 'Investment Research',
+  'connecticut-slab-pricing-agent': 'Connecticut Slab Pricing Agent'
 };
 
 var DASHBOARD_AGENTS = {
@@ -40,7 +42,8 @@ var DASHBOARD_AGENTS = {
   'slab-inventory-tracker-agent': true,
   'memory-consolidation-agent': true,
   'italy2026': true,
-  'investment-research-agent': true
+  'investment-research-agent': true,
+  'connecticut-slab-pricing-agent': true
 };
 
 var QUICK_ACTIONS = {
