@@ -7,10 +7,12 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createHash } from "crypto";
+import { execSync } from "child_process";
 import { readRegistry, writeRegistry } from "./registry-tools.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC_DIR = join(__dirname, "..");
+const PROJECT_ROOT = join(SRC_DIR, "..");
 const SKILLS_DIR = join(SRC_DIR, "skills");
 const AGENTS_DIR = join(SRC_DIR, "agents");
 
@@ -47,72 +49,31 @@ export async function registerAgent(agentEntry) {
 }
 
 /**
- * Commit agent files to GitHub via the API.
+ * Commit and push files to GitHub using local git.
  * Best-effort — never crashes the caller.
  */
+export function gitCommitAndPush(agentName, filePaths, mode = "deploy") {
+  try {
+    const paths = filePaths.join(" ");
+    execSync(`git add ${paths}`, { cwd: PROJECT_ROOT, timeout: 10000 });
+    const msg = mode === "enhance"
+      ? `Auto-enhance: ${agentName}`
+      : `Auto-deploy: ${agentName}`;
+    execSync(`git commit -m "${msg}" --no-verify`, { cwd: PROJECT_ROOT, timeout: 10000 });
+    execSync(`git push origin main`, { cwd: PROJECT_ROOT, timeout: 30000 });
+    console.log(`[GIT] Committed and pushed: ${agentName} (${filePaths.length} files)`);
+    return { synced: true, files: filePaths };
+  } catch (e) {
+    console.log(`[GIT] Commit/push failed (non-fatal): ${e.message}`);
+    return { synced: false, reason: e.message };
+  }
+}
+
 export async function commitToGitHub(agentName, skillContent, codeContent) {
-  const token = process.env.GITHUB_TOKEN;
-  const repo = process.env.GITHUB_REPO;
-
-  if (!token || !repo) {
-    console.log("[DEPLOY] GitHub sync skipped — GITHUB_TOKEN or GITHUB_REPO not set");
-    return { synced: false, reason: "not configured" };
-  }
-
-  const files = [
-    { path: `src/skills/${agentName}.md`, content: skillContent },
-    { path: `src/agents/${agentName}.js`, content: codeContent },
-  ];
-
-  const results = [];
-  for (const file of files) {
-    try {
-      const b64 = Buffer.from(file.content).toString("base64");
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      };
-      const url = `https://api.github.com/repos/${repo}/contents/${file.path}`;
-
-      // Get current SHA if file exists
-      let sha = null;
-      try {
-        const getResp = await fetch(url, { headers });
-        if (getResp.ok) {
-          const data = await getResp.json();
-          sha = data.sha;
-        }
-      } catch {}
-
-      const body = {
-        message: `Deploy agent: ${agentName} — ${file.path}`,
-        content: b64,
-        branch: "main",
-      };
-      if (sha) body.sha = sha;
-
-      const putResp = await fetch(url, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (putResp.ok) {
-        const data = await putResp.json();
-        console.log(`[DEPLOY] GitHub: committed ${file.path}`);
-        results.push({ path: file.path, synced: true, sha: data.commit?.sha });
-      } else {
-        console.log(`[DEPLOY] GitHub: failed ${file.path} (${putResp.status})`);
-        results.push({ path: file.path, synced: false });
-      }
-    } catch (e) {
-      console.log(`[DEPLOY] GitHub: error ${file.path}: ${e.message}`);
-      results.push({ path: file.path, synced: false });
-    }
-  }
-
-  return { synced: results.every(r => r.synced), files: results };
+  return gitCommitAndPush(agentName, [
+    `src/skills/${agentName}.md`,
+    `src/agents/${agentName}.js`,
+  ]);
 }
 
 /**
@@ -164,11 +125,10 @@ export async function deployNewAgentFull(agentName, files, agentLabel, domain) {
   const label = agentLabel || agentName.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   safeAppendToConfig(agentName, label);
 
-  // 5. Commit to GitHub (best-effort)
-  let githubResult = { synced: false, reason: "no skill/code files" };
-  if (skillFile && codeFile) {
-    githubResult = await commitToGitHub(agentName, skillFile.content, codeFile.content);
-  }
+  // 5. Commit all changed files to git (best-effort)
+  const allPaths = files.map(f => f.path);
+  if (!allPaths.includes("public/js/config.js")) allPaths.push("public/js/config.js");
+  const githubResult = gitCommitAndPush(agentName, allPaths);
 
   console.log(`[DEPLOY] New agent fully deployed: ${agentName} — ${written.length} files, config updated`);
 
@@ -181,8 +141,6 @@ export async function deployNewAgentFull(agentName, files, agentLabel, domain) {
 }
 
 // ── Enhancement deployment (arbitrary file writes) ────────────────────────────
-
-const PROJECT_ROOT = join(SRC_DIR, "..");
 
 // Allowed directories for enhancement writes — guardrail
 const ALLOWED_PREFIXES = [
@@ -241,65 +199,11 @@ export function writeEnhancementFiles(files) {
 }
 
 /**
- * Commit multiple arbitrary files to GitHub.
- * Each file: { path: "relative/to/project", content: "..." }
+ * Commit multiple arbitrary files to GitHub using local git.
  */
 export async function commitFilesToGitHub(agentName, files) {
-  const token = process.env.GITHUB_TOKEN;
-  const repo = process.env.GITHUB_REPO;
-
-  if (!token || !repo) {
-    console.log("[ENHANCE] GitHub sync skipped — GITHUB_TOKEN or GITHUB_REPO not set");
-    return { synced: false, reason: "not configured" };
-  }
-
-  const results = [];
-  for (const file of files) {
-    try {
-      const b64 = Buffer.from(file.content).toString("base64");
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      };
-      const url = `https://api.github.com/repos/${repo}/contents/${file.path}`;
-
-      let sha = null;
-      try {
-        const getResp = await fetch(url, { headers });
-        if (getResp.ok) {
-          const data = await getResp.json();
-          sha = data.sha;
-        }
-      } catch {}
-
-      const body = {
-        message: `Enhance ${agentName}: ${file.path}`,
-        content: b64,
-        branch: "main",
-      };
-      if (sha) body.sha = sha;
-
-      const putResp = await fetch(url, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (putResp.ok) {
-        console.log(`[ENHANCE] GitHub: committed ${file.path}`);
-        results.push({ path: file.path, synced: true });
-      } else {
-        console.log(`[ENHANCE] GitHub: failed ${file.path} (${putResp.status})`);
-        results.push({ path: file.path, synced: false });
-      }
-    } catch (e) {
-      console.log(`[ENHANCE] GitHub: error ${file.path}: ${e.message}`);
-      results.push({ path: file.path, synced: false });
-    }
-  }
-
-  return { synced: results.every(r => r.synced), files: results };
+  const filePaths = files.map(f => f.path);
+  return gitCommitAndPush(agentName, filePaths, "enhance");
 }
 
 /**
