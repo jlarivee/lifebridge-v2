@@ -45,7 +45,8 @@ var DASHBOARD_AGENTS = {
   'memory-consolidation-agent': true,
   'italy2026': true,
   'investment-research-agent': true,
-  'three-rivers-pricing-agent': true
+  'three-rivers-pricing-agent': true,
+  'prompt-engineering-agent': true
 };
 
 var QUICK_ACTIONS = {
