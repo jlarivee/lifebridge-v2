@@ -115,6 +115,11 @@ export async function list(prefix) {
   return keys || [];
 }
 
+export async function del(key) {
+  await ensureDB();
+  await _db.delete(key);
+}
+
 export async function initDefaults() {
   await ensureDB();
 

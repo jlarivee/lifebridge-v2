@@ -600,6 +600,15 @@ app.post("/test/suites/:agent/cases", async (req, res) => {
   }
 });
 
+app.delete("/test/suites/:agent", async (req, res) => {
+  try {
+    await db.del(`test-suite:${req.params.agent}`);
+    res.json({ deleted: true, agent: req.params.agent });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/test/runs", async (req, res) => {
   try { res.json(await getRecentRuns(null, 50)); }
   catch (e) { res.status(500).json({ error: e.message }); }
