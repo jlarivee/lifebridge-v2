@@ -1,0 +1,219 @@
+/* Slab Inventory Dashboard Styles */
+
+.slab-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.slab-stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 0.25rem;
+}
+
+.slab-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.slab-alert {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border-left: 4px solid #f39c12;
+}
+
+.slab-alert .slab-stat-number {
+  color: #d35400;
+}
+
+.slab-breakdown-section {
+  margin-bottom: 2rem;
+}
+
+.slab-species-grid,
+.slab-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.slab-species-item,
+.slab-status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.slab-species-name,
+.slab-status-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.slab-species-count,
+.slab-status-count {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Charts */
+
+.slab-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.slab-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.slab-chart-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.slab-chart-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.slab-chart-value {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background: var(--background-secondary);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.slab-chart-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-color-light));
+  transition: width 0.6s ease;
+  border-radius: var(--border-radius);
+}
+
+.slab-chart-value span {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+/* Aging Alerts */
+
+.slab-aging-alert {
+  background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+  border: 1px solid #feb2b2;
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.slab-aging-good {
+  color: var(--success-color);
+  font-size: 1.125rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.slab-aging-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.slab-aging-item {
+  border-left: 4px solid #e53e3e;
+}
+
+.slab-aging-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.slab-aging-species {
+  font-weight: bold;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.slab-aging-days {
+  background: #e53e3e;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.slab-aging-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.slab-aging-suggestion {
+  padding: 0.75rem;
+  background: #fff5f5;
+  border: 1px solid #feb2b2;
+  border-radius: var(--border-radius);
+  font-style: italic;
+  color: #c53030;
+}
+
+/* Responsive adjustments */
+
+@media (max-width: 768px) {
+  .slab-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .slab-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .slab-species-grid,
+  .slab-status-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .slab-aging-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .slab-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .slab-stat-number {
+    font-size: 1.5rem;
+  }
+}
