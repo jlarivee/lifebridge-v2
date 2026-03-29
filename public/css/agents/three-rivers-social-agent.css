@@ -1,0 +1,237 @@
+/* Three Rivers Social Agent — Dashboard CSS */
+
+/* ── Filter Bar ─────────────────────────────────────────────────────────── */
+
+.social-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  padding: 0 4px;
+}
+
+.social-filter-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  background: transparent;
+  color: var(--text-muted, #888);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.social-filter-btn:hover {
+  border-color: var(--accent, #00FF88);
+  color: var(--accent, #00FF88);
+}
+
+.social-filter-btn.active {
+  background: var(--accent, #00FF88);
+  color: #000;
+  border-color: var(--accent, #00FF88);
+  font-weight: 600;
+}
+
+/* ── Status bar ─────────────────────────────────────────────────────────── */
+
+.social-status {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  min-height: 28px;
+  transition: all 0.2s ease;
+}
+
+.social-status:empty { display: none; }
+
+.social-status-info {
+  background: rgba(100,140,255,0.1);
+  color: #99aaff;
+  border: 1px solid rgba(100,140,255,0.2);
+}
+
+.social-status-success {
+  background: rgba(0,255,136,0.1);
+  color: var(--accent, #00FF88);
+  border: 1px solid rgba(0,255,136,0.2);
+}
+
+.social-status-error {
+  background: rgba(255,80,80,0.1);
+  color: #ff6666;
+  border: 1px solid rgba(255,80,80,0.2);
+}
+
+/* ── Posts Grid ─────────────────────────────────────────────────────────── */
+
+.social-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ── Post Card ──────────────────────────────────────────────────────────── */
+
+.social-post-card {
+  background: var(--card-bg, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.social-post-card:hover {
+  border-color: rgba(255,255,255,0.18);
+}
+
+.social-post-card.social-card-sample {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+/* ── Card Header ────────────────────────────────────────────────────────── */
+
+.social-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.social-platform-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.social-badge-instagram {
+  background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #fff;
+}
+
+.social-badge-facebook {
+  background: #1877f2;
+  color: #fff;
+}
+
+.social-species-tag {
+  font-size: 11px;
+  color: #c8a96e;
+  background: rgba(200,169,110,0.1);
+  border: 1px solid rgba(200,169,110,0.25);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.social-dims-tag {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  background: rgba(255,255,255,0.05);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.social-sample-tag {
+  font-size: 10px;
+  color: var(--text-muted, #666);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: auto;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Card Body ──────────────────────────────────────────────────────────── */
+
+.social-card-content {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text, #e0e0e0);
+  white-space: pre-wrap;
+  flex: 1;
+}
+
+.social-card-hashtags {
+  font-size: 12px;
+  color: #6b9cf8;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.social-card-scheduling {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px;
+}
+
+/* ── Card Actions ───────────────────────────────────────────────────────── */
+
+.social-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.social-copy-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--text, #e0e0e0);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.social-copy-btn:hover {
+  background: rgba(0,255,136,0.12);
+  border-color: var(--accent, #00FF88);
+  color: var(--accent, #00FF88);
+}
+
+.social-delete-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid rgba(255,80,80,0.2);
+  border-radius: 6px;
+  color: rgba(255,100,100,0.6);
+  cursor: pointer;
+  font-family: inherit;
+  margin-left: auto;
+  transition: all 0.15s ease;
+}
+
+.social-delete-btn:hover {
+  background: rgba(255,80,80,0.1);
+  border-color: rgba(255,80,80,0.4);
+  color: #ff6666;
+}
+
+/* ── Generate button state ──────────────────────────────────────────────── */
+
+.social-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .social-posts-grid {
+    grid-template-columns: 1fr;
+  }
+}

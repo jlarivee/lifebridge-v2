@@ -29,7 +29,8 @@ function openDashboard(agentName) {
     'slab-inventory-tracker-agent': renderSlabDashboard,
     'memory-consolidation-agent': renderMemoryDashboard,
     'investment-research-agent': renderInvestmentDashboard,
-    'italy2026': renderItaly2026Dashboard
+    'italy2026': renderItaly2026Dashboard,
+    'three-rivers-social-agent': renderSocialDashboard
   };
 
   var renderer = renderers[agentName];
