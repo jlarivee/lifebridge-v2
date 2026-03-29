@@ -79,6 +79,21 @@ export async function loadDynamicAgents(app) {
         }
       });
 
+      // ROUTING FIX: Move the just-registered specific route BEFORE the
+      // /agents/:name catch-all so Express matches it first.
+      // The catch-all is registered statically in index.js before this loader runs,
+      // which would otherwise intercept all /agents/* POST requests first.
+      const stack = app._router?.stack;
+      if (stack) {
+        const catchAllIdx = stack.findIndex(
+          l => l.route?.path === "/agents/:name" && l.route?.methods?.post
+        );
+        if (catchAllIdx > -1) {
+          const newLayer = stack.pop(); // our just-added route is always last
+          stack.splice(catchAllIdx, 0, newLayer); // insert before catch-all
+        }
+      }
+
       loaded++;
       console.log(`[LOADER] Loaded dynamic agent: ${agent.name} → POST ${routePath}`);
     } catch (e) {
