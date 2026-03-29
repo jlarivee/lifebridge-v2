@@ -2108,9 +2108,8 @@ async function start() {
       execSync("git fetch origin main --quiet",              { timeout: 30000 });
       const remote = execSync("git rev-parse origin/main",  { encoding: "utf8", timeout: 10000 }).trim();
       if (local !== remote) {
-        console.log(`[AUTO-UPDATE] New commits (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling and restarting`);
-        execSync("git pull origin main", { stdio: "inherit", timeout: 30000 });
-        process.exit(0);
+        console.log(`[AUTO-UPDATE] New commits (${local.slice(0,7)} → ${remote.slice(0,7)}) — triggering restart`);
+        execSync("kill 1", { timeout: 5000 });
       }
     } catch (e) {
       console.log(`[AUTO-UPDATE] Poll failed: ${e.message}`);
