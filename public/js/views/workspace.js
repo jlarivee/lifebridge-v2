@@ -311,7 +311,7 @@ function renderAgentOutput(cardId, fbId, agentResult, requestId) {
   var card = document.getElementById(cardId);
   if (!card) return;
 
-  var output = agentResult.output || 'No output';
+  var output = agentResult.output || agentResult.message || 'No output';
   var sections = parseAgentOutput(output);
 
   var bodyHtml = '';

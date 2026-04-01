@@ -1350,9 +1350,10 @@ app.post("/agents/travel-agent", async (req, res) => {
 
 app.post("/api/prompt-engineering/session/start", async (req, res) => {
   try {
-    const { topic } = req.body || {};
-    if (!topic?.trim()) return res.status(400).json({ error: "topic required" });
-    res.json(await peStartSession(topic.trim()));
+    const { topic, input, request } = req.body || {};
+    const topicText = topic || input || request || "";
+    if (!topicText.trim()) return res.status(400).json({ error: "topic required" });
+    res.json(await peStartSession(topicText.trim()));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
